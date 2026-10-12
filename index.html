@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>FICSIT Calculator & Factory Planner | Satisfactory 1.0 / 1.2</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- HEADER FICSIT -->
+  <header class="ficsit-header">
+    <div class="brand">
+      <div class="brand-badge">FICSIT</div>
+      <h1>Satisfactory <span>Production Engine</span></h1>
+      <span class="version-pill">v1.2 Exact Match</span>
+    </div>
+    <div class="header-status">
+      <div><span class="status-indicator"></span>Eficiencia Operativa: 100%</div>
+      <button id="btnCopyReport" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;" title="Copiar resumen para bloc de notas del juego">
+        📋 Copiar Resumen
+      </button>
+    </div>
+  </header>
+
+  <!-- NAVIGATION BAR -->
+  <nav class="nav-container">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-line-builder">
+        🛠️ Diseñador de Fábrica (Paso a Paso)
+      </button>
+      <button class="tab-btn" data-tab="tab-sandbox">
+        🔀 Espacio Libre (División y Balance)
+      </button>
+      <button class="tab-btn" data-tab="tab-miners">
+        ⛏️ Nodos y Mineros
+      </button>
+      <button class="tab-btn" data-tab="tab-factory">
+        🎯 Planificador por Objetivo
+      </button>
+      <button class="tab-btn" data-tab="tab-splitters">
+        🔀 Asistente de Splitters
+      </button>
+      <button class="tab-btn" data-tab="tab-machines">
+        ⚙️ Calculadora Rápida
+      </button>
+      <button class="tab-btn" data-tab="tab-recipes">
+        📖 Base de Datos 1.0+
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN VIEW -->
+  <main class="main-content">
+
+    <!-- ========================================================
+         TAB 0: DISEÑADOR DE LÍNEA PASO A PASO (ORIGEN ➔ DESTINO)
+         ======================================================== -->
+    <section id="tab-line-builder" class="tab-panel active">
+      <div class="calc-grid calc-grid-builder">
+
+        <!-- Left Column: Setup & Dynamic Arrow Pipeline -->
+        <div>
+          <!-- Banner a Espacio Libre -->
+          <div style="margin-bottom: 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-sm); padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.82rem; color: #38bdf8;">
+              💡 <strong>¿Quieres dividir tu producción en varios materiales diferentes (ej. Planchas Y Varillas)?</strong>
+            </span>
+            <button type="button" id="btnGoToSandbox" class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.75rem; font-weight: 700; border-color: #38bdf8; color: #38bdf8;">
+              Abrir Espacio Libre ➔
+            </button>
+          </div>
+
+          <!-- Panel de Selección Principal (De tu Meta a los Minerales) -->
+          <div class="ficsit-card" style="margin-bottom: 20px; border-left: 4px solid var(--ficsit-orange); padding: 16px;">
+            <div class="card-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+              <h2 class="card-title" style="font-size: 1rem;">
+                <span>🎯 1. ¿A qué material quieres llegar? (Meta Final de Fábrica)</span>
+              </h2>
+              <span id="builderGoalBadge" class="belt-badge" style="color: #4ade80; border-color: #4ade80; font-size: 0.85rem;">
+                <!-- Target badge -->
+              </span>
+            </div>
+
+            <!-- Fila 1: Producto Objetivo, Catálogo y Selector de Taladros / Tasa -->
+            <div class="builder-goal-row">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">
+                  <span>🎯 1. Producto o Material Final Deseado</span>
+                </label>
+                <select id="builderGoalSelect" class="form-select" style="font-weight: 700; color: #4ade80; background: #111722; font-size: 0.95rem;"></select>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <button type="button" id="btnOpenBuilderGoalModal" class="btn btn-secondary" style="height: 42px; padding: 0 14px; font-size: 0.82rem; border-color: #38bdf8; color: #38bdf8; display: flex; align-items: center; gap: 6px; white-space: nowrap;" title="Ver todos los productos disponibles en una ventana amplia con buscador">
+                  <span>🔍</span> <span>Catálogo Visual FICSIT</span>
+                </button>
+              </div>
+
+              <!-- Selector Principal: ¿Cuántos Taladros colocas? -->
+              <div class="form-group" style="margin-bottom: 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <label class="form-label" style="margin: 0; color: var(--ficsit-orange); font-weight: 800; font-size: 0.82rem;">
+                    <span id="builderQuantityLabel">⛏️ 2. ¿Cuántos Taladros colocas?</span>
+                  </label>
+                  <button type="button" id="btnToggleCalcMode" style="background: transparent; border: none; color: #38bdf8; font-size: 0.72rem; cursor: pointer; text-decoration: underline; padding: 0;">
+                    (Cambiar a piezas/min manual)
+                  </button>
+                </div>
+
+                <!-- Modo Taladros -->
+                <div id="builderDrillInputBox" style="display: flex; align-items: center; gap: 6px;">
+                  <div class="stepper-control" style="height: 42px; flex: 1;">
+                    <button type="button" class="stepper-btn" id="btnBuilderDrillMinus">-</button>
+                    <input type="number" id="builderDrillCountInput" class="stepper-input" value="1" min="1" max="100" step="1" style="font-weight: 800; color: #f59e0b; font-size: 1.05rem;">
+                    <button type="button" class="stepper-btn" id="btnBuilderDrillPlus">+</button>
+                  </div>
+                  <span id="builderDrillUnitLabel" style="font-size: 0.78rem; color: #94a3b8; font-weight: 700; white-space: nowrap;">Taladro(s)</span>
+                </div>
+
+                <!-- Modo Piezas/min Manual -->
+                <div id="builderRateInputBox" style="display: none; align-items: center; gap: 6px;">
+                  <div class="stepper-control" style="height: 42px; flex: 1;">
+                    <button type="button" class="stepper-btn" id="btnBuilderRateMinus">-</button>
+                    <input type="number" id="builderTargetRate" class="stepper-input" value="5" min="0.1" max="5000" step="any" style="font-weight: 800; color: #4ade80; font-size: 1.05rem;">
+                    <button type="button" class="stepper-btn" id="btnBuilderRatePlus">+</button>
+                  </div>
+                  <span style="font-size: 0.78rem; color: #94a3b8; font-weight: 700; white-space: nowrap;">piezas/min</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Accesos rápidos basados en Número de Taladros / Máquinas -->
+            <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span style="font-size: 0.75rem; color: #f59e0b; font-weight: 800;">Ajustar por Taladros:</span>
+                <button type="button" class="quick-btn active" id="btnPreset1Drill">⛏️ 1 Taladro</button>
+                <button type="button" class="quick-btn" id="btnPreset2Drills">⛏️ 2 Taladros</button>
+                <button type="button" class="quick-btn" id="btnPreset3Drills">⛏️ 3 Taladros</button>
+                <button type="button" class="quick-btn" id="btnPreset4Drills">⛏️ 4 Taladros</button>
+                <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 4px;">o Máquinas:</span>
+                <button type="button" class="quick-btn" id="btnPreset1Machine">🏭 1x Máquina Base</button>
+                <button type="button" class="quick-btn" id="btnPreset2Machines">🏭 2x Máquinas</button>
+              </div>
+              <div id="builderFinalMachineHint" style="font-size: 0.76rem; color: #94a3b8;">
+                <!-- Dynamic hint -->
+              </div>
+            </div>
+
+            <!-- Fila 2: Minerales e Insumos Primarios Requeridos (¡CALCULADOS AUTOMÁTICAMENTE!) -->
+            <div style="margin-top: 16px; background: #0c1524; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 1.1rem;">⛏️</span>
+                  <div>
+                    <h3 style="margin: 0; font-size: 0.88rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Minerales y Materias Primas Requeridas (Calculadas Automáticamente)
+                    </h3>
+                    <span style="font-size: 0.74rem; color: var(--text-muted);">
+                      Elige qué taladros usar (Mk.1 - Mk.3) y cuántas menas/nodos tienes en el mapa
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Selector Global de Tecnología de Taladros (para elegir antes) -->
+                <div style="display: flex; align-items: center; gap: 8px; background: #070d17; padding: 4px 10px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 255, 255, 0.08);">
+                  <span style="font-size: 0.73rem; color: #94a3b8; font-weight: 700;">Taladros Predeterminados:</span>
+                  <div class="toggle-btn-group" id="builderGlobalMinerGroup" style="display: inline-flex; gap: 2px;">
+                    <button type="button" class="btn-global-miner active" data-miner="miner_mk1">⛏️ Mk.1</button>
+                    <button type="button" class="btn-global-miner" data-miner="miner_mk2">⛏️ Mk.2</button>
+                    <button type="button" class="btn-global-miner" data-miner="miner_mk3">⛏️ Mk.3</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dynamic cards for each required raw resource (Hierro, Cobre, Carbón, Caliza, etc.) -->
+              <div id="builderRawCardsContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px;">
+                <!-- Injected dynamically -->
+              </div>
+            </div>
+
+            <!-- Fila 3: Opciones de Recetas Alternativas si aplican -->
+            <div id="builderAltOptionsBox" style="margin-top: 12px; background: #131924; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: none;">
+              <!-- Dynamic alternative recipe toggles -->
+            </div>
+          </div>
+
+          <!-- Barra de Control de Visualización: Plano 2D vs Esquema por Fases -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px 0; padding: 0 4px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <h3 style="font-size: 0.98rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; margin: 0;">
+                <span>🏭 Esquema de Fábrica</span>
+              </h3>
+
+              <div class="blueprint-view-switcher">
+                <button type="button" class="btn-builder-view active" id="btnViewBlueprint" data-view="blueprint" title="Ver plano de planta aérea en 2D con cimientos y máquinas">
+                  <span>📐 Plano Vista Aérea (2D)</span>
+                </button>
+                <button type="button" class="btn-builder-view" id="btnViewPhases" data-view="phases" title="Ver desglose secuencial de fases y checklist">
+                  <span>📋 Esquema por Fases</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span id="builderViewHint" style="font-size: 0.74rem; color: #94a3b8;">
+                Plano de suelo: cimientos, hornos, constructores, ensambladoras, splitters y cintas
+              </span>
+            </div>
+          </div>
+
+          <!-- CONTENEDOR 1: PLANO VISTA AÉREA 2D (FICSIT 2D BLUEPRINT) -->
+          <div id="builderBlueprintSection" class="ficsit-card ficsit-blueprint-card" style="padding: 0; overflow: hidden; margin-bottom: 20px; border: 1px solid rgba(56, 189, 248, 0.35);">
+            <!-- Barra de Herramientas del Plano -->
+            <div class="blueprint-toolbar">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span class="blueprint-badge">📐 FICSIT BLUEPRINT &bull; VISTA AÉREA 2D</span>
+                <span id="bpFoundationDimensionsBadge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700; font-size: 0.74rem;">
+                  <!-- Dimensiones dinámicas: ej. 8x5 Cimientos (64m x 40m) -->
+                </span>
+                <span style="font-size: 0.72rem; color: #94a3b8;">
+                  (Sin taladros exteriores &bull; Comienza en la entrada de mineral)
+                </span>
+              </div>
+
+              <!-- Controles Interactivos -->
+              <div class="blueprint-controls">
+                <button type="button" class="btn-bp-tool" id="btnBpZoomIn" title="Acercar plano (+)">➕</button>
+                <button type="button" class="btn-bp-tool" id="btnBpZoomOut" title="Alejar plano (-)">➖</button>
+                <button type="button" class="btn-bp-tool" id="btnBpReset" title="Centrar y ajustar plano completo a la pantalla">⟲ Ajustar</button>
+                <button type="button" class="btn-bp-tool" id="btnBpToggleLabels" title="Mostrar/ocultar etiquetas de ratios">🏷️ Ratios</button>
+                <button type="button" class="btn-bp-tool" id="btnBpFullscreen" title="Ver plano en pantalla completa">⛶ Pantalla Completa</button>
+              </div>
+            </div>
+
+            <!-- Viewport Interactivo con Pan & Zoom -->
+            <div id="blueprintViewport" class="blueprint-viewport">
+              <div id="blueprintCanvas" class="blueprint-canvas">
+                <!-- SVG generado dinámicamente -->
+              </div>
+              <div id="blueprintTooltip" class="blueprint-tooltip" style="display: none;"></div>
+            </div>
+
+            <!-- Leyenda Oficial Inferior -->
+            <div class="blueprint-legend">
+              <div class="legend-item"><span class="legend-color-box" style="background: #f97316;"></span><span>Hornos (Fundiciones)</span></div>
+              <div class="legend-item"><span class="legend-color-box" style="background: #38bdf8;"></span><span>Constructoras</span></div>
+              <div class="legend-item"><span class="legend-color-box" style="background: #a855f7;"></span><span>Ensambladoras</span></div>
+              <div class="legend-item"><span class="legend-color-box" style="background: #ec4899;"></span><span>Fabricantes</span></div>
+              <div class="legend-item"><span class="legend-splitter-box">🔀</span><span>Splitters (Divisores)</span></div>
+              <div class="legend-item"><span class="legend-merger-box">🔄</span><span>Mergers (Unidores)</span></div>
+              <div class="legend-item"><span style="color: #94a3b8; font-weight: 700;">──</span><span>Cintas Mk.1</span></div>
+              <div class="legend-item"><span style="color: #60a5fa; font-weight: 700;">──</span><span>Mk.2</span></div>
+              <div class="legend-item"><span style="color: #f59e0b; font-weight: 700;">──</span><span>Mk.3</span></div>
+              <div class="legend-item"><span style="color: #ef4444; font-weight: 700;">──</span><span>Mk.4</span></div>
+              <div class="legend-item"><span style="color: #a855f7; font-weight: 700;">──</span><span>Mk.5</span></div>
+            </div>
+          </div>
+
+          <!-- CONTENEDOR 2: ESQUEMA POR FASES CONECTADAS POR FLECHAS -->
+          <div id="builderDynamicPhasesContainer" style="display: none;">
+            <!-- Injected dynamically with clear arrow connectors and phases -->
+          </div>
+        </div>
+
+        <!-- Right Column: Visual Summary & Shopping List -->
+        <div>
+          <div class="ficsit-card" style="position: sticky; top: 80px; padding: 18px;">
+            <div class="card-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+              <h2 class="card-title" style="font-size: 0.95rem;"><span class="icon">📋</span> Resumen de la Fábrica</h2>
+              <button id="btnCopyBuilderGuide" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;">
+                📋 Copiar
+              </button>
+            </div>
+
+            <!-- Total Line Summary -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div class="stat-box" style="padding: 8px 12px;">
+                <span class="stat-label" style="font-size: 0.7rem;">Energía Total</span>
+                <span class="stat-number" style="font-size: 1.15rem; color: #facc15;" id="builderTotalMw">0 MW</span>
+              </div>
+              <div class="stat-box" style="padding: 8px 12px;">
+                <span class="stat-label" style="font-size: 0.7rem;">Aprovechamiento</span>
+                <span class="stat-number" style="font-size: 1.15rem; color: var(--ficsit-orange);" id="builderEfficiencyVal">100%</span>
+              </div>
+            </div>
+
+            <!-- Material shopping list chips -->
+            <div style="background: #18202d; border-radius: var(--radius-sm); padding: 12px; border: 1px solid var(--border-color); margin-bottom: 12px;">
+              <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">
+                🏗️ Edificios a colocar:
+              </span>
+              <div id="builderBuildingChips" style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- Dynamic building list -->
+              </div>
+            </div>
+
+            <!-- Cintas y Logística -->
+            <div style="background: #18202d; border-radius: var(--radius-sm); padding: 12px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
+                📦 Cintas recomendadas:
+              </span>
+              <div id="builderBeltsLogistics" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                <!-- Dynamic belts list -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+ 
+    <!-- ========================================================
+         TAB: ESPACIO LIBRE (DIVISIÓN MULTIFUNCIONAL & BALANCE)
+         ======================================================== -->
+    <section id="tab-sandbox" class="tab-panel">
+      <div class="calc-grid calc-grid-sandbox">
+
+        <!-- Left Column: Inputs, Branches, Balance & Splitter Diagram -->
+        <div>
+          <!-- Card 1: Insumo Disponible -->
+          <div class="ficsit-card" style="margin-bottom: 16px; border-left: 4px solid var(--ficsit-orange); padding: 16px;">
+            <div class="card-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+              <h2 class="card-title" style="font-size: 1rem;">
+                <span>📥 1. ¿Qué material pusiste al inicio y cuánto produce?</span>
+              </h2>
+              <span id="sbAvailableBadge" class="belt-badge" style="color: #38bdf8; border-color: #38bdf8;">
+                120.0 /min
+              </span>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+              <button type="button" class="purity-btn active" id="btnSbModeMiners" style="padding: 5px 14px; font-size: 0.8rem; font-weight: 700;">
+                ⛏️ Desde Mineros / Extracción
+              </button>
+              <button type="button" class="purity-btn" id="btnSbModeFree" style="padding: 5px 14px; font-size: 0.8rem; font-weight: 700;">
+                📦 Cantidad Libre en Cinta
+              </button>
+            </div>
+
+            <!-- Panel Mineros -->
+            <div id="sbMinersPanel" style="display: grid; grid-template-columns: 1fr 1fr 1fr 120px; gap: 10px; align-items: end;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Mineral</label>
+                <select id="sbResourceSelect" class="form-select"></select>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Pureza</label>
+                <div class="purity-pills">
+                  <button type="button" class="purity-btn sb-purity-btn" data-purity="impure">Impuro</button>
+                  <button type="button" class="purity-btn sb-purity-btn active" data-purity="normal">Normal</button>
+                  <button type="button" class="purity-btn sb-purity-btn" data-purity="pure">Puro</button>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Minero</label>
+                <select id="sbMinerTierSelect" class="form-select">
+                  <option value="miner_mk1" selected>Minero Mk.1 (60 base)</option>
+                  <option value="miner_mk2">Minero Mk.2 (120 base)</option>
+                  <option value="miner_mk3">Minero Mk.3 (240 base)</option>
+                </select>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">¿Cuántos?</label>
+                <div class="stepper-control" style="height: 38px;">
+                  <button type="button" class="stepper-btn" id="btnSbMinerMinus">-</button>
+                  <input type="number" id="sbMinerCount" class="stepper-input" value="2" min="1" max="10" step="1">
+                  <button type="button" class="stepper-btn" id="btnSbMinerPlus">+</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Panel Libre -->
+            <div id="sbFreePanel" style="display: none; grid-template-columns: 1fr 160px; gap: 12px; align-items: end;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Material que entra por la cinta</label>
+                <select id="sbFreeItemSelect" class="form-select"></select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label class="form-label">Cantidad (items/min)</label>
+                <input type="number" id="sbFreeRateInput" class="form-input" value="120" min="1" step="any">
+              </div>
+            </div>
+
+            <!-- Toggle Auto-Smelt (Convertir mineral en lingotes) -->
+            <div id="sbAutoSmeltRow" style="margin-top: 12px; padding: 8px 12px; background: #18202d; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: space-between;">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; color: var(--text-main); font-weight: 600;">
+                <input type="checkbox" id="sbChkAutoSmelt" checked>
+                <span>🔥 Convertir primero en Lingotes con Hornos (Smelters)</span>
+              </label>
+              <span id="sbSmeltSummaryBadge" style="font-size: 0.8rem; color: #4ade80; font-weight: 700;">
+                120 Lingotes/min (4 Hornos)
+              </span>
+            </div>
+          </div>
+
+          <!-- Card 2: Ramas de Producción (Y lo dividí así) -->
+          <div class="ficsit-card" style="margin-bottom: 16px; padding: 16px;">
+            <div class="card-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+              <h2 class="card-title" style="font-size: 1rem;">
+                <span>🔀 2. Tus Ramas de Producción ("Puse esto y lo dividí así")</span>
+              </h2>
+              <span style="font-size: 0.78rem; color: var(--text-muted);">
+                Puedes fabricar productos diferentes a partir del mismo insumo
+              </span>
+            </div>
+
+            <!-- Auto-Reparto Inteligente FICSIT Panel -->
+            <div class="auto-optimizer-panel" id="sbAutoOptimizerPanel" style="margin-bottom: 14px; background: linear-gradient(180deg, #101c2e 0%, #0d1522 100%); border: 1px solid #38bdf8; border-radius: var(--radius-sm); padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 1.3rem;">⚡</span>
+                  <div>
+                    <h3 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Auto-Reparto Inteligente FICSIT (100% Rendimiento)
+                    </h3>
+                    <span style="font-size: 0.76rem; color: var(--text-muted);">
+                      Calcula automáticamente cuántas máquinas colocar en cada rama para aprovechar todo tu mineral sin desperdicio
+                    </span>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <button type="button" id="btnApplyAutoBalance" class="btn btn-primary" style="padding: 6px 14px; font-size: 0.82rem; font-weight: 800; background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); border: none; box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);">
+                    ⚡ Auto-Calcular Máquinas (100% Óptimo)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dynamic Direct Explanation (Lo que pidió el usuario) -->
+              <div id="sbAutoOptimizationExplanation" style="background: #080d16; border-left: 3px solid #38bdf8; border-radius: 4px; padding: 10px 12px; font-size: 0.84rem; line-height: 1.6; color: #f1f5f9; margin-bottom: 10px;">
+                <!-- Dynamic breakdown explaining exact intake and machines for each branch -->
+              </div>
+
+              <!-- Quick Preset Solutions Chips -->
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;" id="sbOptimalSolutionsChips">
+                  <!-- 1-click alternative solutions chips injected here -->
+                </div>
+                <div style="font-size: 0.74rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                  <input type="checkbox" id="sbChkKeepAutoBalanced" checked style="accent-color: #38bdf8; cursor: pointer;">
+                  <label for="sbChkKeepAutoBalanced" style="cursor: pointer;">Mantener optimizado automáticamente</label>
+                </div>
+              </div>
+            </div>
+
+            <div id="sbBranchesList">
+              <!-- Dynamically populated branch cards -->
+            </div>
+
+            <button type="button" id="btnAddSbBranch" class="btn btn-secondary" style="width: 100%; padding: 10px; font-weight: 800; border: 1px dashed var(--ficsit-orange); color: var(--ficsit-orange); display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
+              <span>➕ Agregar Otra Rama / Producto Diferente</span>
+            </button>
+          </div>
+
+          <!-- Card 3: Balance y Diagnóstico en Tiempo Real -->
+          <div class="ficsit-card" style="margin-bottom: 16px; padding: 16px; border-left: 4px solid #38bdf8;">
+            <div class="card-header" style="margin-bottom: 8px; padding-bottom: 6px;">
+              <h2 class="card-title" style="font-size: 1rem;">
+                <span>⚖️ 3. Balance y Diagnóstico en Tiempo Real ("¿Te falta o te sobra?")</span>
+              </h2>
+            </div>
+
+            <!-- Visual Bar -->
+            <div class="balance-bar-container">
+              <div id="sbBalanceBarFill" class="balance-bar-fill" style="width: 100%; background: #4ade80;"></div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
+              <div class="stat-box" style="padding: 10px;">
+                <span class="stat-label">Insumo Disponible</span>
+                <span class="stat-number" id="sbStatAvailable" style="color: #38bdf8;">120.0 /min</span>
+              </div>
+              <div class="stat-box" style="padding: 10px;">
+                <span class="stat-label">Consumo en Ramas</span>
+                <span class="stat-number" id="sbStatConsumed" style="color: #facc15;">105.0 /min</span>
+              </div>
+              <div class="stat-box" style="padding: 10px;">
+                <span class="stat-label">Balance Neto</span>
+                <span class="stat-number" id="sbStatBalance" style="color: #4ade80;">+15.0 /min</span>
+              </div>
+            </div>
+
+            <!-- Intelligent Verdict Box -->
+            <div id="sbVerdictBox" class="verdict-alert-box surplus">
+              <!-- Dynamically populated with actionable advice -->
+            </div>
+          </div>
+
+          <!-- Card 4: Esquema Físico de Splitters -->
+          <div class="ficsit-card" style="padding: 16px;">
+            <div class="card-header" style="margin-bottom: 8px; padding-bottom: 6px;">
+              <h2 class="card-title" style="font-size: 1rem;">
+                <span>📐 4. Cómo colocar los Splitters para dividir la cinta</span>
+              </h2>
+            </div>
+            <div id="sbSplitterSchematicBox">
+              <!-- Dynamic schematic explaining how to branch to Rama 1, Rama 2, etc. -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Summary & Building List -->
+        <div>
+          <div class="ficsit-card" style="position: sticky; top: 80px; padding: 18px;">
+            <div class="card-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+              <h2 class="card-title" style="font-size: 0.95rem;">
+                <span class="icon">📋</span> Resumen de la Fábrica
+              </h2>
+              <button id="btnCopySbReport" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;">
+                📋 Copiar
+              </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div class="stat-box" style="padding: 8px 12px;">
+                <span class="stat-label" style="font-size: 0.7rem;">Energía Total</span>
+                <span class="stat-number" style="font-size: 1.15rem; color: #facc15;" id="sbTotalMw">0 MW</span>
+              </div>
+              <div class="stat-box" style="padding: 8px 12px;">
+                <span class="stat-label" style="font-size: 0.7rem;">Eficiencia Uso</span>
+                <span class="stat-number" style="font-size: 1.15rem; color: #4ade80;" id="sbEfficiencyVal">100%</span>
+              </div>
+            </div>
+
+            <!-- Material shopping list chips -->
+            <div style="background: #18202d; border-radius: var(--radius-sm); padding: 12px; border: 1px solid var(--border-color); margin-bottom: 12px;">
+              <span style="font-size: 0.75rem; color: #38bdf8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">
+                🏗️ Edificios a colocar:
+              </span>
+              <div id="sbBuildingChips" style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- Dynamic building list -->
+              </div>
+            </div>
+
+            <!-- Cintas y Logística -->
+            <div style="background: #18202d; border-radius: var(--radius-sm); padding: 12px; border: 1px solid var(--border-color);">
+              <span style="font-size: 0.75rem; color: #f59e0b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
+                📦 Cintas recomendadas:
+              </span>
+              <div id="sbBeltsLogistics" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                <!-- Dynamic belts list -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 1: EXTRACTOR Y NODOS (PURITY & MINERS)
+         ======================================================== -->
+    <section id="tab-miners" class="tab-panel">
+      <div class="calc-grid">
+        <!-- Control Panel -->
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">⛏️</span> Configuración del Nodo</h2>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Recurso / Mineral</label>
+            <select id="minerResourceSelect" class="form-select"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Pureza del Depósito</label>
+            <div class="purity-pills">
+              <button type="button" class="purity-btn" data-purity="impure">
+                Impuro
+                <span class="mult">0.5x</span>
+              </button>
+              <button type="button" class="purity-btn active" data-purity="normal">
+                Normal
+                <span class="mult">1.0x</span>
+              </button>
+              <button type="button" class="purity-btn" data-purity="pure">
+                Puro
+                <span class="mult">2.0x</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Tipo de Extractor / Minero</label>
+            <select id="minerTierSelect" class="form-select">
+              <option value="miner_mk1">Minero Mk.1 (Base: 60/m | 5 MW)</option>
+              <option value="miner_mk2" selected>Minero Mk.2 (Base: 120/m | 12 MW)</option>
+              <option value="miner_mk3">Minero Mk.3 (Base: 240/m | 30 MW)</option>
+              <option value="oil_extractor">Extractor de Petróleo (Base: 120 m³/m | 40 MW)</option>
+              <option value="water_extractor">Extractor de Agua (Fijo: 120 m³/m | 20 MW)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Overclocking (Velocidad de Reloj)</label>
+            <div class="slider-container">
+              <div class="slider-header">
+                <span class="slider-value" id="minerClockValue">100%</span>
+                <span class="shards-pill" id="minerShardsValue">🔋 0 Fragmentos</span>
+              </div>
+              <input type="range" id="minerClockRange" class="range-slider" min="1" max="250" value="100" step="1">
+              <div class="slider-quick-buttons">
+                <button type="button" class="quick-btn" data-set-clock="50">50%</button>
+                <button type="button" class="quick-btn" data-set-clock="100">100%</button>
+                <button type="button" class="quick-btn" data-set-clock="150">150%</button>
+                <button type="button" class="quick-btn" data-set-clock="200">200%</button>
+                <button type="button" class="quick-btn" data-set-clock="250">250% (Max)</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button id="btnSendToSplitter" class="btn" style="flex: 1;">
+              🔀 Dividir esta Cinta
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Miner Results Output -->
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">📊</span> Rendimiento de Extracción Exacto</h2>
+          </div>
+
+          <div class="stats-banner">
+            <div class="stat-box highlight">
+              <span class="stat-label">Producción Bruta</span>
+              <div>
+                <span class="stat-number" id="minerOutputRate">120</span>
+                <span class="stat-unit" id="minerUnitLabel">items/min</span>
+              </div>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Consumo Eléctrico</span>
+              <div>
+                <span class="stat-number" id="minerPowerVal">12</span>
+                <span class="stat-unit">MW</span>
+              </div>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Cinta / Tubo Mínimo</span>
+              <div id="minerBeltBadge" style="margin-top: 4px;"></div>
+            </div>
+          </div>
+
+          <div id="minerWarningBox" style="display: none; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px; color: #fca5a5; font-size: 0.85rem;">
+            ⚠️ <strong>Límite de Transporte Superado:</strong> La tasa supera los 1200/min de una Cinta Mk.6 (el máximo del juego en versión 1.0+). Tendrás que conectar otra salida o reducir el overclock.
+          </div>
+
+          <div style="background: #18202d; border-radius: var(--radius-md); padding: 16px; border: 1px solid var(--border-color);">
+            <h3 style="font-size: 0.95rem; margin-bottom: 10px; color: var(--ficsit-orange);">
+              💡 Equivalencias para tu mundo:
+            </h3>
+            <div id="minerEquivalences" style="font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);">
+              <!-- Injected dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 2: FACTORY PLANNER (TARGET DRIVEN & TREE BREAKDOWN)
+         ======================================================== -->
+    <section id="tab-factory" class="tab-panel">
+      <div class="calc-grid">
+        <!-- Controls -->
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">🎯</span> Objetivo de Producción</h2>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Producto Final Deseado</label>
+            <select id="factoryItemSelect" class="form-select"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Cantidad a Producir (piezas/minuto)</label>
+            <input type="number" id="factoryTargetRate" class="form-input" value="10" min="0.1" step="any">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Preferencias de Receta</label>
+            <div style="background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer;">
+                <input type="checkbox" id="chkUseCastScrew" checked>
+                <span>Usar Tornillos Fundidos (se salta varillas)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; margin-top: 8px;">
+                <input type="checkbox" id="chkUseSolidSteel">
+                <span>Usar Acero Sólido (+50% lingotes)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; margin-top: 8px;">
+                <input type="checkbox" id="chkUseStitchedPlate">
+                <span>Usar Plancha Cosida (Cobre + Hierro)</span>
+              </label>
+            </div>
+          </div>
+
+          <button id="btnCalculateFactory" class="btn" style="width: 100%; margin-top: 10px;">
+            ⚡ Planificar Línea de Fábrica
+          </button>
+        </div>
+
+        <!-- Factory Tree Results -->
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">🏭</span> Cadena de Producción Desglosada</h2>
+          </div>
+
+          <div class="stats-banner">
+            <div class="stat-box highlight">
+              <span class="stat-label">Total Maquinaria</span>
+              <div>
+                <span class="stat-number" id="factoryTotalMachines">0</span>
+                <span class="stat-unit">máquinas</span>
+              </div>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Energía Requerida</span>
+              <div>
+                <span class="stat-number" id="factoryTotalEnergy">0</span>
+                <span class="stat-unit">MW</span>
+              </div>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Niveles de Proceso</span>
+              <div>
+                <span class="stat-number" id="factoryStagesCount">0</span>
+                <span class="stat-unit">etapas</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 0.95rem; color: var(--ficsit-orange); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              ⛏️ Materias Primas y Nodos Necesarios:
+            </h3>
+            <div id="factoryRawRequirements" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+              <!-- Dynamic raw nodes -->
+            </div>
+          </div>
+
+          <h3 style="font-size: 0.95rem; color: var(--ficsit-orange); margin-bottom: 12px;">
+            🔧 Maquinaria y Pasos de Fabricación:
+          </h3>
+          <div id="factoryStepsContainer">
+            <!-- Dynamic machine steps -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 3: ASISTENTE DE DIVISIÓN Y SPLITTERS
+         ======================================================== -->
+    <section id="tab-splitters" class="tab-panel">
+      <div class="calc-grid">
+        <!-- Input controls -->
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">🔀</span> Datos del Flujo</h2>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Material que entra por la Cinta (piezas/min)</label>
+            <input type="number" id="splitInputRate" class="form-input" value="120" min="1" step="any">
+            <span style="font-size: 0.75rem; color: var(--text-sub);">Ej: 60, 120, 240, 270, 480...</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Consumo de CADA máquina (piezas/min)</label>
+            <input type="number" id="splitMachineIntake" class="form-input" value="30" min="0.1" step="any">
+            <span style="font-size: 0.75rem; color: var(--text-sub);">Ej: Fundición de Hierro consume 30/min, Constructora de Placas 30/min, etc.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Accesos rápidos de maquinaria común:</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <button type="button" class="quick-btn" onclick="setSplitPreset(30)">Fundición (30)</button>
+              <button type="button" class="quick-btn" onclick="setSplitPreset(45)">Acero Base (45)</button>
+              <button type="button" class="quick-btn" onclick="setSplitPreset(15)">Varillas (15)</button>
+              <button type="button" class="quick-btn" onclick="setSplitPreset(10)">Tornillos (10)</button>
+              <button type="button" class="quick-btn" onclick="setSplitPreset(60)">Alambre/Cable (60)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Splitting Results -->
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">📏</span> Plan de División Exacto</h2>
+          </div>
+
+          <div class="stats-banner">
+            <div class="stat-box highlight">
+              <span class="stat-label">Máquinas Alimentadas</span>
+              <div>
+                <span class="stat-number" id="splitMachinesCount">4</span>
+                <span class="stat-unit" id="splitExactRatioTag">exactas</span>
+              </div>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Cinta Principal</span>
+              <div id="splitMainBeltBadge" style="margin-top: 4px;"></div>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Cintas Secundarias</span>
+              <div id="splitFeederBeltBadge" style="margin-top: 4px;"></div>
+            </div>
+          </div>
+
+          <!-- Fractional & Overclock details -->
+          <div id="splitFractionalNotice" style="background: rgba(251, 191, 36, 0.1); border: 1px solid #f59e0b; border-radius: var(--radius-sm); padding: 14px; margin-bottom: 16px;">
+            <!-- Dynamic -->
+          </div>
+
+          <div style="background: #18202d; border-radius: var(--radius-md); padding: 16px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <h3 style="font-size: 0.95rem; color: var(--ficsit-orange); margin-bottom: 6px;" id="splitBalancerHeader">
+              Esquema Sugerido
+            </h3>
+            <p id="splitBalancerDesc" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;"></p>
+          </div>
+
+          <h3 style="font-size: 0.95rem; color: var(--ficsit-orange); margin-bottom: 10px;">
+            Cascada Manifold Detallada (Cinta recomendada tramo por tramo):
+          </h3>
+          <div id="splitManifoldSteps" class="flow-chain">
+            <!-- Dynamic manifold steps -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 4: CALCULADORA RÁPIDA DE MAQUINARIA
+         ======================================================== -->
+    <section id="tab-machines" class="tab-panel">
+      <div class="calc-grid">
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">⚙️</span> Máquina & Receta</h2>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Edificio de Producción</label>
+            <select id="quickBuildingSelect" class="form-select"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Receta</label>
+            <select id="quickRecipeSelect" class="form-select"></select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Cantidad de Máquinas</label>
+            <input type="number" id="quickMachineCount" class="form-input" value="1" min="1" step="1">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Overclocking individual (%)</label>
+            <div class="slider-container">
+              <div class="slider-header">
+                <span class="slider-value" id="quickClockVal">100%</span>
+                <span class="shards-pill" id="quickShardsVal">🔋 0 Shards</span>
+              </div>
+              <input type="range" id="quickClockRange" class="range-slider" min="1" max="250" value="100">
+            </div>
+          </div>
+        </div>
+
+        <div class="ficsit-card">
+          <div class="card-header">
+            <h2 class="card-title"><span class="icon">📈</span> Resultados de Operación</h2>
+          </div>
+
+          <div class="stats-banner">
+            <div class="stat-box highlight">
+              <span class="stat-label">Energía Total</span>
+              <div>
+                <span class="stat-number" id="quickTotalPower">0</span>
+                <span class="stat-unit">MW</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px;">
+            <div style="background: #18202d; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+              <h3 style="font-size: 0.9rem; color: #ef4444; margin-bottom: 12px;">📥 Insumos Requeridos (Entrada/min)</h3>
+              <div id="quickInputsList"></div>
+            </div>
+            <div style="background: #18202d; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+              <h3 style="font-size: 0.9rem; color: #4ade80; margin-bottom: 12px;">📤 Productos Fabricados (Salida/min)</h3>
+              <div id="quickOutputsList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         TAB 5: BASE DE DATOS Y RECETARIO 1.0+
+         ======================================================== -->
+    <section id="tab-recipes" class="tab-panel">
+      <div class="ficsit-card">
+        <div class="card-header">
+          <h2 class="card-title"><span class="icon">📖</span> Recetario Oficial Satisfactory 1.0 / 1.2</h2>
+          <input type="text" id="recipeSearchInput" class="form-input" style="max-width: 300px;" placeholder="🔍 Buscar receta o material...">
+        </div>
+
+        <div class="recipe-table-wrapper">
+          <table class="recipe-table">
+            <thead>
+              <tr>
+                <th>Receta</th>
+                <th>Edificio</th>
+                <th>Insumos / Min</th>
+                <th>Salidas / Min</th>
+                <th>Tipo</th>
+              </tr>
+            </thead>
+            <tbody id="recipeTableBody">
+              <!-- Injected dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  <!-- MODAL DE SELECCIÓN DE PRODUCTO Y RECETA -->
+  <div id="recipePickerModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="modalPickerTitle">
+            <span>📦 Catálogo FICSIT de Productos y Recetas</span>
+          </h3>
+          <span class="modal-subtitle" id="modalPickerSubtitle">
+            Selecciona qué producto deseas fabricar en esta rama
+          </span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseRecipeModal" title="Cerrar ventana (Esc)">✕</button>
+      </div>
+
+      <!-- Search & Filter Bar -->
+      <div class="modal-filter-bar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="recipePickerSearch" class="form-input" placeholder="Escribe para buscar (ej: Cable, Tornillos, Alambre, Rotor, Plancha)..." autocomplete="off">
+        </div>
+
+        <div class="filter-pills-row" id="recipePickerFilters">
+          <button type="button" class="filter-pill active" data-filter="all">🌟 Todos (<span id="countFilterAll">0</span>)</button>
+          <button type="button" class="filter-pill" data-filter="direct">⚡ Directos (<span id="countFilterDirect">0</span>)</button>
+          <button type="button" class="filter-pill" data-filter="subchain">🔄 Con Sub-cadenas (<span id="countFilterSubchain">0</span>)</button>
+          <button type="button" class="filter-pill" data-filter="constructor">⚙️ Constructora</button>
+          <button type="button" class="filter-pill" data-filter="assembler">🔧 Ensambladora</button>
+          <button type="button" class="filter-pill" data-filter="manufacturer">🏭 Fabricante</button>
+        </div>
+      </div>
+
+      <!-- Scrollable Recipe Grid -->
+      <div class="modal-body-grid" id="recipePickerGrid">
+        <!-- Dynamically populated cards -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PLANO VISTA AÉREA 2D (MODAL VIEW) -->
+  <div id="factoryBlueprintModal" class="ficsit-modal" style="display: none;">
+    <div class="modal-dialog" style="max-width: 1200px; width: 95vw;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="bpModalTitle">
+            <span>📐 Plano de Planta Aérea (2D Blueprint)</span>
+          </h3>
+          <span class="modal-subtitle" id="bpModalSubtitle">
+            Vista superior en cuadrícula de cimientos: hornos, constructores, ensambladoras, splitters y cintas
+          </span>
+        </div>
+        <button type="button" class="btn-close-modal" id="btnCloseBpModal" title="Cerrar ventana (Esc)">✕</button>
+      </div>
+
+      <div class="blueprint-toolbar" style="border-radius: var(--radius-sm); margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span id="bpModalDimensionsBadge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 700; font-size: 0.74rem;">
+            <!-- Cimientos -->
+          </span>
+        </div>
+        <div class="blueprint-controls">
+          <button type="button" class="btn-bp-tool" id="btnBpModalZoomIn" title="Acercar (+)">➕</button>
+          <button type="button" class="btn-bp-tool" id="btnBpModalZoomOut" title="Alejar (-)">➖</button>
+          <button type="button" class="btn-bp-tool" id="btnBpModalReset" title="Ajustar y Centrar">⟲ Ajustar</button>
+        </div>
+      </div>
+
+      <div id="blueprintModalViewport" class="blueprint-viewport" style="height: 60vh;">
+        <div id="blueprintModalCanvas" class="blueprint-canvas">
+          <!-- Injected SVG -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="ficsit-footer">
+    FICSIT Inc. Engineering Division &bull; Compatible con Satisfactory 1.0 y 1.2 &bull; Cálculos exactos sin cuellos de botella
+  </footer>
+
+  <!-- SCRIPTS -->
+  <script src="data.js"></script>
+  <script src="calculator.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
