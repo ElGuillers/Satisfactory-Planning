@@ -1110,6 +1110,195 @@ const SatisCalc = {
       chains,
       ratios
     };
+  },
+
+  /**
+   * Energy Optimization & Power Generation Manager (Satisfactory 1.0 / 1.2)
+   * Formula: Power = BasePower * (Clock / 100) ^ 1.321928
+   * Modes:
+   * - 'standard': Nominal speeds (whole machines @ 100%, last machine @ remainder %).
+   * - 'eco': Underclocked distributed machines (e.g. 2.4 machines -> 3 machines @ 80% clock).
+   *          Produces exponential power savings (-15% to -28% MW).
+   * - 'compact': Overclocked machines (up to 200%-250% clock with Power Shards) to reduce floor area.
+   */
+  calculateEnergyOptimization(plan, powerMode = 'standard') {
+    if (!plan || !plan.consolidatedSteps) {
+      return {
+        mode: powerMode,
+        activeMw: 0,
+        standardMw: 0,
+        ecoMw: 0,
+        compactMw: 0,
+        savingsMw: 0,
+        savingsPercent: 0,
+        shardsRequired: 0,
+        breakdown: { minersMw: 0, smeltersMw: 0, constructorsMw: 0, assemblersMw: 0, othersMw: 0 },
+        recommendedGenerators: []
+      };
+    }
+
+    const EXPONENT = 1.321928;
+    let standardMachinesPower = 0;
+    let ecoMachinesPower = 0;
+    let compactMachinesPower = 0;
+    let compactShardsTotal = 0;
+    let compactMachinesTotal = 0;
+    let standardMachinesTotal = 0;
+    let ecoMachinesTotal = 0;
+
+    const breakdown = {
+      minersMw: plan.totalMinerPower || 0,
+      smeltersMw: 0,
+      constructorsMw: 0,
+      assemblersMw: 0,
+      othersMw: 0
+    };
+
+    plan.consolidatedSteps.forEach(step => {
+      const bldg = step.building || { power: 4, name: 'Máquina' };
+      const baseP = bldg.power || 4;
+      const count = step.machinesCount;
+      const whole = Math.floor(count);
+      const rem = count - whole;
+
+      // 1. Standard: whole @ 100%, rem @ rem^EXPONENT
+      standardMachinesTotal += Math.ceil(count);
+      let stepStdP = whole * baseP;
+      if (rem > 0.001) {
+        stepStdP += baseP * Math.pow(rem, EXPONENT);
+      }
+      standardMachinesPower += stepStdP;
+
+      // 2. Eco: distribute equally across ceil(count) machines
+      const ecoMachinesCount = Math.ceil(count);
+      ecoMachinesTotal += ecoMachinesCount;
+      const ecoClockRatio = ecoMachinesCount > 0 ? (count / ecoMachinesCount) : 1;
+      const stepEcoP = ecoMachinesCount * baseP * Math.pow(ecoClockRatio, EXPONENT);
+      ecoMachinesPower += stepEcoP;
+
+      // 3. Compact: overclock up to 200% (2x speed)
+      const compactCount = Math.max(1, Math.ceil(count / 2));
+      compactMachinesTotal += compactCount;
+      const compactClockRatio = count / compactCount;
+      const stepCompactP = compactCount * baseP * Math.pow(compactClockRatio, EXPONENT);
+      compactMachinesPower += stepCompactP;
+
+      if (compactClockRatio > 1) {
+        const shardsPerMachine = Math.ceil((compactClockRatio * 100 - 100) / 50);
+        compactShardsTotal += shardsPerMachine * compactCount;
+      }
+
+      // Categorize for breakdown
+      const bName = bldg.name || '';
+      if (bName.includes('Fundic') || bName.includes('Horno')) {
+        breakdown.smeltersMw += stepStdP;
+      } else if (bName.includes('Constructor')) {
+        breakdown.constructorsMw += stepStdP;
+      } else if (bName.includes('Ensambla')) {
+        breakdown.assemblersMw += stepStdP;
+      } else {
+        breakdown.othersMw += stepStdP;
+      }
+    });
+
+    const totalMinerP = plan.totalMinerPower || 0;
+    const finalStandardMw = Number((standardMachinesPower + totalMinerP).toFixed(1));
+    const finalEcoMw = Number((ecoMachinesPower + totalMinerP).toFixed(1));
+    const finalCompactMw = Number((compactMachinesPower + totalMinerP).toFixed(1));
+
+    let activeMw = finalStandardMw;
+    let savingsMw = 0;
+    let savingsPercent = 0;
+    let shardsRequired = 0;
+
+    if (powerMode === 'eco') {
+      activeMw = finalEcoMw;
+      savingsMw = Number((finalStandardMw - finalEcoMw).toFixed(1));
+      savingsPercent = finalStandardMw > 0 ? Number(((savingsMw / finalStandardMw) * 100).toFixed(1)) : 0;
+    } else if (powerMode === 'compact') {
+      activeMw = finalCompactMw;
+      savingsMw = Number((finalStandardMw - finalCompactMw).toFixed(1));
+      savingsPercent = finalStandardMw > 0 ? Number(((savingsMw / finalStandardMw) * 100).toFixed(1)) : 0;
+      shardsRequired = compactShardsTotal;
+    }
+
+    // Generator Recommendations for current active load
+    const recommendedGenerators = [
+      {
+        id: 'coal_generator',
+        name: 'Generadores de Carbón',
+        icon: '⛏️',
+        unitMw: 75,
+        count: Math.ceil(activeMw / 75),
+        totalMw: Math.ceil(activeMw / 75) * 75,
+        fuelItem: 'Carbón',
+        fuelRate: Number((Math.ceil(activeMw / 75) * 15).toFixed(1)),
+        waterRate: Number((Math.ceil(activeMw / 75) * 45).toFixed(1)),
+        waterExtractors: Number(((Math.ceil(activeMw / 75) * 45) / 120).toFixed(1)),
+        tag: 'Tier 3-4 (Estable)'
+      },
+      {
+        id: 'fuel_generator',
+        name: 'Generadores de Combustible',
+        icon: '🛢️',
+        unitMw: 250,
+        count: Math.ceil(activeMw / 250),
+        totalMw: Math.ceil(activeMw / 250) * 250,
+        fuelItem: 'Combustible (Fuel)',
+        fuelRate: Number((Math.ceil(activeMw / 250) * 20).toFixed(1)),
+        waterRate: 0,
+        tag: 'Tier 5-6 (Medio/Alto)'
+      },
+      {
+        id: 'biomass_burner',
+        name: 'Quemadores de Biomasa',
+        icon: '🌿',
+        unitMw: 30,
+        count: Math.ceil(activeMw / 30),
+        totalMw: Math.ceil(activeMw / 30) * 30,
+        fuelItem: 'Biocombustible Sólido',
+        fuelRate: Number((Math.ceil(activeMw / 30) * 4).toFixed(1)),
+        waterRate: 0,
+        tag: 'Tier 1-2 (Inicial)'
+      },
+      {
+        id: 'nuclear_power_plant',
+        name: 'Centrales Nucleares',
+        icon: '☢️',
+        unitMw: 2500,
+        count: Math.max(1, Math.ceil(activeMw / 2500)),
+        totalMw: Math.max(1, Math.ceil(activeMw / 2500)) * 2500,
+        fuelItem: 'Barras de Uranio',
+        fuelRate: Number((Math.max(1, Math.ceil(activeMw / 2500)) * 0.2).toFixed(2)),
+        waterRate: Number((Math.max(1, Math.ceil(activeMw / 2500)) * 240).toFixed(1)),
+        tag: 'Tier 7-8 (Masivo)'
+      }
+    ];
+
+    const recommendedStorage = Math.max(1, Math.ceil(activeMw / 100));
+
+    return {
+      mode: powerMode,
+      activeMw,
+      standardMw: finalStandardMw,
+      ecoMw: finalEcoMw,
+      compactMw: finalCompactMw,
+      savingsMw,
+      savingsPercent,
+      shardsRequired,
+      standardMachinesTotal,
+      ecoMachinesTotal,
+      compactMachinesTotal,
+      breakdown: {
+        minersMw: Number(breakdown.minersMw.toFixed(1)),
+        smeltersMw: Number(breakdown.smeltersMw.toFixed(1)),
+        constructorsMw: Number(breakdown.constructorsMw.toFixed(1)),
+        assemblersMw: Number(breakdown.assemblersMw.toFixed(1)),
+        othersMw: Number(breakdown.othersMw.toFixed(1))
+      },
+      recommendedGenerators,
+      recommendedStorage
+    };
   }
 };
 

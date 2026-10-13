@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     builder: {
       calcMode: 'drills', // 'drills' | 'rate'
       viewMode: 'blueprint', // 'blueprint' | 'phases'
+      powerMode: 'eco', // 'eco' | 'standard' | 'compact'
       targetGoal: 'motor',
       drillCount: 1,
       targetRate: 5,
@@ -75,6 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startY: 0,
     currentModel: null,
     showRatios: true,
+    activeMaterialFilter: null,
     isInitialized: false
   };
 
@@ -502,6 +504,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnViewBp) btnViewBp.addEventListener('click', () => switchBuilderView('blueprint'));
     if (btnViewPh) btnViewPh.addEventListener('click', () => switchBuilderView('phases'));
+
+    // Gestor de Modo Energético (Eco / Estándar / Compacto)
+    const btnPwrEco = document.getElementById('btnPowerEco');
+    const btnPwrStd = document.getElementById('btnPowerStandard');
+    const btnPwrCmp = document.getElementById('btnPowerCompact');
+    const btnToggleGens = document.getElementById('btnToggleGens');
+    const genListEl = document.getElementById('energyGeneratorsList');
+
+    function setPowerMode(mode) {
+      state.builder.powerMode = mode;
+      if (btnPwrEco) btnPwrEco.classList.toggle('active', mode === 'eco');
+      if (btnPwrStd) btnPwrStd.classList.toggle('active', mode === 'standard');
+      if (btnPwrCmp) btnPwrCmp.classList.toggle('active', mode === 'compact');
+      updateLineBuilder();
+    }
+
+    if (btnPwrEco) btnPwrEco.addEventListener('click', () => setPowerMode('eco'));
+    if (btnPwrStd) btnPwrStd.addEventListener('click', () => setPowerMode('standard'));
+    if (btnPwrCmp) btnPwrCmp.addEventListener('click', () => setPowerMode('compact'));
+
+    if (btnToggleGens && genListEl) {
+      let gensVisible = true;
+      btnToggleGens.addEventListener('click', () => {
+        gensVisible = !gensVisible;
+        genListEl.style.display = gensVisible ? 'flex' : 'none';
+        btnToggleGens.textContent = gensVisible ? 'Ocultar opciones ▴' : 'Ver opciones ▾';
+      });
+    }
 
     initBlueprintInteractions();
     initBlueprintModal();
@@ -1047,9 +1077,152 @@ document.addEventListener('DOMContentLoaded', () => {
       pipelineContainer.innerHTML = pipeHtml;
     }
 
-    // 4. Update Right Column (Shopping List & Power)
+    // 4. Update Energy Performance Management & Right Column
+    const powerMode = state.builder.powerMode || 'eco';
+    const energyOpt = SatisCalc.calculateEnergyOptimization(plan, powerMode);
+
+    // Sync active mode buttons
+    const btnPwrEco = document.getElementById('btnPowerEco');
+    const btnPwrStd = document.getElementById('btnPowerStandard');
+    const btnPwrCmp = document.getElementById('btnPowerCompact');
+    if (btnPwrEco) btnPwrEco.classList.toggle('active', powerMode === 'eco');
+    if (btnPwrStd) btnPwrStd.classList.toggle('active', powerMode === 'standard');
+    if (btnPwrCmp) btnPwrCmp.classList.toggle('active', powerMode === 'compact');
+
     const mwEl = document.getElementById('builderTotalMw');
-    if (mwEl) mwEl.textContent = `${plan.totalEnergyMw} MW`;
+    if (mwEl) mwEl.textContent = `${energyOpt.activeMw} MW`;
+
+    const activeMwEl = document.getElementById('energyActiveMw');
+    if (activeMwEl) activeMwEl.textContent = `${energyOpt.activeMw} MW`;
+
+    const effBadge = document.getElementById('energyEfficiencyBadge');
+    if (effBadge) {
+      if (powerMode === 'eco') {
+        effBadge.style.background = 'rgba(74, 222, 128, 0.15)';
+        effBadge.style.color = '#4ade80';
+        effBadge.style.borderColor = '#4ade80';
+        effBadge.textContent = `AHORRO -${energyOpt.savingsMw} MW (-${energyOpt.savingsPercent}%)`;
+      } else if (powerMode === 'compact') {
+        effBadge.style.background = 'rgba(239, 68, 68, 0.15)';
+        effBadge.style.color = '#f87171';
+        effBadge.style.borderColor = '#ef4444';
+        effBadge.textContent = `OVERCLOCK 200% (💎 ${energyOpt.shardsRequired} SHARDS)`;
+      } else {
+        effBadge.style.background = 'rgba(250, 204, 21, 0.15)';
+        effBadge.style.color = '#facc15';
+        effBadge.style.borderColor = '#facc15';
+        effBadge.textContent = `ESTÁNDAR 100% NOMINAL`;
+      }
+    }
+
+    const savingsLabel = document.getElementById('energySavingsLabel');
+    const savingsVal = document.getElementById('energySavingsVal');
+    if (savingsLabel && savingsVal) {
+      if (powerMode === 'eco') {
+        savingsLabel.textContent = 'Ahorro vs Estándar';
+        savingsVal.textContent = `-${energyOpt.savingsMw} MW (-${energyOpt.savingsPercent}%)`;
+        savingsVal.style.color = '#4ade80';
+      } else if (powerMode === 'compact') {
+        savingsLabel.textContent = 'Consumo Extra';
+        savingsVal.textContent = `+${Number((energyOpt.compactMw - energyOpt.standardMw).toFixed(1))} MW`;
+        savingsVal.style.color = '#f87171';
+      } else {
+        savingsLabel.textContent = 'Referencia Base';
+        savingsVal.textContent = `${energyOpt.standardMw} MW`;
+        savingsVal.style.color = '#facc15';
+      }
+    }
+
+    const machinesBadge = document.getElementById('energyMachinesCountBadge');
+    if (machinesBadge) {
+      const totalM = (powerMode === 'eco') ? energyOpt.ecoMachinesTotal 
+                   : (powerMode === 'compact') ? energyOpt.compactMachinesTotal 
+                   : energyOpt.standardMachinesTotal;
+      machinesBadge.textContent = `${totalM} máquinas fabriles`;
+    }
+
+    // Segmented power breakdown bar
+    const totMw = Math.max(1, energyOpt.activeMw);
+    const bd = energyOpt.breakdown;
+    const pMiners = document.getElementById('pbarMiners');
+    const pSmelters = document.getElementById('pbarSmelters');
+    const pConstructors = document.getElementById('pbarConstructors');
+    const pAssemblers = document.getElementById('pbarAssemblers');
+    const pOthers = document.getElementById('pbarOthers');
+
+    if (pMiners) pMiners.style.width = `${(bd.minersMw / totMw) * 100}%`;
+    if (pSmelters) pSmelters.style.width = `${(bd.smeltersMw / totMw) * 100}%`;
+    if (pConstructors) pConstructors.style.width = `${(bd.constructorsMw / totMw) * 100}%`;
+    if (pAssemblers) pAssemblers.style.width = `${(bd.assemblersMw / totMw) * 100}%`;
+    if (pOthers) pOthers.style.width = `${(bd.othersMw / totMw) * 100}%`;
+
+    // Breakdown detail list
+    const bdList = document.getElementById('energyBreakdownList');
+    if (bdList) {
+      bdList.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>⛏️ Mineros y Extracción:</span><strong style="color: #3b82f6;">${bd.minersMw} MW</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>🔥 Fundiciones / Hornos:</span><strong style="color: #f97316;">${bd.smeltersMw} MW</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>⚙️ Constructoras:</span><strong style="color: #38bdf8;">${bd.constructorsMw} MW</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>🔧 Ensambladoras:</span><strong style="color: #a855f7;">${bd.assemblersMw} MW</strong>
+        </div>
+        ${bd.othersMw > 0 ? `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>🏭 Otras Máquinas:</span><strong style="color: #ec4899;">${bd.othersMw} MW</strong>
+          </div>
+        ` : ''}
+      `;
+    }
+
+    // Recommended power generators & batteries
+    const genList = document.getElementById('energyGeneratorsList');
+    if (genList && energyOpt.recommendedGenerators) {
+      let gHtml = '';
+      energyOpt.recommendedGenerators.forEach(gen => {
+        let details = '';
+        if (gen.waterRate > 0) {
+          details = `• Consumo: <strong>${gen.fuelRate}/m ${gen.fuelItem}</strong> + <strong>${gen.waterRate} m³/m Agua</strong> (${gen.waterExtractors}x Extractores)`;
+        } else {
+          details = `• Consumo: <strong>${gen.fuelRate}/m ${gen.fuelItem}</strong>`;
+        }
+        gHtml += `
+          <div class="gen-card-item">
+            <div>
+              <div style="font-weight: 800; color: #f1f5f9; display: flex; align-items: center; gap: 6px;">
+                <span>${gen.icon}</span>
+                <span>${gen.count}x ${gen.name}</span>
+                <span class="badge" style="font-size: 0.65rem; background: rgba(250, 204, 21, 0.15); color: #facc15; padding: 1px 6px;">${gen.totalMw} MW</span>
+              </div>
+              <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">
+                ${details}
+              </div>
+            </div>
+            <span style="font-size: 0.68rem; color: #38bdf8; font-weight: 700; white-space: nowrap;">${gen.tag}</span>
+          </div>
+        `;
+      });
+      gHtml += `
+        <div class="gen-card-item" style="border-color: rgba(56, 189, 248, 0.25);">
+          <div>
+            <div style="font-weight: 800; color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+              <span>🔋</span>
+              <span>${energyOpt.recommendedStorage}x Almacenamiento Eléctrico</span>
+              <span class="badge" style="font-size: 0.65rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 1px 6px;">${energyOpt.recommendedStorage * 100} MWh</span>
+            </div>
+            <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 2px;">
+              • Baterías FICSIT para absorber picos y estabilizar la red
+            </div>
+          </div>
+        </div>
+      `;
+      genList.innerHTML = gHtml;
+    }
 
     const effEl = document.getElementById('builderEfficiencyVal');
     if (effEl) effEl.textContent = `100%`;
@@ -1171,14 +1344,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const belts = [];
     const stageHeaders = [];
     const itemOutputPoints = {};
+    let beltCounter = 0;
 
     intakePorts.forEach(inp => {
       itemOutputPoints[inp.id] = {
+        id: `inp_${inp.id}`,
         x: inp.x + inp.width,
         y: inp.y + inp.height / 2,
         belt: inp.belt,
         rate: inp.rate,
-        name: inp.name
+        name: inp.name,
+        itemId: inp.id
       };
     });
 
@@ -1231,7 +1407,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const mw = Number(((bldg.power || 4) * (clock / 100)).toFixed(1));
 
             const mObj = {
-              id: `${step.itemId}_${k}`,
+              id: `m_${step.itemId}_${k}`,
               name: `${bldg.name} #${k + 1}`,
               bldg,
               bldgId: stepData.bldgId,
@@ -1258,6 +1434,13 @@ document.addEventListener('DOMContentLoaded', () => {
               stepSplitters.push(sObj);
 
               belts.push({
+                id: `belt_feed_sp_${step.itemId}_${k}`,
+                fromId: sObj.id,
+                toId: mObj.id,
+                itemId: step.inputs[0]?.item,
+                itemName: SATIS_DATA.items[step.inputs[0]?.item]?.name || step.inputs[0]?.item,
+                fromName: `Divisor #${k + 1}`,
+                toName: mObj.name,
                 x1: sX + 18, y1: sY + 9,
                 x2: mX, y2: mY + mHeight / 2,
                 color: step.inBelt.color,
@@ -1275,6 +1458,13 @@ document.addEventListener('DOMContentLoaded', () => {
               stepMergers.push(mgObj);
 
               belts.push({
+                id: `belt_feed_mg_${step.itemId}_${k}`,
+                fromId: mObj.id,
+                toId: mgObj.id,
+                itemId: step.itemId,
+                itemName: SATIS_DATA.items[step.itemId]?.name || step.itemId,
+                fromName: mObj.name,
+                toName: `Unidor #${k + 1}`,
                 x1: mX + mWidth, y1: mY + mHeight / 2,
                 x2: mgX, y2: mgY + 9,
                 color: step.outBelt.color,
@@ -1287,6 +1477,13 @@ document.addEventListener('DOMContentLoaded', () => {
           // Cintas troncales de manifold
           if (count > 1) {
             belts.push({
+              id: `belt_trunk_sp_${step.itemId}`,
+              fromId: stepSplitters[0].id,
+              toId: stepSplitters[count - 1].id,
+              itemId: step.inputs[0]?.item,
+              itemName: SATIS_DATA.items[step.inputs[0]?.item]?.name || step.inputs[0]?.item,
+              fromName: `Línea Troncal Divisores`,
+              toName: `Fin Troncal Divisores`,
               x1: stepSplitters[0].x + 9, y1: stepSplitters[0].y + 9,
               x2: stepSplitters[count - 1].x + 9, y2: stepSplitters[count - 1].y + 9,
               color: step.inBelt.color,
@@ -1295,6 +1492,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             belts.push({
+              id: `belt_trunk_mg_${step.itemId}`,
+              fromId: stepMergers[0].id,
+              toId: stepMergers[count - 1].id,
+              itemId: step.itemId,
+              itemName: SATIS_DATA.items[step.itemId]?.name || step.itemId,
+              fromName: `Línea Troncal Unidores`,
+              toName: `Fin Troncal Unidores`,
               x1: stepMergers[0].x + 9, y1: stepMergers[0].y + 9,
               x2: stepMergers[count - 1].x + 9, y2: stepMergers[count - 1].y + 9,
               color: step.outBelt.color,
@@ -1306,12 +1510,22 @@ document.addEventListener('DOMContentLoaded', () => {
           // Conexión de entrada desde fases anteriores
           const entryX = count > 1 ? stepSplitters[0].x : stepMachines[0].x;
           const entryY = count > 1 ? stepSplitters[0].y + 9 : stepMachines[0].y + mHeight / 2;
+          const entryId = count > 1 ? stepSplitters[0].id : stepMachines[0].id;
+          const entryName = count > 1 ? `Divisor #${step.recipe.name}` : stepMachines[0].name;
 
           step.inputs.forEach((inp, inpIdx) => {
             const src = itemOutputPoints[inp.item];
             if (src) {
               const inBeltObj = SatisCalc.getBeltForRate(inp.rateTotal);
+              beltCounter++;
               belts.push({
+                id: `belt_flow_${inp.item}_to_${step.itemId}_${beltCounter}`,
+                fromId: src.id,
+                toId: entryId,
+                itemId: inp.item,
+                itemName: SATIS_DATA.items[inp.item]?.name || inp.item,
+                fromName: src.name,
+                toName: entryName,
                 x1: src.x, y1: src.y,
                 x2: entryX, y2: entryY + (inpIdx * 12),
                 color: inBeltObj.color,
@@ -1324,12 +1538,16 @@ document.addEventListener('DOMContentLoaded', () => {
           // Punto de salida para etapas posteriores
           const exitX = count > 1 ? stepMergers[count - 1].x + 18 : stepMachines[0].x + mWidth;
           const exitY = count > 1 ? stepMergers[count - 1].y + 9 : stepMachines[0].y + mHeight / 2;
+          const exitId = count > 1 ? stepMergers[count - 1].id : stepMachines[0].id;
+          const exitName = count > 1 ? `Salida Manifold ${step.recipe.name}` : stepMachines[0].name;
 
           itemOutputPoints[step.itemId] = {
+            id: exitId,
             x: exitX, y: exitY,
             belt: step.outBelt,
             rate: step.neededRate,
-            name: SATIS_DATA.items[step.itemId]?.name || step.itemId
+            name: exitName,
+            itemId: step.itemId
           };
 
           stepY += count * (mHeight + 10) + 14;
@@ -1360,10 +1578,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalH = 65;
     const finalBelt = plan.targetMeta.isFluid ? SatisCalc.getPipeForRate(plan.targetRate) : SatisCalc.getBeltForRate(plan.targetRate);
 
-    const delivery = { x: finalX, y: finalY, width: finalW, height: finalH, belt: finalBelt };
+    const delivery = { id: 'delivery', x: finalX, y: finalY, width: finalW, height: finalH, belt: finalBelt };
 
     if (finalSrc) {
       belts.push({
+        id: `belt_final_delivery`,
+        fromId: finalSrc.id,
+        toId: 'delivery',
+        itemId: plan.targetGoal,
+        itemName: plan.targetMeta.name,
+        fromName: finalSrc.name,
+        toName: 'Contenedor Salida Final FICSIT',
         x1: finalSrc.x, y1: finalSrc.y,
         x2: finalX, y2: finalY + finalH / 2,
         color: finalBelt.color,
@@ -1434,6 +1659,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     stageHeaders.forEach(h => { h.x += shiftX; h.y += shiftY; });
 
+    // 5. Multi-Lane Bus Corridor Routing (Descongestión total de cintas)
+    // Agrupar cintas que cruzan por el mismo corredor horizontal para darles carriles independientes
+    const corridors = {};
+    belts.forEach(b => {
+      if (!b.isTrunk && b.x1 < b.x2 && Math.abs(b.y1 - b.y2) > 2) {
+        const cKey = `${Math.round(b.x1 / 30)}_${Math.round(b.x2 / 30)}`;
+        if (!corridors[cKey]) corridors[cKey] = [];
+        corridors[cKey].push(b);
+      }
+    });
+
+    Object.values(corridors).forEach(cBelts => {
+      cBelts.sort((a, b) => (a.y2 - b.y2) || (a.y1 - b.y1));
+      const N = cBelts.length;
+      cBelts.forEach((b, idx) => {
+        const gap = b.x2 - b.x1;
+        const pad = Math.min(22, Math.max(8, gap * 0.15));
+        const usable = gap - pad * 2;
+        const fraction = N > 1 ? (idx + 1) / (N + 1) : 0.5;
+        b.laneX = Math.round(b.x1 + pad + usable * fraction);
+      });
+    });
+
     const contentW = (maxX - minX) + padX * 2;
     const contentH = (maxY - minY) + padY * 2;
     const totalW = Math.max(480, Math.ceil(contentW / GRID_SIZE) * GRID_SIZE);
@@ -1471,6 +1719,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <feGaussianBlur stdDeviation="2.5" result="blur"/>
           <feComposite in="SourceGraphic" in2="blur" operator="over"/>
         </filter>
+        <marker id="bpArrowDefault" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+        </marker>
       </defs>
     `;
 
@@ -1481,30 +1732,59 @@ document.addEventListener('DOMContentLoaded', () => {
       if (b.isTrunk || (b.y1 === b.y2) || (b.x1 === b.x2)) {
         d = `M ${b.x1} ${b.y1} L ${b.x2} ${b.y2}`;
       } else {
-        const midX = (b.x1 + b.x2) / 2;
-        d = `M ${b.x1} ${b.y1} L ${midX} ${b.y1} L ${midX} ${b.y2} L ${b.x2} ${b.y2}`;
+        const laneX = b.laneX || Math.round((b.x1 + b.x2) / 2);
+        const dirY = (b.y2 > b.y1) ? 1 : -1;
+        const r = Math.min(6, Math.abs(b.y2 - b.y1) / 2, Math.abs(laneX - b.x1), Math.abs(b.x2 - laneX));
+        if (r < 2) {
+          d = `M ${b.x1} ${b.y1} L ${laneX} ${b.y1} L ${laneX} ${b.y2} L ${b.x2} ${b.y2}`;
+        } else {
+          d = `M ${b.x1} ${b.y1} ` +
+              `L ${laneX - r} ${b.y1} ` +
+              `Q ${laneX} ${b.y1} ${laneX} ${b.y1 + dirY * r} ` +
+              `L ${laneX} ${b.y2 - dirY * r} ` +
+              `Q ${laneX} ${b.y2} ${laneX + r} ${b.y2} ` +
+              `L ${b.x2} ${b.y2}`;
+        }
       }
 
-      beltsSvg += `<path d="${d}" fill="none" stroke="#02050b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`;
-      beltsSvg += `<path d="${d}" fill="none" stroke="${b.color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="blueprint-belt-flow" stroke-dasharray="7 5"/>`;
-
+      let badgeSvg = '';
       if (!b.isFeeder && b.rate) {
-        const midX = (b.x1 + b.x2) / 2;
-        const midY = (b.y1 + b.y2) / 2;
-        beltsSvg += `
+        const badgeX = b.laneX || Math.round((b.x1 + b.x2) / 2);
+        const badgeY = Math.round((b.y1 + b.y2) / 2);
+        const itemLabel = b.itemName ? `${b.itemName} (+${b.rate}/m)` : `${b.rate}/m`;
+        const pW = Math.max(46, itemLabel.length * 5.6 + 14);
+        badgeSvg = `
           <g class="bp-belt-rate-pill" style="pointer-events: none;">
-            <rect x="${midX - 20}" y="${midY - 7}" width="40" height="14" rx="3" fill="#09101d" stroke="${b.color}" stroke-width="1"/>
-            <text x="${midX}" y="${midY + 3}" fill="#f1f5f9" font-size="8" font-family="'Consolas', monospace" font-weight="700" text-anchor="middle">${b.rate}/m</text>
+            <rect x="${badgeX - pW/2}" y="${badgeY - 8}" width="${pW}" height="16" rx="4" fill="#070e1b" stroke="${b.color}" stroke-width="1.2"/>
+            <text x="${badgeX}" y="${badgeY + 3.5}" fill="#f1f5f9" font-size="7.5" font-family="'Consolas', monospace" font-weight="700" text-anchor="middle">${itemLabel}</text>
           </g>
         `;
       }
+
+      beltsSvg += `
+        <g class="blueprint-belt" 
+           id="${b.id}"
+           data-id="${b.id}"
+           data-from="${b.fromId || ''}"
+           data-to="${b.toId || ''}"
+           data-item="${b.itemId || ''}"
+           data-itemname="${b.itemName || ''}"
+           data-rate="${b.rate || ''}"
+           data-fromname="${b.fromName || ''}"
+           data-toname="${b.toName || ''}">
+          <path class="bp-belt-casing" d="${d}" fill="none" stroke="#040812" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path class="bp-belt-rail" d="${d}" fill="none" stroke="${b.color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#bpArrowDefault)"/>
+          <path class="bp-belt-flow" d="${d}" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-dasharray="6 6" opacity="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+          ${badgeSvg}
+        </g>
+      `;
     });
 
     // Puntos de Entrada Exterior SVG
     let intakeSvg = '';
     intakePorts.forEach(inp => {
       intakeSvg += `
-        <g class="blueprint-intake">
+        <g class="blueprint-intake" id="inp_${inp.id}" data-id="inp_${inp.id}" data-item="${inp.id}">
           <rect x="${inp.x}" y="${inp.y}" width="${inp.width}" height="${inp.height}" rx="5" fill="#0c1524" stroke="${inp.color}" stroke-width="1.6"/>
           <rect x="${inp.x + inp.width - 2}" y="${inp.y + inp.height/2 - 5}" width="4" height="10" fill="#4ade80" rx="2"/>
           <text x="${inp.x + 8}" y="${inp.y + 14}" fill="#38bdf8" font-size="7.5" font-weight="800" letter-spacing="0.5">📥 ENTRADA EXTERIOR</text>
@@ -1518,7 +1798,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let splittersSvg = '';
     splitters.forEach(s => {
       splittersSvg += `
-        <g class="blueprint-splitter">
+        <g class="blueprint-splitter" id="${s.id}" data-id="${s.id}">
           <rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" rx="3" fill="#78350f" stroke="#f59e0b" stroke-width="1.5"/>
           <text x="${s.x + 9}" y="${s.y + 13}" fill="#fef08a" font-size="9.5" text-anchor="middle" font-weight="800">🔀</text>
         </g>
@@ -1529,7 +1809,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let mergersSvg = '';
     mergers.forEach(mg => {
       mergersSvg += `
-        <g class="blueprint-merger">
+        <g class="blueprint-merger" id="${mg.id}" data-id="${mg.id}">
           <rect x="${mg.x}" y="${mg.y}" width="${mg.width}" height="${mg.height}" rx="3" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.5"/>
           <text x="${mg.x + 9}" y="${mg.y + 13}" fill="#e0f2fe" font-size="9.5" text-anchor="middle" font-weight="800">🔄</text>
         </g>
@@ -1550,6 +1830,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       machinesSvg += `
         <g class="blueprint-machine" 
+           id="${m.id}"
+           data-id="${m.id}"
            data-name="${m.name}" 
            data-bldg="${m.bldg.name}" 
            data-recipe="${m.recipe.name}" 
@@ -1557,7 +1839,8 @@ document.addEventListener('DOMContentLoaded', () => {
            data-mw="${m.mw}" 
            data-in="${m.inputRate}" 
            data-out="${m.outputRate}" 
-           data-item="${SATIS_DATA.items[m.itemId]?.name || m.itemId}"
+           data-item="${m.itemId}"
+           data-itemname="${SATIS_DATA.items[m.itemId]?.name || m.itemId}"
            transform="translate(${m.x}, ${m.y})">
           
           <rect width="${m.width}" height="${m.height}" rx="5" fill="#0d1524" stroke="${bColor}" stroke-width="1.8"/>
@@ -1583,7 +1866,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const d = model.delivery;
     const finalIconImg = `images/items/${plan.targetGoal}.png`;
     const deliverySvg = `
-      <g class="blueprint-delivery" transform="translate(${d.x}, ${d.y})">
+      <g class="blueprint-delivery" id="delivery" data-id="delivery" data-item="${plan.targetGoal}" transform="translate(${d.x}, ${d.y})">
         <rect width="${d.width}" height="${d.height}" rx="6" fill="#091624" stroke="#4ade80" stroke-width="2"/>
         <rect x="3" y="3" width="${d.width - 6}" height="${d.height - 6}" rx="4" fill="#06101c"/>
         <rect x="-3" y="${d.height/2 - 6}" width="4" height="12" fill="#4ade80" rx="2"/>
@@ -1642,20 +1925,115 @@ document.addEventListener('DOMContentLoaded', () => {
       </svg>
     `;
 
-    return { svg: fullSvg, model };
+    // Recopilar materiales presentes para barra de filtrado
+    const materialsMap = new Map();
+    belts.forEach(b => {
+      if (b.itemId && !materialsMap.has(b.itemId)) {
+        const meta = SATIS_DATA.items[b.itemId] || SATIS_DATA.rawResources[b.itemId] || { id: b.itemId, name: b.itemName || b.itemId };
+        materialsMap.set(b.itemId, meta);
+      }
+    });
+    intakePorts.forEach(inp => {
+      if (!materialsMap.has(inp.id)) {
+        const meta = SATIS_DATA.rawResources[inp.id] || { id: inp.id, name: inp.name };
+        materialsMap.set(inp.id, meta);
+      }
+    });
+    if (!materialsMap.has(plan.targetGoal)) {
+      materialsMap.set(plan.targetGoal, plan.targetMeta);
+    }
+
+    return { svg: fullSvg, model, materialsList: Array.from(materialsMap.values()) };
+  }
+
+  function applyBlueprintMaterialFilter() {
+    const canvas = document.getElementById('blueprintCanvas');
+    if (!canvas) return;
+    const filterItem = bpViewerState.activeMaterialFilter;
+
+    // Actualizar botones de filtro
+    const chips = document.querySelectorAll('#bpMaterialFiltersRow .bp-filter-chip');
+    chips.forEach(c => {
+      const it = c.getAttribute('data-filter-item');
+      c.classList.toggle('active', it === (filterItem || 'all'));
+    });
+
+    if (!filterItem) {
+      canvas.classList.remove('has-active-focus');
+      canvas.querySelectorAll('.is-dimmed').forEach(el => el.classList.remove('is-dimmed'));
+      return;
+    }
+
+    canvas.classList.add('has-active-focus');
+    // Belts
+    canvas.querySelectorAll('.blueprint-belt').forEach(bEl => {
+      const bItem = bEl.getAttribute('data-item');
+      bEl.classList.toggle('is-dimmed', bItem !== filterItem);
+    });
+    // Machines
+    canvas.querySelectorAll('.blueprint-machine').forEach(mEl => {
+      const mItem = mEl.getAttribute('data-item');
+      mEl.classList.toggle('is-dimmed', mItem !== filterItem);
+    });
+    // Intake
+    canvas.querySelectorAll('.blueprint-intake').forEach(inpEl => {
+      const inpItem = inpEl.getAttribute('data-item');
+      inpEl.classList.toggle('is-dimmed', inpItem !== filterItem);
+    });
+    // Delivery
+    canvas.querySelectorAll('.blueprint-delivery').forEach(dEl => {
+      const dItem = dEl.getAttribute('data-item');
+      dEl.classList.toggle('is-dimmed', dItem !== filterItem);
+    });
   }
 
   function renderFactoryBlueprint(plan) {
     const canvas = document.getElementById('blueprintCanvas');
     if (!canvas) return;
 
-    const { svg, model } = generateBlueprintSvg(plan);
+    const { svg, model, materialsList } = generateBlueprintSvg(plan);
     canvas.innerHTML = svg;
     bpViewerState.currentModel = model;
 
     const dimBadge = document.getElementById('bpFoundationDimensionsBadge');
     if (dimBadge && model) {
       dimBadge.textContent = `📐 ${model.foundationsX}x${model.foundationsY} Cimientos (${model.foundationsMetersW}m x ${model.foundationsMetersH}m • ${model.totalFoundations} bloques)`;
+    }
+
+    // Renderizar chips de filtro por material en la barra de herramientas del plano
+    const filtersRow = document.getElementById('bpMaterialFiltersRow');
+    if (filtersRow && materialsList) {
+      let chipsHtml = `
+        <button type="button" class="bp-filter-chip ${!bpViewerState.activeMaterialFilter ? 'active' : ''}" data-filter-item="all">
+          <span>🌟 Ver Todo</span>
+        </button>
+      `;
+      materialsList.forEach(mItem => {
+        const isActive = bpViewerState.activeMaterialFilter === mItem.id;
+        chipsHtml += `
+          <button type="button" class="bp-filter-chip ${isActive ? 'active' : ''}" data-filter-item="${mItem.id}">
+            ${getItemIcon(mItem.id, 14)}
+            <span>${mItem.name}</span>
+          </button>
+        `;
+      });
+      filtersRow.innerHTML = chipsHtml;
+
+      filtersRow.onclick = (e) => {
+        const chip = e.target.closest('.bp-filter-chip');
+        if (!chip) return;
+        const itemId = chip.getAttribute('data-filter-item');
+        if (itemId === 'all' || bpViewerState.activeMaterialFilter === itemId) {
+          bpViewerState.activeMaterialFilter = null;
+        } else {
+          bpViewerState.activeMaterialFilter = itemId;
+        }
+        applyBlueprintMaterialFilter();
+      };
+    }
+
+    if (bpViewerState.activeMaterialFilter) {
+      applyBlueprintMaterialFilter();
     }
 
     requestAnimationFrame(() => {
@@ -1783,8 +2161,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('blueprintCanvas');
     if (!viewport || !tooltip || !canvas) return;
 
+    function clearBlueprintHighlights() {
+      tooltip.style.display = 'none';
+      canvas.classList.remove('has-active-focus');
+      canvas.querySelectorAll('.is-hovered, .is-active-in, .is-active-out, .is-active-source, .is-active-target, .is-dimmed').forEach(el => {
+        el.classList.remove('is-hovered', 'is-active-in', 'is-active-out', 'is-active-source', 'is-active-target', 'is-dimmed');
+      });
+      if (bpViewerState.activeMaterialFilter) {
+        applyBlueprintMaterialFilter();
+      }
+    }
+
+    // 1. Trazado Interactivo al Pasar el Ratón por Máquinas
     canvas.querySelectorAll('.blueprint-machine').forEach(mEl => {
-      mEl.addEventListener('mouseenter', (e) => {
+      mEl.addEventListener('mouseenter', () => {
+        const mId = mEl.getAttribute('data-id');
         const name = mEl.getAttribute('data-name');
         const bldg = mEl.getAttribute('data-bldg');
         const recipe = mEl.getAttribute('data-recipe');
@@ -1792,15 +2183,60 @@ document.addEventListener('DOMContentLoaded', () => {
         const mw = mEl.getAttribute('data-mw');
         const inRate = mEl.getAttribute('data-in');
         const outRate = mEl.getAttribute('data-out');
-        const item = mEl.getAttribute('data-item');
+        const itemName = mEl.getAttribute('data-itemname') || mEl.getAttribute('data-item');
+
+        canvas.classList.add('has-active-focus');
+        mEl.classList.add('is-hovered');
+
+        const sourceNodes = new Set();
+        const targetNodes = new Set();
+
+        // Identificar cintas de entrada y salida conectadas a esta máquina
+        canvas.querySelectorAll('.blueprint-belt').forEach(bEl => {
+          const from = bEl.getAttribute('data-from');
+          const to = bEl.getAttribute('data-to');
+
+          if (to === mId || (to && mId && to.includes(mId))) {
+            bEl.classList.add('is-active-in');
+            if (from) sourceNodes.add(from);
+          } else if (from === mId || (from && mId && from.includes(mId))) {
+            bEl.classList.add('is-active-out');
+            if (to) targetNodes.add(to);
+          } else {
+            bEl.classList.add('is-dimmed');
+          }
+        });
+
+        // Resaltar nodos de origen (Cyan) y destino (Verde)
+        sourceNodes.forEach(nodeId => {
+          const el = canvas.querySelector(`[data-id="${nodeId}"]`) || canvas.querySelector(`#${nodeId}`);
+          if (el) el.classList.add('is-active-source');
+        });
+
+        targetNodes.forEach(nodeId => {
+          const el = canvas.querySelector(`[data-id="${nodeId}"]`) || canvas.querySelector(`#${nodeId}`);
+          if (el) el.classList.add('is-active-target');
+        });
+
+        // Atenuar el resto de máquinas y elementos no involucrados
+        canvas.querySelectorAll('.blueprint-machine, .blueprint-intake, .blueprint-delivery, .blueprint-splitter, .blueprint-merger').forEach(nodeEl => {
+          const nId = nodeEl.getAttribute('data-id') || nodeEl.id;
+          if (nId !== mId && !sourceNodes.has(nId) && !targetNodes.has(nId)) {
+            nodeEl.classList.add('is-dimmed');
+          }
+        });
 
         tooltip.innerHTML = `
           <div style="font-weight: 800; color: #38bdf8; font-size: 0.85rem; margin-bottom: 4px;">${name}</div>
+          <div><strong>Edificio:</strong> ${bldg}</div>
           <div><strong>Receta:</strong> ${recipe}</div>
-          <div><strong>Insumo:</strong> ${inRate}/min</div>
-          <div><strong>Entrega:</strong> <span style="color: #4ade80; font-weight: 700;">+${outRate}/min ${item}</span></div>
-          <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px; color: #facc15;">
-            ⚡ Reloj: <strong>${clock}%</strong> &bull; Consumo: <strong>${mw} MW</strong>
+          <div><strong>Insumos:</strong> ${inRate}/min</div>
+          <div><strong>Producción:</strong> <span style="color: #4ade80; font-weight: 700;">+${outRate}/min ${itemName}</span></div>
+          <div style="margin-top: 5px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px; color: #facc15;">
+            ⚡ Reloj: <strong>${clock}%</strong> &bull; Potencia: <strong>${mw} MW</strong>
+          </div>
+          <div style="font-size: 0.68rem; color: #94a3b8; margin-top: 3px;">
+            <span style="color: #38bdf8;">■ Entradas (Cyan)</span> &bull; <span style="color: #4ade80;">■ Salidas (Verde)</span>
           </div>
         `;
         tooltip.style.display = 'block';
@@ -1812,9 +2248,61 @@ document.addEventListener('DOMContentLoaded', () => {
         tooltip.style.top = `${e.clientY - rect.top + 15}px`;
       });
 
-      mEl.addEventListener('mouseleave', () => {
-        tooltip.style.display = 'none';
+      mEl.addEventListener('mouseleave', clearBlueprintHighlights);
+    });
+
+    // 2. Trazado Interactivo al Pasar el Ratón por Cintas Transportadoras
+    canvas.querySelectorAll('.blueprint-belt').forEach(bEl => {
+      bEl.addEventListener('mouseenter', () => {
+        const from = bEl.getAttribute('data-from');
+        const to = bEl.getAttribute('data-to');
+        const fromName = bEl.getAttribute('data-fromname') || 'Origen';
+        const toName = bEl.getAttribute('data-toname') || 'Destino';
+        const itemName = bEl.getAttribute('data-itemname') || 'Material';
+        const itemId = bEl.getAttribute('data-item');
+        const rate = bEl.getAttribute('data-rate');
+
+        canvas.classList.add('has-active-focus');
+        bEl.classList.add('is-active-in');
+
+        // Resaltar origen y destino
+        if (from) {
+          const srcEl = canvas.querySelector(`[data-id="${from}"]`) || canvas.querySelector(`#${from}`);
+          if (srcEl) srcEl.classList.add('is-active-source');
+        }
+        if (to) {
+          const tgtEl = canvas.querySelector(`[data-id="${to}"]`) || canvas.querySelector(`#${to}`);
+          if (tgtEl) tgtEl.classList.add('is-active-target');
+        }
+
+        // Atenuar todo lo demás
+        canvas.querySelectorAll('.blueprint-belt').forEach(otherB => {
+          if (otherB !== bEl) otherB.classList.add('is-dimmed');
+        });
+        canvas.querySelectorAll('.blueprint-machine, .blueprint-intake, .blueprint-delivery, .blueprint-splitter, .blueprint-merger').forEach(nodeEl => {
+          const nId = nodeEl.getAttribute('data-id') || nodeEl.id;
+          if (nId !== from && nId !== to) nodeEl.classList.add('is-dimmed');
+        });
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #facc15; font-size: 0.85rem; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>📦</span>
+            <span>Cinta: ${itemName}</span>
+          </div>
+          ${rate ? `<div><strong>Flujo continuo:</strong> <span style="color: #4ade80; font-weight: 800;">+${rate} /min</span></div>` : ''}
+          <div style="margin-top: 4px; font-size: 0.74rem;"><strong>De:</strong> <span style="color: #38bdf8;">${fromName}</span></div>
+          <div style="font-size: 0.74rem;"><strong>Hacia:</strong> <span style="color: #4ade80;">${toName}</span></div>
+        `;
+        tooltip.style.display = 'block';
       });
+
+      bEl.addEventListener('mousemove', (e) => {
+        const rect = viewport.getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      });
+
+      bEl.addEventListener('mouseleave', clearBlueprintHighlights);
     });
   }
 

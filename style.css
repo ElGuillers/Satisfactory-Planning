@@ -2146,5 +2146,228 @@ body {
   animation: beltFlow 1.2s linear infinite;
 }
 
+/* =========================================================================
+   GESTOR DE RENDIMIENTO ENERGÉTICO (Satisfactory 1.0)
+   ========================================================================= */
+.energy-manager-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0e1726 0%, #080d17 100%);
+}
+
+.energy-profile-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  background: #090f1a;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-energy-profile {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.btn-energy-profile:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.btn-energy-profile.active[data-mode="eco"] {
+  background: rgba(74, 222, 128, 0.18);
+  color: #4ade80;
+  border-color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.25);
+}
+
+.btn-energy-profile.active[data-mode="standard"] {
+  background: rgba(250, 204, 21, 0.18);
+  color: #facc15;
+  border-color: #facc15;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.25);
+}
+
+.btn-energy-profile.active[data-mode="compact"] {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border-color: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+}
+
+.power-breakdown-bar {
+  display: flex;
+  height: 8px;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #070c14;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.power-bar-seg {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.power-bar-seg.seg-miners { background: #3b82f6; }
+.power-bar-seg.seg-smelters { background: #f97316; }
+.power-bar-seg.seg-constructors { background: #38bdf8; }
+.power-bar-seg.seg-assemblers { background: #a855f7; }
+.power-bar-seg.seg-others { background: #ec4899; }
+
+.gen-card-item {
+  background: #090e17;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+  transition: border-color 0.15s ease;
+}
+
+.gen-card-item:hover {
+  border-color: rgba(250, 204, 21, 0.4);
+}
+
+/* =========================================================================
+   BARRA DE FILTROS DE MATERIALES DEL PLANO 2D
+   ========================================================================= */
+.blueprint-materials-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: #0a111e;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.18);
+  flex-wrap: wrap;
+}
+
+.bp-filter-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bp-filter-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.bp-filter-chip {
+  background: #111a28;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.bp-filter-chip:hover {
+  background: #19273c;
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.bp-filter-chip.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+}
+
+/* =========================================================================
+   TRAZADO INTERACTIVO Y DESENREDO DEL PLANO 2D
+   ========================================================================= */
+.blueprint-belt {
+  cursor: pointer;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.blueprint-belt:hover {
+  filter: drop-shadow(0 0 6px #facc15);
+}
+
+.blueprint-machine, .blueprint-intake, .blueprint-splitter, .blueprint-merger, .blueprint-delivery {
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+/* Estado atenuado cuando se enfoca un elemento o se filtra */
+.blueprint-canvas.has-active-focus .is-dimmed {
+  opacity: 0.14 !important;
+  filter: grayscale(0.7);
+}
+
+/* Resaltado de Entrada (Cyan) */
+.blueprint-belt.is-active-in path.bp-belt-rail {
+  stroke: #38bdf8 !important;
+  stroke-width: 4.5px !important;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8)) !important;
+}
+
+.blueprint-belt.is-active-in path.bp-belt-flow {
+  animation-duration: 0.6s !important;
+}
+
+/* Resaltado de Salida (Verde Esmeralda) */
+.blueprint-belt.is-active-out path.bp-belt-rail {
+  stroke: #4ade80 !important;
+  stroke-width: 4.5px !important;
+  filter: drop-shadow(0 0 6px rgba(74, 222, 128, 0.8)) !important;
+}
+
+.blueprint-belt.is-active-out path.bp-belt-flow {
+  animation-duration: 0.6s !important;
+}
+
+/* Resaltado de Máquinas de Origen y Destino */
+.blueprint-machine.is-active-source rect:first-child,
+.blueprint-intake.is-active-source rect:first-child,
+.blueprint-splitter.is-active-source rect:first-child {
+  stroke: #38bdf8 !important;
+  stroke-width: 2.8px !important;
+  filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8));
+}
+
+.blueprint-machine.is-active-target rect:first-child,
+.blueprint-delivery.is-active-target rect:first-child,
+.blueprint-merger.is-active-target rect:first-child {
+  stroke: #4ade80 !important;
+  stroke-width: 2.8px !important;
+  filter: drop-shadow(0 0 10px rgba(74, 222, 128, 0.8));
+}
+
+.blueprint-machine.is-hovered rect:first-child {
+  stroke: #facc15 !important;
+  stroke-width: 2.8px !important;
+  filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.9));
+}
+
 
 

@@ -65,21 +65,44 @@ Calculadora y planificador de producción ultra liviano diseñado para pioneros 
 * **Esquema de Splitters & Balance Troncal:** Indica cómo derivar la cinta principal y cómo configurar el manifold en el juego con cero desperdicio y 100% de eficiencia.
 * **Botón '📐 Plano 2D' por Rama:** Abre una ventana modal interactiva con el plano de planta 2D específico de la producción de esa rama.
 
-### 9. 📐 Plano Vista Aérea (2D) Interactivo (Floor Blueprint)
+### 9. 📐 Plano Vista Aérea (2D) Interactivo (Floor Blueprint & Descongestión)
 * **Vista Superior de Fábrica (2D Aerial):** Generación automática en SVG de la planta de fábrica sobre suelo de cimientos estándar de Satisfactory (**8m x 8m por bloque**).
 * **Sin Taladros Exteriores:** El plano excluye los mineros exteriores e inicia limpiamente en los puertos colectoras de entrada de mineral (`📥 ENTRADA EXTERIOR`), centrándose exclusivamente en el suelo y distribución de la fábrica.
 * **Equipamiento Completo Representado:**
   * **Hornos (Fundiciones)**, **Constructoras**, **Ensambladoras**, **Fabricantes** y **Refinerías** a escala visual con su icono oficial, receta asignada, insumo, salida continua, reloj de overclock y consumo en MW.
   * **Divisores (Splitters `🔀`)** colocados automáticamente para alimentar manifolds de múltiples máquinas.
   * **Unidores (Mergers `🔄`)** para recolectar las salidas hacia la siguiente fase.
-  * **Cintas Transportadoras Codificadas:** Trazado ortogonal con colores por tier (Mk.1 a Mk.6), animación de flujo de items y pastillas numéricas con el caudal exacto (`X/m`).
   * **Contenedor de Salida Final (`📦 SALIDA FINAL`):** Terminal de almacenamiento con ritmo de entrega y cinta requerida.
+* **Enrutamiento por Carriles Multicanal (Multi-Lane Bus Routing - Sin Líneas Confusas):**
+  * Elimina por completo el solapamiento o congestión de cintas entre fases.
+  * Cada cinta transportadora en un mismo corredor recibe su propio canal vertical independiente con curvaturas suaves (`Q` Bezier) y separación garantizada.
+  * **Marcadores de Flecha Direccional:** Flechas SVG y animación de flujo dinámico que indican claramente hacia dónde viaja el producto.
+  * **Pastillas de Material y Flujo:** Cada cinta muestra su material y caudal continuo (`[Icono] Nombre (+X/m)`).
+* **Trazado Interactivo de Rutas (Interactive Route Tracing):**
+  * **Al pasar el cursor sobre cualquier máquina:** Se iluminan automáticamente todas sus cintas de entrada en **Cyan (#38bdf8)** y sus salidas en **Verde Esmeralda (#4ade80)**, destacando sus máquinas de procedencia y destino mientras se atenúa el resto de la fábrica (`opacity: 0.15`).
+  * **Al pasar el cursor sobre cualquier cinta:** Se ilumina la trayectoria completa y un tooltip detallado te explica de dónde viene y hacia qué máquina va.
+* **Barra de Filtrado Rápido por Material:**
+  * Botones en la barra superior (`[🌟 Ver Todo]`, `[🪨 Mineral]`, `[🪙 Lingote]`, `[🔩 Tornillos]...`).
+  * Al hacer 1 clic en un material, la fábrica entera aísla visualmente toda su línea de transporte y manufactura.
 * **Dimensiones y Conteo de Cimientos:** Insignia que te indica los cimientos exactos y compactos que debes construir en el juego (ej. `20x5 Cimientos (160m x 40m • 100 bloques)` ajustados al milímetro con cero espacio desperdiciado) con reglas perimetrales de coordenadas.
-* **Controles Interactivos Fluidos:**
-  * Arrastre con ratón (*Pan* libre).
-  * Zoom con rueda del ratón centrado hacia el cursor.
-  * Botones de zoom in (`+`), zoom out (`-`) y **Ajustar / Centrar**.
-  * Modo **Pantalla Completa (⛶)** y alternador de etiquetas de ratios.
-  * Tooltip flotante al pasar el cursor sobre cualquier máquina con su receta, insumo, entrega, reloj y MW.
-* **Selector de Vistas:** Permite alternar en cualquier momento entre el **📐 Plano Vista Aérea (2D)** y el **📋 Esquema por Fases**.
+* **Controles Interactivos Fluidos:** Arrastre (*Pan* libre), zoom con rueda hacia el cursor, pantalla completa (⛶) y alternador de ratios.
+
+---
+
+### 10. ⚡ Gestor de Rendimiento Energético (Satisfactory 1.0 / 1.2)
+* **Física Real de Energía FICSIT:** Aplica el exponente oficial de producción `1.321928` según la fórmula:
+  $$P = P_{\text{base}} \times \left(\frac{\text{Clock}}{100}\right)^{1.321928}$$
+* **3 Perfiles de Rendimiento Eléctrico:**
+  1. 🟢 **Modo Eco (Máxima Eficiencia):** Underclocking distribuido inteligente entre máquinas idénticas. Logra un **ahorro de entre 15% y 25% de MW** con la misma producción exacta.
+  2. 🟡 **Modo Estándar (100%):** Operación nominal clásica de Satisfactory (máquinas enteras al 100% y 1 residual al porcentaje restante).
+  3. 🔴 **Modo Compacto (Overclocking 200%):** Reduce el número de máquinas y el espacio en cimientos a la mitad, calculando el consumo extra y el total de **Fragmentos de Energía (💎 Power Shards)** requeridos.
+* **Barra Segmentada de Desglose:** Visualiza en tiempo real qué porcentaje y cuántos MW consumen tus Mineros, Fundiciones, Constructoras y Ensambladoras.
+* **Dimensionamiento de Centrales Eléctricas FICSIT:**
+  * Calcula cuántas centrales necesitas construir para alimentar tu fábrica completa:
+    * ⛏️ **Generadores de Carbón (75 MW c/u):** Cantidad de plantas, consumo de Carbón/min y consumo de Agua en $m^3$/min (+ número de Extractores de Agua).
+    * 🛢️ **Generadores de Combustible (250 MW c/u):** Cantidad de generadores y tasa de Fuel/min.
+    * 🌿 **Quemadores de Biomasa (30 MW c/u):** Para arranques en Tier 1-2.
+    * ☢️ **Centrales Nucleares (2500 MW c/u):** Para megaproyectos de alta capacidad.
+    * 🔋 **Almacenamiento de Energía FICSIT:** Baterías recomendadas (100 MWh c/u) para absorber picos y evitar caídas de red.
+
 

@@ -236,6 +236,14 @@
               </div>
             </div>
 
+            <!-- Barra de Filtros por Material para Trazado y Guiado Rápido -->
+            <div class="blueprint-materials-bar" id="bpMaterialFiltersContainer">
+              <span class="bp-filter-label">🔍 Rastrear Material:</span>
+              <div id="bpMaterialFiltersRow" class="bp-filter-chips-row">
+                <!-- Se llena dinámicamente: [🌟 Todos] [🪨 Hierro] [🪙 Lingote]... -->
+              </div>
+            </div>
+
             <!-- Viewport Interactivo con Pan & Zoom -->
             <div id="blueprintViewport" class="blueprint-viewport">
               <div id="blueprintCanvas" class="blueprint-canvas">
@@ -266,9 +274,85 @@
           </div>
         </div>
 
-        <!-- Right Column: Visual Summary & Shopping List -->
-        <div>
-          <div class="ficsit-card" style="position: sticky; top: 80px; padding: 18px;">
+        <!-- Right Column: Visual Summary, Energy Optimization & Shopping List -->
+        <div style="display: flex; flex-direction: column; gap: 14px; position: sticky; top: 80px;">
+          <!-- ⚡ TARJETA DE GESTIÓN DE RENDIMIENTO ENERGÉTICO (Satisfactory 1.0) -->
+          <div class="ficsit-card energy-manager-card" style="padding: 16px; border: 1px solid rgba(250, 204, 21, 0.4); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);">
+            <div class="card-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+              <h2 class="card-title" style="font-size: 0.95rem; color: #facc15;">
+                <span class="icon">⚡</span> Rendimiento Energético
+              </h2>
+              <span id="energyEfficiencyBadge" class="badge" style="background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80; font-size: 0.7rem; font-weight: 800;">
+                OPTIMIZADO 1.0
+              </span>
+            </div>
+
+            <!-- Selector de Modos de Operación Eléctrica -->
+            <div style="margin-bottom: 12px;">
+              <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 6px;">
+                Modo de Operación Eléctrica:
+              </span>
+              <div class="energy-profile-group">
+                <button type="button" class="btn-energy-profile active" id="btnPowerEco" data-mode="eco" title="Underclocking distribuido: ahorra ~15-25% MW con la fórmula física P = Pbase * (Reloj/100)^1.321928">
+                  <span>🟢 Eco (-15% MW)</span>
+                </button>
+                <button type="button" class="btn-energy-profile" id="btnPowerStandard" data-mode="standard" title="Operación nominal 100% estándar (1 máquina residual)">
+                  <span>🟡 Estándar</span>
+                </button>
+                <button type="button" class="btn-energy-profile" id="btnPowerCompact" data-mode="compact" title="Overclock 200%: reduce máquinas al mínimo con Fragmentos de Energía (💎 Power Shards)">
+                  <span>🔴 Compacto (💎)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Métricas Clave de Potencia y Ahorro -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div class="stat-box" style="padding: 8px 10px; background: #0c1422; border-color: rgba(250, 204, 21, 0.35);">
+                <span class="stat-label" style="font-size: 0.68rem; color: #cbd5e1;">Consumo Activo</span>
+                <span class="stat-number" style="font-size: 1.15rem; color: #facc15;" id="energyActiveMw">0 MW</span>
+              </div>
+              <div class="stat-box" style="padding: 8px 10px; background: #0c1422;" id="energySavingsBox">
+                <span class="stat-label" style="font-size: 0.68rem;" id="energySavingsLabel">Ahorro vs Estándar</span>
+                <span class="stat-number" style="font-size: 1.15rem; color: #4ade80;" id="energySavingsVal">-0.0 MW</span>
+              </div>
+            </div>
+
+            <!-- Barra Segmentada de Desglose Energético -->
+            <div style="background: #111a28; border-radius: var(--radius-sm); padding: 10px; border: 1px solid rgba(255, 255, 255, 0.06); margin-bottom: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700; text-transform: uppercase;">Desglose de Consumo:</span>
+                <span id="energyMachinesCountBadge" style="font-size: 0.7rem; color: #94a3b8; font-weight: 600;">0 máquinas</span>
+              </div>
+              <div class="power-breakdown-bar" id="powerBreakdownBar">
+                <div class="power-bar-seg seg-miners" id="pbarMiners" title="Mineros"></div>
+                <div class="power-bar-seg seg-smelters" id="pbarSmelters" title="Fundiciones"></div>
+                <div class="power-bar-seg seg-constructors" id="pbarConstructors" title="Constructores"></div>
+                <div class="power-bar-seg seg-assemblers" id="pbarAssemblers" title="Ensambladoras"></div>
+                <div class="power-bar-seg seg-others" id="pbarOthers" title="Otros"></div>
+              </div>
+              <div id="energyBreakdownList" style="font-size: 0.74rem; color: #94a3b8; display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+                <!-- Rellenado dinámicamente con chips de MW -->
+              </div>
+            </div>
+
+            <!-- Recomendación de Central Eléctrica FICSIT -->
+            <div class="energy-generators-block" style="background: #0d1522; border-radius: var(--radius-sm); padding: 10px; border: 1px solid rgba(250, 204, 21, 0.25);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 0.73rem; color: #f59e0b; font-weight: 800; text-transform: uppercase; display: flex; align-items: center; gap: 5px;">
+                  <span>🏭</span> Centrales Recomendadas
+                </span>
+                <button type="button" class="btn-toggle-gens" id="btnToggleGens" style="background: none; border: none; font-size: 0.72rem; color: #38bdf8; cursor: pointer; padding: 0;">
+                  Ver opciones ▾
+                </button>
+              </div>
+              <div id="energyGeneratorsList" style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- Dinámico: Carbón, Combustible, Biomasa, Nuclear + Baterías -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen de Fábrica y Lista de Compra -->
+          <div class="ficsit-card" style="padding: 18px;">
             <div class="card-header" style="margin-bottom: 12px; padding-bottom: 8px;">
               <h2 class="card-title" style="font-size: 0.95rem;"><span class="icon">📋</span> Resumen de la Fábrica</h2>
               <button id="btnCopyBuilderGuide" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;">
