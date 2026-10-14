@@ -763,6 +763,40 @@
           </div>
 
         </div>
+
+        <!-- Entrada 4: Configuración de Taladros Individuales de Carbón / Combustible -->
+        <div id="powerDrillsConfigContainer" style="margin-top: 16px; background: #080f1a; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-sm); padding: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 1.15rem;">⛏️</span>
+              <div>
+                <h3 style="margin: 0; font-size: 0.88rem; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Configuración de Taladros por Veta (Menas Puras, Normales e Impuras)
+                </h3>
+                <span style="font-size: 0.72rem; color: #94a3b8;">
+                  Indica cuántos taladros tienes y de qué pureza es cada veta. La app calculará la extracción total exacta y cuántos MW puedes alimentar.
+                </span>
+              </div>
+            </div>
+            <div id="powerDrillsBalanceBadge">
+              <!-- Badge de balance dinámico de carbón -->
+            </div>
+          </div>
+
+          <!-- Lista de Taladros Individuales -->
+          <div id="powerDrillsList" class="power-drills-list">
+            <!-- Filas dinámicas de Taladro #1, #2, etc. -->
+          </div>
+
+          <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;">
+            <button type="button" id="btnAddPowerDrill" class="btn-add-drill" style="border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; background: rgba(245, 158, 11, 0.1);">
+              <span>➕ Añadir Taladro de Carbón</span>
+            </button>
+            <button type="button" id="btnSyncPowerToDrills" class="btn btn-secondary" style="font-size: 0.76rem; font-weight: 800; border-color: #4ade80; color: #4ade80; display: flex; align-items: center; gap: 6px;">
+              <span>⚡ Sincronizar Central con estos Taladros</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Tarjetas de Métricas Clave de Potencia -->
@@ -783,8 +817,19 @@
             <span class="blueprint-badge" style="background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; color: #fbbf24;">
               ⚡ PLANO AÉREO 2D DE LA CENTRAL ELÉCTRICA
             </span>
-            <span style="font-size: 0.75rem; color: var(--text-muted);" id="powerBpSubtitle">
-              Vista modular en planta &bull; Costa marina con extractores, manifolds de agua y líneas de carbón
+
+            <!-- Selector de Vista del Plano (Detalle del Bloque vs Panorámica) -->
+            <div class="blueprint-view-switcher" id="powerBpViewSwitcher">
+              <button type="button" class="btn-builder-view active" id="btnPowerViewBlock" data-mode="block" title="Ver el plano detallado de 1 bloque con sus 8 generadores, 3 extractores y tuberías">
+                <span>📐 Plano de Montaje (8 Generadores : 3 Extractores)</span>
+              </button>
+              <button type="button" class="btn-builder-view" id="btnPowerViewOverview" data-mode="overview" title="Ver todos los generadores y bloques de la central">
+                <span>🏭 Plano General de Toda la Central</span>
+              </button>
+            </div>
+
+            <span style="font-size: 0.74rem; color: var(--text-muted);" id="powerBpSubtitle">
+              Vista del bloque eficiente
             </span>
           </div>
 

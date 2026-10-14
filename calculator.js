@@ -1375,7 +1375,8 @@ const SatisCalc = {
     pipeTier = 1,
     beltTier = 3,
     minerTier = 'miner_mk2',
-    purity = 'normal'
+    purity = 'normal',
+    drills = []
   }) {
     const target = Math.max(10, Number(targetMW) || 8000);
 
@@ -1421,17 +1422,47 @@ const SatisCalc = {
     const fuelBeltsCount = !isFuelFluid ? Math.max(1, Math.ceil(totalFuelRate / beltObj.speed)) : 0;
     const fuelPipesCount = isFuelFluid ? Math.max(1, Math.ceil(totalFuelRate / (pipeTier === 2 ? 600 : 300))) : 0;
 
-    // Estimación de taladros para combustible sólido (ej. Carbón)
-    let minersNeeded = 0;
-    let minersPower = 0;
-    let nodeRate = 120;
-    if (!isFuelFluid && (fuelId === 'coal' || fuelId === 'compacted_coal' || fuelId === 'uranium_fuel_rod')) {
+    // Cálculo y Desglose de Taladros Individuales (Menas Heterogéneas: Impura, Normal, Pura)
+    let userDrillsCalculated = [];
+    let userExtractionRate = 0;
+    let userMinersPower = 0;
+
+    if (!isFuelFluid && Array.isArray(drills) && drills.length > 0) {
+      userDrillsCalculated = drills.map((d, idx) => {
+        const pFactor = SATIS_DATA.purities[d.purity]?.factor || 1.0;
+        const mBase = SATIS_DATA.miners[d.minerTier]?.baseRate || 60;
+        const rate = mBase * pFactor;
+        const mw = SATIS_DATA.miners[d.minerTier]?.power || 5;
+        const belt = SatisCalc.getBeltForRate(rate);
+        userExtractionRate += rate;
+        userMinersPower += mw;
+        return {
+          id: d.id || `drill_${idx + 1}`,
+          index: idx + 1,
+          minerTier: d.minerTier || 'miner_mk1',
+          purity: d.purity || 'normal',
+          rate,
+          mw,
+          belt
+        };
+      });
+    } else if (!isFuelFluid) {
       const purityFactor = SATIS_DATA.purities[purity]?.factor || 1.0;
       const minerBase = SATIS_DATA.miners[minerTier]?.baseRate || 120;
-      nodeRate = minerBase * purityFactor;
-      minersNeeded = Number((totalFuelRate / Math.max(1, nodeRate)).toFixed(2));
-      minersPower = Math.ceil(minersNeeded) * (SATIS_DATA.miners[minerTier]?.power || 12);
+      const nodeRate = minerBase * purityFactor;
+      const minersNeeded = Number((totalFuelRate / Math.max(1, nodeRate)).toFixed(2));
+      userMinersPower = Math.ceil(minersNeeded) * (SATIS_DATA.miners[minerTier]?.power || 12);
+      userExtractionRate = totalFuelRate;
     }
+
+    const fuelBalance = {
+      requiredRate: totalFuelRate,
+      suppliedRate: Number(userExtractionRate.toFixed(2)),
+      difference: Number((userExtractionRate - totalFuelRate).toFixed(2)),
+      isCovered: userExtractionRate >= (totalFuelRate - 0.05),
+      maxGeneratorsWithSupply: Number((userExtractionRate / Math.max(0.1, unitFuelRate)).toFixed(2)),
+      maxMWWithSupply: Number(((userExtractionRate / Math.max(0.1, unitFuelRate)) * unitMW).toFixed(1))
+    };
 
     // Consumo de Agua y Extractores
     const requiresWater = !!genData.requiresWater;
@@ -1499,7 +1530,7 @@ const SatisCalc = {
     // Balance Eléctrico
     const grossMW = target;
     const internalPumpsMW = waterExtractorsPower;
-    const internalMinersMW = minersPower;
+    const internalMinersMW = userMinersPower;
     const totalInternalMW = internalPumpsMW + internalMinersMW;
     const netMW = Math.max(0, Number((grossMW - totalInternalMW).toFixed(1)));
     const netEfficiency = Number(((netMW / grossMW) * 100).toFixed(1));
@@ -1523,9 +1554,9 @@ const SatisCalc = {
         belt: beltObj,
         beltsNeededCount: fuelBeltsCount,
         pipesNeededCount: fuelPipesCount,
-        minersNeeded,
-        minersPower,
-        nodeRate
+        minersPower: userMinersPower,
+        userDrills: userDrillsCalculated,
+        balance: fuelBalance
       },
       water: {
         requiresWater,

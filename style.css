@@ -2815,5 +2815,63 @@ body {
   filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.9));
 }
 
+/* --- FILAS DE TALADROS DE CARBÓN EN CENTRAL ELÉCTRICA --- */
+.power-drills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.power-drill-row {
+  background: #0d1522;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.power-drill-row:hover {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: #111a2a;
+}
+
+.power-drill-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.power-drill-tag {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.power-drill-output {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.power-drill-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+
 
 
