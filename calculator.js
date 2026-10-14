@@ -1496,10 +1496,14 @@ const SatisCalc = {
 
     if (!isFuelFluid && Array.isArray(drills) && drills.length > 0) {
       userDrillsCalculated = drills.map((d, idx) => {
+        const clock = (d.clock !== undefined && d.clock !== null) ? Math.min(250, Math.max(1, Number(d.clock))) : 100;
+        const clockRatio = clock / 100;
         const pFactor = SATIS_DATA.purities[d.purity]?.factor || 1.0;
         const mBase = SATIS_DATA.miners[d.minerTier]?.baseRate || 60;
-        const rate = mBase * pFactor;
-        const mw = SATIS_DATA.miners[d.minerTier]?.power || 5;
+        const basePower = SATIS_DATA.miners[d.minerTier]?.power || 5;
+        const rate = Number((mBase * pFactor * clockRatio).toFixed(2));
+        const mw = Number((basePower * Math.pow(clockRatio, 1.321928)).toFixed(1));
+        const shards = clock > 100 ? Math.ceil((clock - 100) / 50) : 0;
         const belt = SatisCalc.getBeltForRate(rate);
         userExtractionRate += rate;
         userMinersPower += mw;
@@ -1508,6 +1512,8 @@ const SatisCalc = {
           index: idx + 1,
           minerTier: d.minerTier || 'miner_mk1',
           purity: d.purity || 'normal',
+          clock,
+          shards,
           rate,
           mw,
           belt

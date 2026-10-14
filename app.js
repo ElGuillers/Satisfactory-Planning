@@ -28,10 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
       beltTier: 3,
       blueprintMode: 'block',
       drills: [
-        { id: 'drill_1', minerTier: 'miner_mk2', purity: 'normal' },
-        { id: 'drill_2', minerTier: 'miner_mk2', purity: 'normal' },
-        { id: 'drill_3', minerTier: 'miner_mk2', purity: 'normal' },
-        { id: 'drill_4', minerTier: 'miner_mk2', purity: 'normal' }
+        { id: 'drill_1', minerTier: 'miner_mk2', purity: 'normal', clock: 100 },
+        { id: 'drill_2', minerTier: 'miner_mk2', purity: 'normal', clock: 100 },
+        { id: 'drill_3', minerTier: 'miner_mk2', purity: 'normal', clock: 100 },
+        { id: 'drill_4', minerTier: 'miner_mk2', purity: 'normal', clock: 100 }
       ]
     },
     sandbox: {
@@ -4279,7 +4279,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.power.drills.push({
           id: `drill_${Date.now()}_${nextIdx}`,
           minerTier: 'miner_mk2',
-          purity: 'normal'
+          purity: 'normal',
+          clock: 100
         });
         renderPowerPlantSection();
       });
@@ -4303,6 +4304,7 @@ document.addEventListener('DOMContentLoaded', () => {
       drillsList.addEventListener('click', (e) => {
         const purityBtn = e.target.closest('.btn-power-node-purity');
         const minerBtn = e.target.closest('.btn-power-node-miner');
+        const clockBtn = e.target.closest('.btn-power-drill-clock');
         const removeBtn = e.target.closest('.btn-remove-power-drill');
 
         if (purityBtn) {
@@ -4327,6 +4329,17 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
+        if (clockBtn) {
+          const drillId = clockBtn.getAttribute('data-drill-id');
+          const clockVal = parseInt(clockBtn.getAttribute('data-clock'), 10) || 100;
+          const d = (state.power.drills || []).find(x => x.id === drillId);
+          if (d) {
+            d.clock = clockVal;
+            renderPowerPlantSection();
+          }
+          return;
+        }
+
         if (removeBtn) {
           const drillId = removeBtn.getAttribute('data-drill-id');
           if (state.power.drills && state.power.drills.length > 1) {
@@ -4334,6 +4347,19 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPowerPlantSection();
           }
           return;
+        }
+      });
+
+      drillsList.addEventListener('input', (e) => {
+        const rangeInput = e.target.closest('.range-power-drill-clock');
+        if (rangeInput) {
+          const drillId = rangeInput.getAttribute('data-drill-id');
+          const clockVal = Math.min(250, Math.max(1, parseInt(rangeInput.value, 10) || 100));
+          const d = (state.power.drills || []).find(x => x.id === drillId);
+          if (d) {
+            d.clock = clockVal;
+            renderPowerPlantSection();
+          }
         }
       });
     }
@@ -4398,7 +4424,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span>Taladro #${idx + 1} (${plant.fuel.name})</span>
               </div>
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span class="power-drill-output">+${d.rate}/min (${d.belt.name})</span>
+                <span class="power-drill-output">+${d.rate}/min &bull; ${d.clock}% (${d.belt.name})</span>
+                <span style="font-size: 0.72rem; color: #facc15; font-weight: 700; background: rgba(250, 204, 21, 0.1); border: 1px solid rgba(250, 204, 21, 0.25); padding: 2px 6px; border-radius: 4px;">⚡ ${d.mw} MW</span>
                 ${canDelete ? `<button type="button" class="btn-remove-drill btn-remove-power-drill" data-drill-id="${d.id}" title="Eliminar este taladro">✕</button>` : ''}
               </div>
             </div>
@@ -4421,6 +4448,25 @@ document.addEventListener('DOMContentLoaded', () => {
                   <button type="button" class="btn-node-miner btn-power-node-miner ${d.minerTier === 'miner_mk1' ? 'active' : ''}" data-drill-id="${d.id}" data-miner="miner_mk1">Mk.1</button>
                   <button type="button" class="btn-node-miner btn-power-node-miner ${d.minerTier === 'miner_mk2' ? 'active' : ''}" data-drill-id="${d.id}" data-miner="miner_mk2">Mk.2</button>
                   <button type="button" class="btn-node-miner btn-power-node-miner ${d.minerTier === 'miner_mk3' ? 'active' : ''}" data-drill-id="${d.id}" data-miner="miner_mk3">Mk.3</button>
+                </div>
+              </div>
+
+              <!-- Selector de Overclocking (1% a 250%) -->
+              <div class="drill-control-group" style="flex: 1; min-width: 250px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 2px;">
+                  <span class="drill-sublabel">Overclock:</span>
+                  <span style="font-size: 0.74rem; font-weight: 800; color: ${d.clock > 100 ? '#f59e0b' : '#38bdf8'}; font-family: var(--font-mono);">
+                    ${d.clock}% ${d.shards > 0 ? `<small style="color: #38bdf8; font-weight: 700;">(💎 ${d.shards} ${d.shards === 1 ? 'Shard' : 'Shards'})</small>` : ''}
+                  </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
+                  <input type="range" class="range-slider range-power-drill-clock" data-drill-id="${d.id}" min="1" max="250" value="${d.clock}" step="1" style="flex: 1;">
+                  <div class="raw-clock-group-sm">
+                    <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 100 ? 'active' : ''}" data-drill-id="${d.id}" data-clock="100">100%</button>
+                    <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 150 ? 'active overclock' : ''}" data-drill-id="${d.id}" data-clock="150">150%</button>
+                    <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 200 ? 'active overclock' : ''}" data-drill-id="${d.id}" data-clock="200">200%</button>
+                    <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 250 ? 'active overclock' : ''}" data-drill-id="${d.id}" data-clock="250">250%</button>
+                  </div>
                 </div>
               </div>
             </div>
