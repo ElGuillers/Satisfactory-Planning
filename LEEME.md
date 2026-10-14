@@ -120,10 +120,14 @@ Calculadora y planificador de producción ultra liviano diseñado para pioneros 
   * **Balance Eléctrico Neto:** Calcula la potencia bruta generada, resta el autoconsumo de las bombas de agua y taladros, y muestra los **MW Netos limpios** suministrados a la red.
   * **Arquitectura Áurea 8:3:** Instrucciones de construcción modular de 8 generadores : 3 extractores para evitar cuellos de botella de fluidos en tuberías.
 * **Plano Aéreo 2D Interactivo de la Central Eléctrica:**
-  * Dibuja la costa o lago marino con extractores de agua alineados.
-  * Manifolds colectores de agua (azul) y líneas troncales de combustible (amarillo) con splitters individuales hacia cada generador.
-  * Chimeneas con visualización de calor y vapor.
-  * Red de distribución y Subestación eléctrica con display digital de MW brutos y netos.
+  * **Leyenda y Códigos de Color de Alto Contraste:** 4 familias cromáticas 100% diferenciadas para eliminar cualquier confusión visual:
+    * 🟧 **Naranja Mecánico FICSIT (`#ea580c`):** Cinta transportadora troncal de carbón y bajadas directas a tolvas.
+    * 🔀 **Divisores Etiquetados con Claridad:** Se eliminaron siglas confusas como `S1` a favor de nombres explícitos `Divisor #1 (Splitter)` con tooltips interactivos de caudal entrante y derivado.
+    * 🟦 **Azul y Cian Neón (`#0284c7` / `#00e5ff`):** Manifold colector de agua en bucle cerrado y tuberías verticales de inyección.
+    * 🟪 **Violeta Tecnológico (`#8b5cf6`):** Chasis industrial de los generadores sobre cimientos de hormigón reforzado, con chimeneas de vapor (`💨`) y potencia visible (`⚡ 75 MW`).
+    * 🟩 **Verde Esmeralda (`#22c55e`):** Red aérea de cableado de alta tensión segregada en el nivel superior y Subestación receptora de potencia.
+  * **Estructura en 5 Niveles sin Cruces:** Red Eléctrica Superior ➔ Cinta de Carbón & Divisores ➔ Edificios de Generación ➔ Manifold de Agua ➔ Costa con Extractores Marinos.
+  * **Doble Vista Alternable:** Esquema detallado de 1 Bloque Maestro (8:3) o Vista Panorámica con la totalidad de los bloques interconectados.
 
 
 

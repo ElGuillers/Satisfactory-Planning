@@ -4635,36 +4635,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- MODO 1: PLANO DETALLADO DE MONTAJE DEL BLOQUE (8 GENERADORES : 3 EXTRACTORES) ---
   function generatePowerBlockBlueprintSvg(plant) {
-    const totalW = 1380;
-    const totalH = 620;
+    const totalW = 1480;
+    const totalH = 740;
 
-    const genW = 118;
-    const genH = 72;
-    const gapX = 32;
-    const startX = 80;
-    const genY = 195;
+    const genW = 128;
+    const genH = 96;
+    const gapX = 36;
+    const startX = 65;
+    const genY = 245;
+    const beltY = 160;
 
-    let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #060a12; font-family: var(--font-main);">
+    let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #040812; font-family: var(--font-main);">
       <defs>
         <!-- Rejilla de cimientos Satisfactory -->
         <pattern id="blockGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
-          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-          <path d="M 30 0 L 30 60 M 0 30 L 60 30" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="0.5"/>
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.035)" stroke-width="1"/>
+          <path d="M 30 0 L 30 60 M 0 30 L 60 30" fill="none" stroke="rgba(255,255,255,0.015)" stroke-width="0.5"/>
         </pattern>
 
-        <!-- Gradiente de Lago Marina -->
-        <linearGradient id="blockLakeGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#0284c7" stop-opacity="0.35"/>
-          <stop offset="100%" stop-color="#0369a1" stop-opacity="0.7"/>
+        <!-- Gradiente de Lago / Agua Marina -->
+        <linearGradient id="lakeWaterGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#022c43" stop-opacity="0.85"/>
+          <stop offset="50%" stop-color="#034569" stop-opacity="0.95"/>
+          <stop offset="100%" stop-color="#041c2c" stop-opacity="1"/>
         </linearGradient>
 
-        <!-- Gradiente Generador -->
-        <linearGradient id="blockGenGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#1e293b"/>
+        <!-- Gradiente Generador (Violeta Tecnológico / Gris Acero) -->
+        <linearGradient id="generatorChassisGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1e1b4b"/>
           <stop offset="100%" stop-color="#0f172a"/>
         </linearGradient>
 
-        <filter id="blockGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <!-- Filtros de Resplandor Neón -->
+        <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <filter id="glowOrange" x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="3" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
@@ -4673,157 +4684,229 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- Fondo Cuadrícula -->
       <rect width="${totalW}" height="${totalH}" fill="url(#blockGridPat)" />
 
-      <!-- Banner de Instrucción del Bloque -->
-      <rect x="50" y="16" width="${totalW - 100}" height="36" rx="6" fill="#0d1522" stroke="rgba(245, 158, 11, 0.4)" stroke-width="1.5"/>
-      <text x="70" y="39" fill="#fbbf24" font-size="12" font-weight="800">
-        📐 PLANO DE MONTAJE DE 1 BLOQUE MAESTRO (8 Generadores de Carbón : 3 Extractores de Agua = 600 MW)
+      <!-- =========================================================================
+           1. BARRA SUPERIOR: TÍTULO Y LEYENDA DE COLORES DE ALTO CONTRASTE
+           ========================================================================= -->
+      <rect x="35" y="14" width="${totalW - 70}" height="54" rx="8" fill="#090f19" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
+      
+      <!-- Título del Plano -->
+      <text x="50" y="36" fill="#f8fafc" font-size="13" font-weight="900" letter-spacing="0.5">
+        📐 ESQUEMA DE MONTAJE DEL BLOQUE MAESTRO (8 Generadores de Carbón : 3 Extractores de Agua = 600 MW)
       </text>
-      <text x="${totalW - 70}" y="39" fill="#4ade80" font-size="11" font-weight="800" text-anchor="end">
-        Para tus ${plant.powerBalance.grossMW.toLocaleString()} MW: Construye ${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques idénticos a este
+      <text x="50" y="54" fill="#94a3b8" font-size="10.5">
+        Para tus ${plant.powerBalance.grossMW.toLocaleString()} MW: Construye <strong style="color: #4ade80;">${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques idénticos</strong> a este esquema.
       </text>
 
-      <!-- 1. ZONA COSTERA / LAGO DE AGUA INFERIOR -->
-      <rect x="0" y="410" width="${totalW}" height="${totalH - 410}" fill="url(#blockLakeGrad)" />
-      <line x1="0" y1="410" x2="${totalW}" y2="410" stroke="#38bdf8" stroke-width="2" stroke-dasharray="8 4" opacity="0.6"/>
-      <text x="50" y="432" fill="#38bdf8" font-size="11" font-weight="800" letter-spacing="1">
-        🌊 COSTA / LAGO DE AGUA (3 Extractores colocados en agua abierta &bull; 120 m³/min cada uno)
-      </text>
-    `;
+      <!-- Leyenda de Colores (4 Colores 100% Distintos) -->
+      <g transform="translate(${totalW - 680}, 24)">
+        <!-- 1. Carbón: Naranja -->
+        <rect x="0" y="0" width="14" height="14" rx="3" fill="#ea580c" stroke="#ff781f" stroke-width="1.5"/>
+        <text x="18" y="11" fill="#fed7aa" font-size="9.5" font-weight="800">Carbón (Naranja)</text>
 
-    // 2. LÍNEA TRONCAL DE CARBÓN Y SPLITTERS SUPERIORES
-    const beltY = 110;
-    svg += `
-      <!-- Cinta Transportadora de Carbón (120/min - Mk.2) -->
-      <path d="M 40 ${beltY} L ${startX + 8 * (genW + gapX) - 20} ${beltY}" stroke="#78350f" stroke-width="8" fill="none" stroke-linecap="round" />
-      <path d="M 40 ${beltY} L ${startX + 8 * (genW + gapX) - 20} ${beltY}" class="blueprint-belt-flow" stroke="#f59e0b" stroke-width="3" stroke-dasharray="12 8" fill="none" />
+        <!-- 2. Agua: Azul Cian -->
+        <rect x="135" y="0" width="14" height="14" rx="3" fill="#0284c7" stroke="#00e5ff" stroke-width="1.5"/>
+        <text x="153" y="11" fill="#7dd3fc" font-size="9.5" font-weight="800">Agua (Azul Cian)</text>
+
+        <!-- 3. Generadores: Violeta/Gris -->
+        <rect x="270" y="0" width="14" height="14" rx="3" fill="#1e1b4b" stroke="#a855f7" stroke-width="1.5"/>
+        <text x="288" y="11" fill="#d8b4fe" font-size="9.5" font-weight="800">Generadores (Violeta)</text>
+
+        <!-- 4. Electricidad: Verde Neón -->
+        <rect x="430" y="0" width="14" height="14" rx="3" fill="#052e16" stroke="#22c55e" stroke-width="1.5"/>
+        <text x="448" y="11" fill="#86efac" font-size="9.5" font-weight="800">Red Eléctrica (Verde)</text>
+      </g>
+
+      <!-- =========================================================================
+           2. NIVEL 1 (SUPERIOR): RED ELÉCTRICA AÉREA Y SUBESTACIÓN (+600 MW)
+           ========================================================================= -->
+      <!-- Línea troncal aérea verde de alta tensión -->
+      <path d="M ${startX + genW / 2} 90 L ${totalW - 200} 90" stroke="#15803d" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M ${startX + genW / 2} 90 L ${totalW - 200} 90" stroke="#22c55e" stroke-width="2.5" stroke-dasharray="8 6" fill="none" filter="url(#glowGreen)"/>
+      <text x="${startX + 10}" y="84" fill="#86efac" font-size="9" font-weight="800" letter-spacing="0.5">
+        ⚡ CABLEADO AÉREO DE ALTA TENSIÓN (Conexión de los 8 Generadores)
+      </text>
+
+      <!-- Subestación de Bloque (+600 MW) -->
+      <g class="power-substation-node" style="cursor: pointer;">
+        <rect x="${totalW - 195}" y="52" width="160" height="76" rx="8" fill="#052e16" stroke="#22c55e" stroke-width="2.5" filter="url(#glowGreen)"/>
+        <circle cx="${totalW - 165}" cy="82" r="14" fill="#22c55e" />
+        <text x="${totalW - 165}" y="87" fill="#022c22" font-size="14" font-weight="900" text-anchor="middle">⚡</text>
+        <text x="${totalW - 142}" y="76" fill="#ffffff" font-size="10" font-weight="800">SUBESTACIÓN</text>
+        <text x="${totalW - 142}" y="95" fill="#4ade80" font-size="16" font-weight="900">+600 MW</text>
+        <text x="${totalW - 142}" y="112" fill="#86efac" font-size="8.5">8 Generadores a red</text>
+      </g>
+
+      <!-- =========================================================================
+           3. NIVEL 2: LÍNEA TRONCAL DE CARBÓN Y DIVISORES (SPLITTERS)
+           ========================================================================= -->
+      <!-- Riel base de la cinta transportadora de carbón -->
+      <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" stroke="#1e293b" stroke-width="12" fill="none" stroke-linecap="round" />
+      <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" stroke="#7c2d12" stroke-width="7" fill="none" />
+      <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" class="blueprint-belt-flow" stroke="#ea580c" stroke-width="3" stroke-dasharray="14 10" fill="none" />
       
       <!-- Cartel de Entrada de Carbón -->
-      <rect x="40" y="${beltY - 32}" width="200" height="26" rx="4" fill="#0b1320" stroke="#f59e0b" stroke-width="1.5" />
-      <text x="50" y="${beltY - 15}" fill="#fbbf24" font-size="10.5" font-weight="800">
-        ⬅ Entrada Carbón: 120/min (Mk.2)
+      <rect x="35" y="${beltY - 36}" width="230" height="26" rx="4" fill="#1c0b05" stroke="#ea580c" stroke-width="1.8" />
+      <text x="45" y="${beltY - 19}" fill="#ffedd5" font-size="11" font-weight="900">
+        🪨 Entrada Carbón: 120/min (Cinta Mk.2)
       </text>
+
+      <!-- =========================================================================
+           4. NIVEL 3: LOS 8 GENERADORES DE CARBÓN Y SUS DIVISORES
+           ========================================================================= -->
     `;
 
-    // 3. COLECTOR PRINCIPAL DE AGUA (MANIFOLD)
-    const pipeY = 325;
-    svg += `
-      <!-- Manifold Colector de Agua Principal (Cerrado en bucle con 3 puntos de inyección) -->
-      <path d="M ${startX + 30} ${pipeY} L ${startX + 7 * (genW + gapX) + genW - 30} ${pipeY}" stroke="#0369a1" stroke-width="8" fill="none" stroke-linecap="round" />
-      <path d="M ${startX + 30} ${pipeY} L ${startX + 7 * (genW + gapX) + genW - 30} ${pipeY}" class="blueprint-belt-flow" stroke="#38bdf8" stroke-width="3" stroke-dasharray="14 10" fill="none" />
-      
-      <rect x="50" y="${pipeY - 26}" width="220" height="22" rx="4" fill="#0b1320" stroke="#0284c7" stroke-width="1.5" />
-      <text x="60" y="${pipeY - 11}" fill="#38bdf8" font-size="10" font-weight="800">
-        💧 Colector Manifold de Agua (360 m³/min)
-      </text>
-    `;
-
-    // 4. LOS 8 GENERADORES DE CARBÓN
     for (let i = 0; i < 8; i++) {
       const gx = startX + i * (genW + gapX);
       const splitX = gx + genW / 2;
 
-      // Splitter de Carbón en la cinta superior
+      // 1. Cable eléctrico vertical que sube desde el techo del generador a la red
       svg += `
-        <!-- Splitter #${i + 1} -->
-        <rect x="${splitX - 11}" y="${beltY - 11}" width="22" height="22" rx="3" fill="#eab308" stroke="#facc15" stroke-width="2" />
-        <text x="${splitX}" y="${beltY + 4}" fill="#0b1120" font-size="9" font-weight="900" text-anchor="middle">S${i + 1}</text>
-
-        <!-- Derivación de carbón al generador (+15/m) -->
-        <path d="M ${splitX} ${beltY + 11} L ${splitX} ${genY}" stroke="#f59e0b" stroke-width="3" fill="none" />
-        <text x="${splitX + 6}" y="${genY - 8}" fill="#fbbf24" font-size="8.5" font-weight="700">+15/m</text>
+        <line x1="${splitX}" y1="${genY}" x2="${splitX}" y2="90" stroke="#22c55e" stroke-width="2" stroke-dasharray="4 4" opacity="0.85" />
+        <circle cx="${splitX}" cy="90" r="4" fill="#22c55e" />
+        <circle cx="${splitX}" cy="${genY}" r="3.5" fill="#4ade80" />
       `;
 
-      // Cruce y derivación de agua desde el colector hacia el generador (+45 m³/m)
+      // 2. DIVISOR DE CARBÓN (SPLITTER) - Rótulo claro sin siglas crípticas
       svg += `
-        <!-- Cruce de Tubería -->
-        <circle cx="${splitX}" cy="${pipeY}" r="6" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5" />
-        <path d="M ${splitX} ${pipeY} L ${splitX} ${genY + genH}" stroke="#38bdf8" stroke-width="4" fill="none" />
-        <text x="${splitX + 6}" y="${genY + genH + 16}" fill="#38bdf8" font-size="8.5" font-weight="700">+45 m³/m</text>
+        <g class="power-splitter-node" data-id="sp_${i}" data-name="Divisor de Carbón #${i + 1} (Splitter)" data-flow="15 /min hacia Generador #${i + 1}" style="cursor: pointer;">
+          <!-- Caja del Divisor -->
+          <rect x="${splitX - 32}" y="${beltY - 17}" width="64" height="34" rx="4" fill="#271006" stroke="#ea580c" stroke-width="2" filter="url(#glowOrange)"/>
+          <text x="${splitX}" y="${beltY - 2}" fill="#ffedd5" font-size="9" font-weight="900" text-anchor="middle">
+            🔀 Divisor #${i + 1}
+          </text>
+          <text x="${splitX}" y="${beltY + 11}" fill="#fdba74" font-size="8" font-weight="700" text-anchor="middle">
+            (Splitter)
+          </text>
+
+          <!-- Bajada de carbón hacia la tolva del generador (+15/min) -->
+          <path d="M ${splitX} ${beltY + 17} L ${splitX} ${genY}" stroke="#ea580c" stroke-width="4" fill="none" />
+          <polygon points="${splitX - 4},${genY - 2} ${splitX + 4},${genY - 2} ${splitX},${genY + 4}" fill="#ea580c" />
+          
+          <rect x="${splitX - 25}" y="${genY - 22}" width="50" height="15" rx="3" fill="#180702" stroke="#ea580c" stroke-width="1" />
+          <text x="${splitX}" y="${genY - 11}" fill="#ffedd5" font-size="8" font-weight="800" text-anchor="middle">15/min</text>
+        </g>
       `;
 
-      // Cableado hacia el poste eléctrico del bloque
-      svg += `
-        <path d="M ${splitX} ${genY} Q ${splitX} 80 ${totalW - 140} 80" stroke="#facc15" stroke-width="1.5" stroke-dasharray="4 4" fill="none" opacity="0.6"/>
-      `;
-
-      // Edificio del Generador de Carbón
+      // 3. GENERADOR DE CARBÓN (CHASIS VIOLETA TECNOLÓGICO FICSIT)
       svg += `
         <g class="power-generator-node" data-id="gen_${i}" data-name="Generador de Carbón #${i + 1}" data-mw="75 MW" data-clock="100%" data-fuel="15 /min" data-water="45 m³/min" style="cursor: pointer;">
-          <!-- Cimiento individual -->
-          <rect x="${gx - 4}" y="${genY - 4}" width="${genW + 8}" height="${genH + 8}" rx="8" fill="#131b2a" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+          <!-- Cimiento de hormigón -->
+          <rect x="${gx - 5}" y="${genY - 5}" width="${genW + 10}" height="${genH + 10}" rx="6" fill="#1e293b" stroke="#334155" stroke-width="1.2" />
           
-          <!-- Chasis del Generador -->
-          <rect x="${gx}" y="${genY}" width="${genW}" height="${genH}" rx="6" fill="url(#blockGenGrad)" stroke="#f59e0b" stroke-width="2" />
+          <!-- Chasis del Edificio (Violeta Industrial FICSIT) -->
+          <rect x="${gx}" y="${genY}" width="${genW}" height="${genH}" rx="6" fill="url(#generatorChassisGrad)" stroke="#8b5cf6" stroke-width="2.5" />
 
-          <!-- Chimenea de Vapor con gradiente -->
-          <circle cx="${gx + 24}" cy="${genY + 24}" r="14" fill="#090f1a" stroke="#d97706" stroke-width="2" />
-          <circle cx="${gx + 24}" cy="${genY + 24}" r="7" fill="#f59e0b" filter="url(#blockGlow)" />
+          <!-- Chimenea de Combustión -->
+          <circle cx="${gx + 22}" cy="${genY + 24}" r="14" fill="#090d16" stroke="#a855f7" stroke-width="2" />
+          <circle cx="${gx + 22}" cy="${genY + 24}" r="6" fill="#c084fc" />
+          <text x="${gx + 22}" y="${genY + 28}" font-size="11" text-anchor="middle">💨</text>
 
-          <!-- Textos FICSIT -->
-          <text x="${gx + 46}" y="${genY + 25}" fill="#f1f5f9" font-size="11.5" font-weight="800">Gen #${i + 1}</text>
-          <text x="${gx + 46}" y="${genY + 41}" fill="#fbbf24" font-size="10.5" font-weight="900">+75 MW</text>
+          <!-- Título y Potencia -->
+          <text x="${gx + 42}" y="${genY + 22}" fill="#ffffff" font-size="11.5" font-weight="900">Generador #${i + 1}</text>
+          <text x="${gx + 42}" y="${genY + 40}" fill="#4ade80" font-size="13" font-weight="900">⚡ 75 MW</text>
           
-          <rect x="${gx + 8}" y="${genY + 52}" width="${genW - 16}" height="14" rx="3" fill="#080e18" />
-          <text x="${gx + 12}" y="${genY + 63}" fill="#94a3b8" font-size="8.5">15 Carbón</text>
-          <text x="${gx + genW - 12}" y="${genY + 63}" fill="#38bdf8" font-size="8.5" text-anchor="end">45 Agua</text>
+          <!-- Puerto de entrada de Carbón (Arriba) -->
+          <rect x="${splitX - 12}" y="${genY - 3}" width="24" height="6" rx="2" fill="#ea580c" />
+          
+          <!-- Puerto de entrada de Agua (Abajo) -->
+          <rect x="${splitX - 12}" y="${genY + genH - 3}" width="24" height="6" rx="2" fill="#00e5ff" />
+
+          <!-- Barra de Consumos (15 Carbón / 45 Agua) -->
+          <rect x="${gx + 6}" y="${genY + 54}" width="${genW - 12}" height="32" rx="4" fill="#090f1a" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+          <text x="${gx + 12}" y="${genY + 68}" fill="#fed7aa" font-size="9" font-weight="800">🪨 15 Carbón/m</text>
+          <text x="${gx + 12}" y="${genY + 81}" fill="#7dd3fc" font-size="9" font-weight="800">💧 45 m³ Agua/m</text>
         </g>
+      `;
+
+      // 4. Subida vertical de agua desde el manifold colector hacia la base del generador
+      const pipeY = 415;
+      svg += `
+        <!-- Cruce de Tubería -->
+        <circle cx="${splitX}" cy="${pipeY}" r="7" fill="#034569" stroke="#00e5ff" stroke-width="2" />
+        <path d="M ${splitX} ${pipeY} L ${splitX} ${genY + genH}" stroke="#00e5ff" stroke-width="4.5" fill="none" />
+        <polygon points="${splitX - 4},${genY + genH + 4} ${splitX + 4},${genY + genH + 4} ${splitX},${genY + genH - 2}" fill="#00e5ff" />
+        
+        <rect x="${splitX - 25}" y="${pipeY - 26}" width="50" height="15" rx="3" fill="#041a27" stroke="#00e5ff" stroke-width="1" />
+        <text x="${splitX}" y="${pipeY - 15}" fill="#7dd3fc" font-size="8" font-weight="800" text-anchor="middle">45 m³/m</text>
       `;
     }
 
-    // 5. LOS 3 EXTRACTORES DE AGUA (CONEXIÓN BALANCEADA EN 3 PUNTOS)
-    // Extractor 1: Entra por la izquierda (cubre Generadores 1 y 2)
-    const ext1X = startX + 50;
-    // Extractor 2: Entra en el centro (entre Generadores 4 y 5)
-    const ext2X = startX + 3.5 * (genW + gapX) + genW / 2;
-    // Extractor 3: Entra por la derecha (cubre Generadores 7 y 8)
-    const ext3X = startX + 7 * (genW + gapX);
+    // =========================================================================
+    // 5. NIVEL 4: MANIFOLD COLECTOR DE AGUA (TUBERÍA MK.1 EN BUCLE CERRADO)
+    // =========================================================================
+    const pipeY = 415;
+    svg += `
+      <!-- Tubería Troncal de Agua (Azul Marino y Cian Neón) -->
+      <path d="M ${startX + 10} ${pipeY} L ${startX + 7 * (genW + gapX) + genW - 10} ${pipeY}" stroke="#022c43" stroke-width="14" fill="none" stroke-linecap="round" />
+      <path d="M ${startX + 10} ${pipeY} L ${startX + 7 * (genW + gapX) + genW - 10} ${pipeY}" stroke="#0369a1" stroke-width="8" fill="none" stroke-linecap="round" />
+      <path d="M ${startX + 10} ${pipeY} L ${startX + 7 * (genW + gapX) + genW - 10} ${pipeY}" class="blueprint-belt-flow" stroke="#00e5ff" stroke-width="3" stroke-dasharray="16 10" fill="none" filter="url(#glowCyan)"/>
 
-    const extY = 470;
+      <!-- Cartel Explicativo del Manifold -->
+      <rect x="35" y="${pipeY + 16}" width="420" height="24" rx="4" fill="#041a27" stroke="#00e5ff" stroke-width="1.5" />
+      <text x="45" y="${pipeY + 32}" fill="#7dd3fc" font-size="10.5" font-weight="800">
+        💧 Tubería Colectora Mk.1 (Bucle de 360 m³/min con 3 Inyecciones)
+      </text>
+
+      <!-- Cartel de Ingeniería FICSIT para evitar ahogos -->
+      <rect x="${totalW - 650}" y="${pipeY + 16}" width="615" height="24" rx="4" fill="#0c2333" stroke="#38bdf8" stroke-width="1.2" />
+      <text x="${totalW - 640}" y="${pipeY + 32}" fill="#38bdf8" font-size="9.5" font-weight="700">
+        ⭐ Regla FICSIT: Con 3 inyecciones, ningún tramo supera los 120 m³/m (Tubería Mk.1 aguanta hasta 300 m³/m). ¡Cero apagones!
+      </text>
+    `;
+
+    // =========================================================================
+    // 6. NIVEL 5: COSTA / LAGO Y LOS 3 EXTRACTORES DE AGUA BALANCEADOS
+    // =========================================================================
+    const lakeY = 485;
+    svg += `
+      <!-- Zona de Agua Abierta (Lago) -->
+      <rect x="0" y="${lakeY}" width="${totalW}" height="${totalH - lakeY}" fill="url(#lakeWaterGrad)" />
+      <line x1="0" y1="${lakeY}" x2="${totalW}" y2="${lakeY}" stroke="#00e5ff" stroke-width="2.5" stroke-dasharray="10 5" opacity="0.8"/>
+      
+      <text x="40" y="${lakeY + 24}" fill="#00e5ff" font-size="11.5" font-weight="900" letter-spacing="1">
+        🌊 COSTA / LAGO DE AGUA (3 Extractores colocados en agua abierta &bull; 120 m³/min cada uno)
+      </text>
+    `;
+
+    // Posicionamiento de los 3 Extractores de Agua
+    const ext1X = startX + 50;
+    const ext2X = startX + 3.5 * (genW + gapX) + genW / 2;
+    const ext3X = startX + 7 * (genW + gapX);
+    const extY = 550;
+
     const extractors = [
-      { name: 'Extractor #1 (Izquierda)', x: ext1X, targetX: startX + 30, desc: 'Alimenta lado izquierdo' },
-      { name: 'Extractor #2 (Centro)', x: ext2X, targetX: ext2X, desc: 'Alimenta zona central' },
-      { name: 'Extractor #3 (Derecha)', x: ext3X, targetX: startX + 7 * (genW + gapX) + genW - 30, desc: 'Alimenta lado derecho' }
+      { name: 'Extractor #1 (Izquierda)', x: ext1X, targetX: startX + 15, tag: 'INYECCIÓN #1: EXTREMO IZQUIERDO (+120 m³/m)' },
+      { name: 'Extractor #2 (Centro)', x: ext2X, targetX: ext2X, tag: 'INYECCIÓN #2: ZONA CENTRAL ENTRE GEN 4 Y 5 (+120 m³/m)' },
+      { name: 'Extractor #3 (Derecha)', x: ext3X, targetX: startX + 7 * (genW + gapX) + genW - 15, tag: 'INYECCIÓN #3: EXTREMO DERECHO (+120 m³/m)' }
     ];
 
     extractors.forEach((ext, idx) => {
       svg += `
-        <g class="power-extractor-node" data-id="ext_${idx}" data-name="${ext.name}" data-flow="120 m³/min" data-mw="20 MW" style="cursor: pointer;">
-          <!-- Tubería de subida al manifold con codo -->
-          <path d="M ${ext.x + 28} ${extY} L ${ext.targetX} ${pipeY}" stroke="#0284c7" stroke-width="5" fill="none" opacity="0.9" />
-          <circle cx="${ext.targetX}" cy="${pipeY}" r="7" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5" />
-          
-          <rect x="${ext.x - 4}" y="${extY - 4}" width="64" height="64" rx="8" fill="#0f172a" stroke="#0284c7" stroke-width="1.5" />
-          <circle cx="${ext.x + 28}" cy="${extY + 28}" r="22" fill="#0369a1" stroke="#38bdf8" stroke-width="2" />
-          <text x="${ext.x + 28}" y="${extY + 34}" fill="#ffffff" font-size="18" text-anchor="middle">💧</text>
+        <!-- Tubería de inyección desde el extractor al colector -->
+        <path d="M ${ext.x + 36} ${extY} L ${ext.targetX} ${pipeY}" stroke="#00e5ff" stroke-width="5" fill="none" opacity="0.9" />
+        <circle cx="${ext.targetX}" cy="${pipeY}" r="8" fill="#00e5ff" stroke="#ffffff" stroke-width="2" filter="url(#glowCyan)"/>
 
-          <text x="${ext.x + 28}" y="${extY + 75}" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle">Extractor #${idx + 1}</text>
-          <text x="${ext.x + 28}" y="${extY + 87}" fill="#38bdf8" font-size="9" font-weight="700" text-anchor="middle">+120 m³/min</text>
-        </g>
-
-        <!-- Etiqueta de Inyección Balanceada -->
-        <rect x="${ext.targetX - 55}" y="${pipeY + 12}" width="110" height="18" rx="3" fill="#080f1a" stroke="#38bdf8" stroke-width="1" />
-        <text x="${ext.targetX}" y="${pipeY + 24}" fill="#38bdf8" font-size="8.5" font-weight="800" text-anchor="middle">
-          Inyección #${idx + 1} (+120m³)
+        <!-- Etiqueta de Inyección sobre la tubería -->
+        <rect x="${ext.targetX - 75}" y="${pipeY + 44}" width="150" height="20" rx="4" fill="#031824" stroke="#00e5ff" stroke-width="1.5" />
+        <text x="${ext.targetX}" y="${pipeY + 58}" fill="#38bdf8" font-size="9" font-weight="800" text-anchor="middle">
+          Inyección #${idx + 1} (+120 m³/m)
         </text>
+
+        <!-- Nodo del Extractor de Agua -->
+        <g class="power-extractor-node" data-id="ext_${idx}" data-name="${ext.name}" data-flow="120 m³/min" data-mw="20 MW" style="cursor: pointer;">
+          <!-- Plataforma flotante -->
+          <rect x="${ext.x - 6}" y="${extY - 6}" width="84" height="84" rx="8" fill="#082f49" stroke="#00e5ff" stroke-width="2" />
+          
+          <!-- Bomba rotatoria -->
+          <circle cx="${ext.x + 36}" cy="${extY + 36}" r="28" fill="#0369a1" stroke="#38bdf8" stroke-width="2" />
+          <text x="${ext.x + 36}" y="${extY + 44}" fill="#ffffff" font-size="24" text-anchor="middle">💧</text>
+
+          <text x="${ext.x + 36}" y="${extY + 98}" fill="#ffffff" font-size="11" font-weight="900" text-anchor="middle">Extractor #${idx + 1}</text>
+          <text x="${ext.x + 36}" y="${extY + 112}" fill="#00e5ff" font-size="10" font-weight="800" text-anchor="middle">+120 m³/min (100%)</text>
+          <text x="${ext.x + 36}" y="${extY + 125}" fill="#f87171" font-size="8.5" font-weight="700" text-anchor="middle">Consumo: 20 MW</text>
+        </g>
       `;
     });
-
-    // 6. POSTE DE RED Y SALIDA DEL BLOQUE (+600 MW)
-    const poleX = totalW - 170;
-    const poleY = 50;
-    svg += `
-      <g class="power-substation-node">
-        <rect x="${poleX}" y="${poleY}" width="140" height="85" rx="8" fill="#111c2e" stroke="#f59e0b" stroke-width="2" filter="url(#blockGlow)" />
-        <circle cx="${poleX + 70}" cy="${poleY + 24}" r="12" fill="#f59e0b" />
-        <text x="${poleX + 70}" y="${poleY + 28}" fill="#0b1120" font-size="12" text-anchor="middle">⚡</text>
-        <text x="${poleX + 70}" y="${poleY + 52}" fill="#ffffff" font-size="13" font-weight="900" text-anchor="middle">
-          +600 MW
-        </text>
-        <text x="${poleX + 70}" y="${poleY + 68}" fill="#86efac" font-size="9" font-weight="800" text-anchor="middle">
-          SALIDA DEL BLOQUE
-        </text>
-      </g>
-    `;
 
     svg += `</svg>`;
 
@@ -4843,47 +4926,62 @@ document.addEventListener('DOMContentLoaded', () => {
     const cols = Math.min(6, Math.max(2, Math.ceil(totalBlocks / 2)));
     const rows = Math.ceil(totalBlocks / cols);
 
-    const blockW = 160;
-    const blockH = 110;
-    const gapX = 30;
-    const gapY = 36;
+    const blockW = 168;
+    const blockH = 118;
+    const gapX = 32;
+    const gapY = 38;
     const startX = 60;
-    const startY = 120;
+    const startY = 130;
 
-    const totalW = Math.max(1200, startX + cols * (blockW + gapX) + 220);
-    const totalH = Math.max(560, startY + rows * (blockH + gapY) + 80);
+    const totalW = Math.max(1240, startX + cols * (blockW + gapX) + 240);
+    const totalH = Math.max(580, startY + rows * (blockH + gapY) + 90);
 
-    let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #060a12; font-family: var(--font-main);">
+    let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #040812; font-family: var(--font-main);">
       <defs>
         <pattern id="overviewGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
-          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.035)" stroke-width="1"/>
         </pattern>
         <linearGradient id="overviewBlockGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#1e293b"/>
+          <stop offset="0%" stop-color="#1e1b4b"/>
           <stop offset="100%" stop-color="#0f172a"/>
         </linearGradient>
       </defs>
 
       <rect width="${totalW}" height="${totalH}" fill="url(#overviewGridPat)" />
 
-      <!-- Encabezado Panorámico -->
-      <rect x="50" y="20" width="${totalW - 100}" height="40" rx="6" fill="#0d1522" stroke="rgba(56, 189, 248, 0.4)" stroke-width="1.5"/>
-      <text x="70" y="45" fill="#38bdf8" font-size="12.5" font-weight="800">
-        🏭 DISTRIBUCIÓN GENERAL DE LA CENTRAL: ${totalBlocks} Bloques Modulares &bull; ${plant.totalGeneratorsCount} Generadores Totales
+      <!-- Encabezado Panorámico con Leyenda -->
+      <rect x="40" y="18" width="${totalW - 80}" height="56" rx="8" fill="#090f19" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
+      <text x="56" y="42" fill="#38bdf8" font-size="13" font-weight="900">
+        🏭 VISTA PANORÁMICA DE TODA LA CENTRAL: ${totalBlocks} Bloques &bull; ${plant.totalGeneratorsCount} Generadores Totales
       </text>
-      <text x="${totalW - 70}" y="45" fill="#4ade80" font-size="12" font-weight="800" text-anchor="end">
-        Potencia Total: +${plant.powerBalance.grossMW.toLocaleString()} MW
+      <text x="56" y="60" fill="#94a3b8" font-size="10.5">
+        Potencia Total de la Central: <strong style="color: #4ade80;">+${plant.powerBalance.grossMW.toLocaleString()} MW</strong> &bull; Suministro requerido: <strong style="color: #ea580c;">${plant.fuel.totalRate} ${plant.fuel.name}/min</strong>
       </text>
 
-      <!-- Línea troncal principal de carbón -->
-      <path d="M 30 90 L ${totalW - 240} 90" stroke="#78350f" stroke-width="6" fill="none" stroke-linecap="round" />
-      <path d="M 30 90 L ${totalW - 240} 90" class="blueprint-belt-flow" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="10 8" fill="none" />
-      <text x="35" y="82" fill="#fbbf24" font-size="10" font-weight="800">
-        ⬅ Suministro Principal de Carbón: ${plant.fuel.totalRate} /min
+      <!-- Leyenda de Colores en Vista Panorámica -->
+      <g transform="translate(${totalW - 540}, 30)">
+        <rect x="0" y="0" width="12" height="12" rx="2" fill="#ea580c"/>
+        <text x="16" y="10" fill="#fed7aa" font-size="9" font-weight="800">Carbón</text>
+
+        <rect x="90" y="0" width="12" height="12" rx="2" fill="#0284c7"/>
+        <text x="106" y="10" fill="#7dd3fc" font-size="9" font-weight="800">Agua</text>
+
+        <rect x="170" y="0" width="12" height="12" rx="2" fill="#8b5cf6"/>
+        <text x="186" y="10" fill="#d8b4fe" font-size="9" font-weight="800">Bloques (600 MW)</text>
+
+        <rect x="310" y="0" width="12" height="12" rx="2" fill="#22c55e"/>
+        <text x="326" y="10" fill="#86efac" font-size="9" font-weight="800">Red Eléctrica</text>
+      </g>
+
+      <!-- Línea troncal principal de carbón (Naranja) -->
+      <path d="M 30 100 L ${totalW - 250} 100" stroke="#1e293b" stroke-width="8" fill="none" stroke-linecap="round" />
+      <path d="M 30 100 L ${totalW - 250} 100" class="blueprint-belt-flow" stroke="#ea580c" stroke-width="3" stroke-dasharray="12 8" fill="none" />
+      <text x="35" y="92" fill="#ea580c" font-size="10" font-weight="900">
+        ⬅ Troncal Principal de Carbón: ${plant.fuel.totalRate} /min
       </text>
     `;
 
-    // Renderizar cada bloque como un módulo de 600 MW
+    // Renderizar cada bloque modular
     for (let b = 0; b < totalBlocks; b++) {
       const col = b % cols;
       const row = Math.floor(b / cols);
@@ -4897,51 +4995,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
       svg += `
         <!-- Bajada de carbón al bloque -->
-        <path d="M ${bx + blockW / 2} 90 L ${bx + blockW / 2} ${by}" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="4 2" fill="none" />
+        <path d="M ${bx + blockW / 2} 100 L ${bx + blockW / 2} ${by}" stroke="#ea580c" stroke-width="2.5" stroke-dasharray="4 2" fill="none" />
         
         <!-- Bloque Modular #${b + 1} -->
         <g class="power-generator-node" data-id="block_${b}" data-name="Bloque #${b + 1} (${bMW} MW)" data-mw="${bMW} MW" data-clock="100%" data-fuel="${bGens * 15}/min" data-water="${bWater} m³/min" style="cursor: pointer;">
-          <rect x="${bx}" y="${by}" width="${blockW}" height="${blockH}" rx="8" fill="url(#overviewBlockGrad)" stroke="${isRem ? '#fbbf24' : '#0284c7'}" stroke-width="2" />
+          <rect x="${bx}" y="${by}" width="${blockW}" height="${blockH}" rx="8" fill="url(#overviewBlockGrad)" stroke="${isRem ? '#f59e0b' : '#8b5cf6'}" stroke-width="2.5" />
           
-          <rect x="${bx + 8}" y="${by + 8}" width="${blockW - 16}" height="20" rx="4" fill="#090f1a" />
-          <text x="${bx + 14}" y="${by + 22}" fill="${isRem ? '#fbbf24' : '#38bdf8'}" font-size="10.5" font-weight="800">
+          <rect x="${bx + 8}" y="${by + 8}" width="${blockW - 16}" height="22" rx="4" fill="#090f1a" />
+          <text x="${bx + 14}" y="${by + 23}" fill="${isRem ? '#fbbf24' : '#c084fc'}" font-size="10.5" font-weight="900">
             ${isRem ? `Bloque #${b + 1} (Ajuste)` : `Bloque #${b + 1} (8:3)`}
           </text>
-          <text x="${bx + blockW - 14}" y="${by + 22}" fill="#4ade80" font-size="10" font-weight="900" text-anchor="end">
+          <text x="${bx + blockW - 14}" y="${by + 23}" fill="#4ade80" font-size="11" font-weight="900" text-anchor="end">
             +${bMW} MW
           </text>
 
-          <text x="${bx + 14}" y="${by + 48}" fill="#f1f5f9" font-size="9.5">🏭 ${bGens} Generadores</text>
-          <text x="${bx + 14}" y="${by + 64}" fill="#f59e0b" font-size="9.5">🪨 ${bGens * 15} Carbón/min</text>
-          <text x="${bx + 14}" y="${by + 80}" fill="#38bdf8" font-size="9.5">💧 ${bWater} m³ Agua/min</text>
+          <text x="${bx + 14}" y="${by + 50}" fill="#f1f5f9" font-size="10" font-weight="700">🏭 ${bGens} Generadores</text>
+          <text x="${bx + 14}" y="${by + 67}" fill="#ea580c" font-size="10" font-weight="700">🪨 ${bGens * 15} Carbón/min</text>
+          <text x="${bx + 14}" y="${by + 84}" fill="#00e5ff" font-size="10" font-weight="700">💧 ${bWater} m³ Agua/min</text>
           
-          <rect x="${bx + 8}" y="${by + blockH - 22}" width="${blockW - 16}" height="14" rx="2" fill="rgba(74, 222, 128, 0.1)" />
-          <text x="${bx + blockW / 2}" y="${by + blockH - 12}" fill="#86efac" font-size="8.5" font-weight="700" text-anchor="middle">
+          <rect x="${bx + 8}" y="${by + blockH - 24}" width="${blockW - 16}" height="16" rx="3" fill="rgba(74, 222, 128, 0.12)" />
+          <text x="${bx + blockW / 2}" y="${by + blockH - 12}" fill="#86efac" font-size="9" font-weight="800" text-anchor="middle">
             ${isRem ? '1 Extractor de Agua' : '3 Extractores de Agua'}
           </text>
         </g>
 
-        <!-- Cable de salida a la subestación -->
-        <path d="M ${bx + blockW} ${by + blockH / 2} Q ${totalW - 200} ${by + blockH / 2} ${totalW - 170} 220" stroke="#facc15" stroke-width="1.5" stroke-dasharray="3 3" fill="none" opacity="0.5"/>
+        <!-- Cable de salida a la subestación central (Verde) -->
+        <path d="M ${bx + blockW} ${by + blockH / 2} Q ${totalW - 200} ${by + blockH / 2} ${totalW - 180} 240" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="4 3" fill="none" opacity="0.6"/>
       `;
     }
 
-    // Subestación Central de Salida
-    const subX = totalW - 180;
-    const subY = 170;
+    // Subestación Central de Salida General (Verde Esmeralda)
+    const subX = totalW - 195;
+    const subY = 180;
     svg += `
-      <g class="power-substation-node">
-        <rect x="${subX}" y="${subY}" width="150" height="110" rx="10" fill="#0c1726" stroke="#f59e0b" stroke-width="2.5" />
-        <circle cx="${subX + 75}" cy="${subY + 28}" r="14" fill="#f59e0b" />
-        <text x="${subX + 75}" y="${subY + 33}" fill="#0b1120" font-size="14" text-anchor="middle">⚡</text>
-        <text x="${subX + 75}" y="${subY + 62}" fill="#ffffff" font-size="15" font-weight="900" text-anchor="middle">
+      <g class="power-substation-node" style="cursor: pointer;">
+        <rect x="${subX}" y="${subY}" width="165" height="120" rx="10" fill="#052e16" stroke="#22c55e" stroke-width="3" />
+        <circle cx="${subX + 82}" cy="${subY + 30}" r="15" fill="#22c55e" />
+        <text x="${subX + 82}" y="${subY + 36}" fill="#022c22" font-size="16" font-weight="900" text-anchor="middle">⚡</text>
+        <text x="${subX + 82}" y="${subY + 68}" fill="#ffffff" font-size="17" font-weight="900" text-anchor="middle">
           +${plant.powerBalance.netMW.toLocaleString()} MW
         </text>
-        <text x="${subX + 75}" y="${subY + 80}" fill="#86efac" font-size="10.5" font-weight="800" text-anchor="middle">
+        <text x="${subX + 82}" y="${subY + 88}" fill="#86efac" font-size="11" font-weight="800" text-anchor="middle">
           POTENCIA NETA TOTAL
         </text>
-        <text x="${subX + 75}" y="${subY + 98}" fill="#94a3b8" font-size="9" text-anchor="middle">
-          ${plant.totalGeneratorsCount} Generadores
+        <text x="${subX + 82}" y="${subY + 107}" fill="#94a3b8" font-size="9.5" text-anchor="middle">
+          ${plant.totalGeneratorsCount} Generadores Conectados
         </text>
       </g>
     `;
@@ -5130,7 +5228,57 @@ document.addEventListener('DOMContentLoaded', () => {
           <div style="font-weight: 800; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">💧 ${name}</div>
           <div><strong>Suministro de Agua:</strong> <span style="color: #38bdf8; font-weight: 800;">+${flow}</span></div>
           <div><strong>Consumo Eléctrico:</strong> <span style="color: #f87171;">-${mw}</span></div>
-          <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">Conectado a manifold colector</div>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Conectado al manifold colector de agua</div>
+        `;
+        tooltip.style.display = 'block';
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        const rect = viewport.getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    });
+
+    canvas.querySelectorAll('.power-splitter-node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        if (powerBpState.isZooming || powerBpState.isDragging || !powerBpState.focusModeEnabled) return;
+        const name = node.getAttribute('data-name');
+        const flow = node.getAttribute('data-flow');
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #ea580c; font-size: 0.88rem; margin-bottom: 4px;">🔀 ${name}</div>
+          <div style="color: #ffedd5; font-size: 0.76rem; margin-bottom: 4px;">Divisor de cinta transportadora en manifold lineal</div>
+          <div><strong>Derivación:</strong> <span style="color: #fed7aa; font-weight: 800;">${flow}</span></div>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">El carbón restante sigue adelante al próximo generador.</div>
+        `;
+        tooltip.style.display = 'block';
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        const rect = viewport.getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    });
+
+    canvas.querySelectorAll('.power-substation-node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        if (powerBpState.isZooming || powerBpState.isDragging || !powerBpState.focusModeEnabled) return;
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #22c55e; font-size: 0.88rem; margin-bottom: 4px;">⚡ Subestación Eléctrica</div>
+          <div style="color: #86efac; font-size: 0.76rem; margin-bottom: 4px;">Punto central de interconexión a la Red FICSIT</div>
+          <div><strong>Entrega a la Red:</strong> <span style="color: #4ade80; font-weight: 800;">Potencia en Alta Tensión</span></div>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Conecta los cables de tus postes y fábricas aquí.</div>
         `;
         tooltip.style.display = 'block';
       });
