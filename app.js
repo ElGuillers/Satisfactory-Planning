@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pipeTier: 1,
       beltTier: 3,
       blueprintMode: 'block',
+      coalDistribution: 'balanced', // 'balanced' (Mitad y Mitad / Central 60/60) | 'cascade' (Manifold continuo)
       drills: [
         { id: 'drill_1', minerTier: 'miner_mk2', purity: 'normal', clock: 100 },
         { id: 'drill_2', minerTier: 'miner_mk2', purity: 'normal', clock: 100 },
@@ -4255,6 +4256,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Switcher de Vista del Plano (Detalle del Bloque vs Panorámica)
+    const btnDistBalanced = document.getElementById('btnPowerDistBalanced');
+    const btnDistCascade = document.getElementById('btnPowerDistCascade');
+
     if (btnViewBlock && btnViewOverview) {
       btnViewBlock.addEventListener('click', () => {
         state.power.blueprintMode = 'block';
@@ -4267,6 +4271,22 @@ document.addEventListener('DOMContentLoaded', () => {
         state.power.blueprintMode = 'overview';
         btnViewOverview.classList.add('active');
         btnViewBlock.classList.remove('active');
+        renderPowerPlantSection();
+      });
+    }
+
+    if (btnDistBalanced && btnDistCascade) {
+      btnDistBalanced.addEventListener('click', () => {
+        state.power.coalDistribution = 'balanced';
+        btnDistBalanced.classList.add('active');
+        btnDistCascade.classList.remove('active');
+        renderPowerPlantSection();
+      });
+
+      btnDistCascade.addEventListener('click', () => {
+        state.power.coalDistribution = 'cascade';
+        btnDistCascade.classList.add('active');
+        btnDistBalanced.classList.remove('active');
         renderPowerPlantSection();
       });
     }
@@ -4587,6 +4607,43 @@ document.addEventListener('DOMContentLoaded', () => {
               </p>
             </div>
           </div>
+
+          <!-- COMPARATIVA: CASCADA VS MITAD Y MITAD & LOGÍSTICA DE TALADROS -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+            <!-- Comparativa de Distribución -->
+            <div style="background: #08101e; border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 6px; padding: 12px;">
+              <strong style="color: #38bdf8; font-size: 0.84rem; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                <span>⚖️</span> 4. ¿División en Cascada ("en fila") o Mitad y Mitad (Balanceado)?
+              </strong>
+              <div style="font-size: 0.77rem; color: #cbd5e1; line-height: 1.55;">
+                <div style="margin-bottom: 8px;">
+                  <span style="color: #ea580c; font-weight: 800;">• Cascada en serie (Línea continua):</span>
+                  Los divisores van uno tras otro. <em>El Generador #1 toma 60/m</em> y llena su almacén de 100 muy rápido, pero <em>el Generador #8 recibe solo 0.45/m</em> al inicio. Tarda entre <strong>8 y 15 minutos en saturarse</strong>, y mientras tanto los generadores lejanos parpadean y apagan la central. <em>(Solo úsalo si precargas carbón a mano antes de arrancar)</em>.
+                </div>
+                <div>
+                  <span style="color: #4ade80; font-weight: 800;">• Mitad y Mitad (Central 60/60) ⭐ RECOMENDADO:</span>
+                  La cinta entra por el centro con un divisor 50%/50% y reparte <strong>60/min a la izquierda (Gen 1 al 4)</strong> y <strong>60/min a la derecha (Gen 5 al 8)</strong>. Se llena <strong>4 veces más rápido</strong>, los extremos no sufren y la red es estable desde el primer minuto.
+                </div>
+              </div>
+            </div>
+
+            <!-- Logística Macro de Taladros (Regla 240/min) -->
+            <div style="background: #08101e; border: 1px solid rgba(245, 158, 11, 0.25); border-radius: 6px; padding: 12px;">
+              <strong style="color: #fbbf24; font-size: 0.84rem; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                <span>⛏️</span> 5. Regla FICSIT de los 240/min para tus Taladros
+              </strong>
+              <div style="font-size: 0.77rem; color: #cbd5e1; line-height: 1.55;">
+                <div style="margin-bottom: 8px;">
+                  <span style="color: #f87171; font-weight: 800;">• Nunca unas 43 taladros en 1 sola cinta:</span>
+                  Para ${plant.powerBalance.grossMW.toLocaleString()} MW necesitas <strong>${plant.fuel.totalRate} carbón/min</strong>. ¡Ninguna cinta del juego soporta 1,600/min en una sola línea (la Mk.5 aguanta 780)! Si unes todo, las cintas colapsan y los bloques lejanos mueren de hambre.
+                </div>
+                <div>
+                  <span style="color: #fbbf24; font-weight: 800;">• La Solución en Parejas de Bloques (240/min):</span>
+                  Agrupa tus taladros en cintas de <strong>240 carbón/min</strong> (Cinta Mk.3 de 270). A cada salida de 240/min ponle un <strong>Splitter 50%/50%</strong> que saque dos cintas de <strong>120/min</strong>: una va al <em>Bloque Maestro A (600 MW)</em> y la otra al <em>Bloque Maestro B (600 MW)</em>. Para tus ${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques necesitas exactamente <strong>${Math.ceil((plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1) / 2)} líneas de 240/min</strong>.
+                </div>
+              </div>
+            </div>
+          </div>
         `;
       } else {
         archCard.style.display = 'none';
@@ -4644,6 +4701,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const startX = 65;
     const genY = 245;
     const beltY = 160;
+    const isBalanced = (state.power.coalDistribution || 'balanced') === 'balanced';
+    const midX = Math.round(startX + 3.5 * (genW + gapX) + genW / 2); // 703 px (centro entre Gen 4 y 5)
 
     let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #040812; font-family: var(--font-main);">
       <defs>
@@ -4690,11 +4749,11 @@ document.addEventListener('DOMContentLoaded', () => {
       <rect x="35" y="14" width="${totalW - 70}" height="54" rx="8" fill="#090f19" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
       
       <!-- Título del Plano -->
-      <text x="50" y="36" fill="#f8fafc" font-size="13" font-weight="900" letter-spacing="0.5">
+      <text x="50" y="34" fill="#f8fafc" font-size="13" font-weight="900" letter-spacing="0.5">
         📐 ESQUEMA DE MONTAJE DEL BLOQUE MAESTRO (8 Generadores de Carbón : 3 Extractores de Agua = 600 MW)
       </text>
-      <text x="50" y="54" fill="#94a3b8" font-size="10.5">
-        Para tus ${plant.powerBalance.grossMW.toLocaleString()} MW: Construye <strong style="color: #4ade80;">${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques idénticos</strong> a este esquema.
+      <text x="50" y="52" fill="#94a3b8" font-size="10.5">
+        Distribución de Carbón: <strong style="color: ${isBalanced ? '#4ade80' : '#f59e0b'};">${isBalanced ? '🔀 Mitad y Mitad (Central 60/60 - Recomendado)' : '➡️ Cascada (Manifold Lineal)'}</strong> &bull; Meta: <strong style="color: #4ade80;">${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques idénticos</strong>.
       </text>
 
       <!-- Leyenda de Colores (4 Colores 100% Distintos) -->
@@ -4739,16 +4798,61 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- =========================================================================
            3. NIVEL 2: LÍNEA TRONCAL DE CARBÓN Y DIVISORES (SPLITTERS)
            ========================================================================= -->
-      <!-- Riel base de la cinta transportadora de carbón -->
-      <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" stroke="#1e293b" stroke-width="12" fill="none" stroke-linecap="round" />
-      <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" stroke="#7c2d12" stroke-width="7" fill="none" />
-      <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" class="blueprint-belt-flow" stroke="#ea580c" stroke-width="3" stroke-dasharray="14 10" fill="none" />
-      
-      <!-- Cartel de Entrada de Carbón -->
-      <rect x="35" y="${beltY - 36}" width="230" height="26" rx="4" fill="#1c0b05" stroke="#ea580c" stroke-width="1.8" />
-      <text x="45" y="${beltY - 19}" fill="#ffedd5" font-size="11" font-weight="900">
-        🪨 Entrada Carbón: 120/min (Cinta Mk.2)
-      </text>
+      ${isBalanced ? `
+        <!-- ENTRADA CENTRAL BALANCEADA (50% IZQUIERDA / 50% DERECHA) -->
+        <path d="M ${midX} 98 L ${midX} ${beltY - 18}" stroke="#ea580c" stroke-width="5" fill="none" />
+        <polygon points="${midX - 5},${beltY - 20} ${midX + 5},${beltY - 20} ${midX},${beltY - 12}" fill="#ea580c" />
+
+        <!-- Cartel Central de Entrada de Carbón -->
+        <rect x="${midX - 130}" y="64" width="260" height="26" rx="5" fill="#1c0b05" stroke="#ea580c" stroke-width="1.8" />
+        <text x="${midX}" y="81" fill="#ffedd5" font-size="10.5" font-weight="900" text-anchor="middle">
+          🪨 Entrada Central: 120/min (Cinta Mk.2)
+        </text>
+
+        <!-- Riel Rama Izquierda: de midX a Generador 1 -->
+        <path d="M ${midX - 54} ${beltY} L ${startX + genW / 2} ${beltY}" stroke="#1e293b" stroke-width="12" fill="none" stroke-linecap="round" />
+        <path d="M ${midX - 54} ${beltY} L ${startX + genW / 2} ${beltY}" stroke="#7c2d12" stroke-width="7" fill="none" />
+        <path d="M ${midX - 54} ${beltY} L ${startX + genW / 2} ${beltY}" class="blueprint-belt-flow" stroke="#ea580c" stroke-width="3" stroke-dasharray="14 10" fill="none" />
+
+        <!-- Etiqueta Rama Izquierda -->
+        <rect x="${startX + 20}" y="${beltY - 32}" width="220" height="20" rx="4" fill="#180702" stroke="#ea580c" stroke-width="1.2" />
+        <text x="${startX + 130}" y="${beltY - 18}" fill="#fed7aa" font-size="9" font-weight="800" text-anchor="middle">
+          ⬅ Rama Izquierda: 60/min (Generadores 1 al 4)
+        </text>
+
+        <!-- Riel Rama Derecha: de midX a Generador 8 -->
+        <path d="M ${midX + 54} ${beltY} L ${startX + 7 * (genW + gapX) + genW / 2} ${beltY}" stroke="#1e293b" stroke-width="12" fill="none" stroke-linecap="round" />
+        <path d="M ${midX + 54} ${beltY} L ${startX + 7 * (genW + gapX) + genW / 2} ${beltY}" stroke="#7c2d12" stroke-width="7" fill="none" />
+        <path d="M ${midX + 54} ${beltY} L ${startX + 7 * (genW + gapX) + genW / 2} ${beltY}" class="blueprint-belt-flow" stroke="#ea580c" stroke-width="3" stroke-dasharray="14 10" fill="none" />
+
+        <!-- Etiqueta Rama Derecha -->
+        <rect x="${midX + 80}" y="${beltY - 32}" width="220" height="20" rx="4" fill="#180702" stroke="#ea580c" stroke-width="1.2" />
+        <text x="${midX + 190}" y="${beltY - 18}" fill="#fed7aa" font-size="9" font-weight="800" text-anchor="middle">
+          Rama Derecha: 60/min (Generadores 5 al 8) ➔
+        </text>
+
+        <!-- Divisor Central Mitad y Mitad (Splitter 50%/50%) -->
+        <g class="power-splitter-node" data-id="sp_central" data-name="Divisor Central FICSIT (50% / 50%)" data-flow="60 /min Izquierda (Gen 1-4) + 60 /min Derecha (Gen 5-8)" style="cursor: pointer;">
+          <rect x="${midX - 54}" y="${beltY - 18}" width="108" height="36" rx="6" fill="#2d1205" stroke="#ea580c" stroke-width="2.5" filter="url(#glowOrange)"/>
+          <text x="${midX}" y="${beltY - 2}" fill="#ffedd5" font-size="9.5" font-weight="900" text-anchor="middle">
+            🔀 Divisor Central
+          </text>
+          <text x="${midX}" y="${beltY + 11}" fill="#fdba74" font-size="8.5" font-weight="800" text-anchor="middle">
+            50% Izq | 50% Der (60/m)
+          </text>
+        </g>
+      ` : `
+        <!-- ENTRADA EN CASCADA CONTINUA (DE IZQUIERDA A DERECHA) -->
+        <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" stroke="#1e293b" stroke-width="12" fill="none" stroke-linecap="round" />
+        <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" stroke="#7c2d12" stroke-width="7" fill="none" />
+        <path d="M 35 ${beltY} L ${startX + 8 * (genW + gapX) - 15} ${beltY}" class="blueprint-belt-flow" stroke="#ea580c" stroke-width="3" stroke-dasharray="14 10" fill="none" />
+        
+        <!-- Cartel de Entrada de Carbón en Cascada -->
+        <rect x="35" y="${beltY - 36}" width="260" height="26" rx="4" fill="#1c0b05" stroke="#ea580c" stroke-width="1.8" />
+        <text x="45" y="${beltY - 19}" fill="#ffedd5" font-size="10.5" font-weight="900">
+          🪨 Entrada Cascada: 120/min (Cinta Mk.2)
+        </text>
+      `}
 
       <!-- =========================================================================
            4. NIVEL 3: LOS 8 GENERADORES DE CARBÓN Y SUS DIVISORES
@@ -4758,6 +4862,10 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < 8; i++) {
       const gx = startX + i * (genW + gapX);
       const splitX = gx + genW / 2;
+      const isLeftBranch = i < 4;
+      const splitFlow = isBalanced
+        ? (isLeftBranch ? `15 /min de Rama Izquierda hacia Generador #${i + 1}` : `15 /min de Rama Derecha hacia Generador #${i + 1}`)
+        : `15 /min en cascada hacia Generador #${i + 1}`;
 
       // 1. Cable eléctrico vertical que sube desde el techo del generador a la red
       svg += `
@@ -4768,7 +4876,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 2. DIVISOR DE CARBÓN (SPLITTER) - Rótulo claro sin siglas crípticas
       svg += `
-        <g class="power-splitter-node" data-id="sp_${i}" data-name="Divisor de Carbón #${i + 1} (Splitter)" data-flow="15 /min hacia Generador #${i + 1}" style="cursor: pointer;">
+        <g class="power-splitter-node" data-id="sp_${i}" data-name="Divisor de Carbón #${i + 1} (Splitter)" data-flow="${splitFlow}" style="cursor: pointer;">
           <!-- Caja del Divisor -->
           <rect x="${splitX - 32}" y="${beltY - 17}" width="64" height="34" rx="4" fill="#271006" stroke="#ea580c" stroke-width="2" filter="url(#glowOrange)"/>
           <text x="${splitX}" y="${beltY - 2}" fill="#ffedd5" font-size="9" font-weight="900" text-anchor="middle">
@@ -4973,11 +5081,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <text x="326" y="10" fill="#86efac" font-size="9" font-weight="800">Red Eléctrica</text>
       </g>
 
-      <!-- Línea troncal principal de carbón (Naranja) -->
+      <!-- Línea troncal principal de carbón (Naranja) con Regla de los 240/min -->
       <path d="M 30 100 L ${totalW - 250} 100" stroke="#1e293b" stroke-width="8" fill="none" stroke-linecap="round" />
       <path d="M 30 100 L ${totalW - 250} 100" class="blueprint-belt-flow" stroke="#ea580c" stroke-width="3" stroke-dasharray="12 8" fill="none" />
-      <text x="35" y="92" fill="#ea580c" font-size="10" font-weight="900">
-        ⬅ Troncal Principal de Carbón: ${plant.fuel.totalRate} /min
+      <rect x="30" y="82" width="640" height="24" rx="4" fill="#180702" stroke="#ea580c" stroke-width="1.2" />
+      <text x="40" y="98" fill="#fed7aa" font-size="9.5" font-weight="900">
+        ⛏️ REGLA FICSIT 240/min: Agrupa taladros en cintas Mk.3 de 240/min y divide con Splitter 50%/50% a pares de bloques de 120/min.
       </text>
     `;
 

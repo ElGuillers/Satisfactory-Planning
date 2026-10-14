@@ -126,6 +126,11 @@ Calculadora y planificador de producción ultra liviano diseñado para pioneros 
     * 🟦 **Azul y Cian Neón (`#0284c7` / `#00e5ff`):** Manifold colector de agua en bucle cerrado y tuberías verticales de inyección.
     * 🟪 **Violeta Tecnológico (`#8b5cf6`):** Chasis industrial de los generadores sobre cimientos de hormigón reforzado, con chimeneas de vapor (`💨`) y potencia visible (`⚡ 75 MW`).
     * 🟩 **Verde Esmeralda (`#22c55e`):** Red aérea de cableado de alta tensión segregada en el nivel superior y Subestación receptora de potencia.
+  * **Modos de Distribución de Carbón en el Bloque:**
+    * 🔀 **Mitad y Mitad (Central 60/60 - Recomendado):** La cinta de 120/min entra por el centro y se divide en 2 ramales de 60/min (Generadores 1-4 y 5-8). Saturación 4x más rápida, arranque estable e instantáneo sin caídas de red ni parpadeos.
+    * ➡️ **Cascada (Manifold Lineal continuo):** Cinta única de izquierda a derecha. Compacto pero requiere precargar carbón a mano o esperar 8-15 min a que los primeros generadores se saturen.
+  * **Logística Macro de Taladros (Regla FICSIT de los 240/min):**
+    * Guía técnica para plantas de gran escala (ej. 8,000 MW / 107 generadores): en lugar de unir 43 taladros en una megacinta que colapsaría el juego, se agrupan en cintas Mk.3 de **240 carbón/min** con un Splitter 50%/50% que alimenta **2 Bloques Maestros (120/min c/u = 1,200 MW limpios)** de forma autónoma.
   * **Estructura en 5 Niveles sin Cruces:** Red Eléctrica Superior ➔ Cinta de Carbón & Divisores ➔ Edificios de Generación ➔ Manifold de Agua ➔ Costa con Extractores Marinos.
   * **Doble Vista Alternable:** Esquema detallado de 1 Bloque Maestro (8:3) o Vista Panorámica con la totalidad de los bloques interconectados.
 

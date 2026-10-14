@@ -828,6 +828,16 @@
               </button>
             </div>
 
+            <!-- Selector de Distribución de Carbón (Mitad y Mitad vs Cascada) -->
+            <div class="blueprint-view-switcher" id="powerBpCoalDistSwitcher" title="Método de distribución de combustible en el bloque">
+              <button type="button" class="btn-builder-view active" id="btnPowerDistBalanced" data-dist="balanced" title="División Mitad y Mitad (Central 60/60): Se divide al centro en 2 ramas de 60/min. Saturación 4x más rápida sin apagones al arrancar.">
+                <span>🔀 Carbón: Mitad y Mitad (60/60)</span>
+              </button>
+              <button type="button" class="btn-builder-view" id="btnPowerDistCascade" data-dist="cascade" title="División en Cascada (Manifold Lineal): Una sola cinta continua de izquierda a derecha. Muy compacto, pero tarda en saturarse si no se precarga.">
+                <span>➡️ Carbón: Cascada (Lineal)</span>
+              </button>
+            </div>
+
             <span style="font-size: 0.74rem; color: var(--text-muted);" id="powerBpSubtitle">
               Vista del bloque eficiente
             </span>
@@ -852,27 +862,23 @@
           <div id="powerBlueprintTooltip" class="power-blueprint-tooltip" style="display: none;"></div>
         </div>
 
-        <!-- Leyenda FICSIT -->
+        <!-- Leyenda FICSIT de Alto Contraste -->
         <div class="blueprint-legend">
           <div class="legend-item">
-            <span class="legend-color-box" style="background: #f59e0b;"></span>
-            <span>Generadores de Energía</span>
+            <span class="legend-color-box" style="background: #ea580c;"></span>
+            <span>🟧 Carbón y Divisores (Splitters)</span>
           </div>
           <div class="legend-item">
-            <span class="legend-color-box" style="background: #0284c7;"></span>
-            <span>Extractores de Agua (Costa/Lago)</span>
+            <span class="legend-color-box" style="background: #00e5ff;"></span>
+            <span>🟦 Agua y Manifold Colector</span>
           </div>
           <div class="legend-item">
-            <span class="legend-color-box" style="background: #38bdf8;"></span>
-            <span>Tuberías de Agua / Manifolds</span>
+            <span class="legend-color-box" style="background: #8b5cf6;"></span>
+            <span>🟪 Generadores de Carbón (75 MW)</span>
           </div>
           <div class="legend-item">
-            <span class="legend-color-box" style="background: #eab308;"></span>
-            <span>Cintas de Combustible / Splitters</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-color-box" style="background: #facc15;"></span>
-            <span>Red de Distribución y Subestación (MW Netos)</span>
+            <span class="legend-color-box" style="background: #22c55e;"></span>
+            <span>🟩 Red Eléctrica Aérea y Subestación (+600 MW)</span>
           </div>
         </div>
       </div>
