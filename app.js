@@ -4753,7 +4753,7 @@ document.addEventListener('DOMContentLoaded', () => {
         📐 ESQUEMA DE MONTAJE DEL BLOQUE MAESTRO (8 Generadores de Carbón : 3 Extractores de Agua = 600 MW)
       </text>
       <text x="50" y="52" fill="#94a3b8" font-size="10.5">
-        Distribución de Carbón: <strong style="color: ${isBalanced ? '#4ade80' : '#f59e0b'};">${isBalanced ? '🔀 Mitad y Mitad (Central 60/60 - Recomendado)' : '➡️ Cascada (Manifold Lineal)'}</strong> &bull; Meta: <strong style="color: #4ade80;">${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques idénticos</strong>.
+        Distribución de Carbón: <tspan fill="${isBalanced ? '#4ade80' : '#f59e0b'}" font-weight="900">${isBalanced ? '🔀 Mitad y Mitad (Central 60/60 - Recomendado)' : '➡️ Cascada (Manifold Lineal)'}</tspan> • Meta: <tspan fill="#4ade80" font-weight="900">${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques idénticos</tspan>.
       </text>
 
       <!-- Leyenda de Colores (4 Colores 100% Distintos) -->
@@ -4972,7 +4972,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <line x1="0" y1="${lakeY}" x2="${totalW}" y2="${lakeY}" stroke="#00e5ff" stroke-width="2.5" stroke-dasharray="10 5" opacity="0.8"/>
       
       <text x="40" y="${lakeY + 24}" fill="#00e5ff" font-size="11.5" font-weight="900" letter-spacing="1">
-        🌊 COSTA / LAGO DE AGUA (3 Extractores colocados en agua abierta &bull; 120 m³/min cada uno)
+        🌊 COSTA / LAGO DE AGUA (3 Extractores colocados en agua abierta • 120 m³/min cada uno)
       </text>
     `;
 
@@ -5060,10 +5060,10 @@ document.addEventListener('DOMContentLoaded', () => {
       <!-- Encabezado Panorámico con Leyenda -->
       <rect x="40" y="18" width="${totalW - 80}" height="56" rx="8" fill="#090f19" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
       <text x="56" y="42" fill="#38bdf8" font-size="13" font-weight="900">
-        🏭 VISTA PANORÁMICA DE TODA LA CENTRAL: ${totalBlocks} Bloques &bull; ${plant.totalGeneratorsCount} Generadores Totales
+        🏭 VISTA PANORÁMICA DE TODA LA CENTRAL: ${totalBlocks} Bloques • ${plant.totalGeneratorsCount} Generadores Totales
       </text>
       <text x="56" y="60" fill="#94a3b8" font-size="10.5">
-        Potencia Total de la Central: <strong style="color: #4ade80;">+${plant.powerBalance.grossMW.toLocaleString()} MW</strong> &bull; Suministro requerido: <strong style="color: #ea580c;">${plant.fuel.totalRate} ${plant.fuel.name}/min</strong>
+        Potencia Total de la Central: <tspan fill="#4ade80" font-weight="900">+${plant.powerBalance.grossMW.toLocaleString()} MW</tspan> • Suministro requerido: <tspan fill="#ea580c" font-weight="900">${plant.fuel.totalRate} ${plant.fuel.name}/min</tspan>
       </text>
 
       <!-- Leyenda de Colores en Vista Panorámica -->
