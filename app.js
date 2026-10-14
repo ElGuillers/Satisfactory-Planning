@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
       purityOverrides: {},
       minerOverrides: {},
       nodeCountOverrides: {},
+      rawNodesConfig: {},
       altPreferences: {
         screw: 'screw_cast',
         steel_ingot: null,
@@ -168,15 +169,38 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncTargetRateFromDrills() {
     const targetGoal = state.builder.targetGoal || 'iron_plate';
     const primaryRawId = getPrimaryRawId(targetGoal, state.builder.altPreferences);
-    const minerTier = (state.builder.minerOverrides && state.builder.minerOverrides[primaryRawId]) || state.builder.globalMinerTier || 'miner_mk1';
-    const minerMeta = SATIS_DATA.miners[minerTier] || SATIS_DATA.miners.miner_mk1;
+    const defaultMinerTier = (state.builder.minerOverrides && state.builder.minerOverrides[primaryRawId]) || state.builder.globalMinerTier || 'miner_mk1';
+    const defaultPurity = (state.builder.purityOverrides && state.builder.purityOverrides[primaryRawId]) || 'normal';
     const drillCount = Math.max(1, state.builder.drillCount || 1);
 
-    const purityKey = (state.builder.purityOverrides && state.builder.purityOverrides[primaryRawId]) || 'normal';
-    const purity = SATIS_DATA.purities[purityKey] || SATIS_DATA.purities.normal;
+    state.builder.rawNodesConfig = state.builder.rawNodesConfig || {};
+    let primaryNodes = state.builder.rawNodesConfig[primaryRawId];
 
-    const singleMinerOutput = minerMeta.baseRate * purity.factor;
-    const availableRawRate = Number((singleMinerOutput * drillCount).toFixed(2));
+    if (!primaryNodes || !Array.isArray(primaryNodes)) {
+      primaryNodes = [];
+    }
+
+    // Ajustar longitud a drillCount conservando las configuraciones personalizadas ya hechas
+    while (primaryNodes.length < drillCount) {
+      primaryNodes.push({
+        id: Date.now() + Math.random(),
+        purity: defaultPurity,
+        minerKey: defaultMinerTier
+      });
+    }
+    if (primaryNodes.length > drillCount) {
+      primaryNodes = primaryNodes.slice(0, drillCount);
+    }
+    state.builder.rawNodesConfig[primaryRawId] = primaryNodes;
+
+    // Sumar la tasa exacta de extracción de cada taladro individual
+    const availableRawRate = Number(primaryNodes.reduce((sum, n) => {
+      const pMeta = SATIS_DATA.purities[n.purity] || SATIS_DATA.purities.normal;
+      const mMeta = SATIS_DATA.miners[n.minerKey] || SATIS_DATA.miners[defaultMinerTier] || SATIS_DATA.miners.miner_mk1;
+      const factor = (mMeta.isFixedRate || primaryRawId === 'water') ? 1.0 : pMeta.factor;
+      const clock = (n.clock !== undefined) ? n.clock : 100;
+      return sum + (mMeta.baseRate * factor * (clock / 100));
+    }, 0).toFixed(2));
 
     state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
     state.builder.nodeCountOverrides[primaryRawId] = drillCount;
@@ -370,78 +394,110 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Raw Cards Container delegation (Purity, Miner Tier, Node Count Stepper, Sync to Drill)
+    // Raw Cards Container delegation (Purity per drill, Miner Tier per drill, Add/Remove drill, Auto Reset, Sync)
     const rawCardsBox = document.getElementById('builderRawCardsContainer');
     if (rawCardsBox) {
       rawCardsBox.addEventListener('click', (e) => {
-        // 1. Purity toggle
-        const btnPurity = e.target.closest('.btn-raw-purity');
-        if (btnPurity) {
-          const rawId = btnPurity.getAttribute('data-raw');
-          const purity = btnPurity.getAttribute('data-purity');
-          state.builder.purityOverrides = state.builder.purityOverrides || {};
-          state.builder.purityOverrides[rawId] = purity;
-          if (state.builder.calcMode === 'drills') {
-            syncTargetRateFromDrills();
+        const primaryRawId = getPrimaryRawId(state.builder.targetGoal, state.builder.altPreferences);
+
+        // 1. Purity toggle for a specific drill
+        const btnNodePurity = e.target.closest('.btn-node-purity');
+        if (btnNodePurity) {
+          const rawId = btnNodePurity.getAttribute('data-raw');
+          const idx = parseInt(btnNodePurity.getAttribute('data-index'), 10);
+          const purity = btnNodePurity.getAttribute('data-purity');
+          if (state.builder.rawNodesConfig && state.builder.rawNodesConfig[rawId] && state.builder.rawNodesConfig[rawId][idx]) {
+            state.builder.rawNodesConfig[rawId][idx].purity = purity;
+            if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
+              syncTargetRateFromDrills();
+            }
+            updateLineBuilder();
           }
-          updateLineBuilder();
           return;
         }
 
-        // 2. Miner tier toggle (Mk.1, Mk.2, Mk.3)
-        const btnMiner = e.target.closest('.btn-raw-miner');
-        if (btnMiner) {
-          const rawId = btnMiner.getAttribute('data-raw');
-          const minerKey = btnMiner.getAttribute('data-miner');
-          state.builder.minerOverrides = state.builder.minerOverrides || {};
-          state.builder.minerOverrides[rawId] = minerKey;
-          if (state.builder.calcMode === 'drills') {
-            syncTargetRateFromDrills();
+        // 2. Miner tier toggle for a specific drill (Mk.1, Mk.2, Mk.3)
+        const btnNodeMiner = e.target.closest('.btn-node-miner');
+        if (btnNodeMiner) {
+          const rawId = btnNodeMiner.getAttribute('data-raw');
+          const idx = parseInt(btnNodeMiner.getAttribute('data-index'), 10);
+          const minerKey = btnNodeMiner.getAttribute('data-miner');
+          if (state.builder.rawNodesConfig && state.builder.rawNodesConfig[rawId] && state.builder.rawNodesConfig[rawId][idx]) {
+            state.builder.rawNodesConfig[rawId][idx].minerKey = minerKey;
+            if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
+              syncTargetRateFromDrills();
+            }
+            updateLineBuilder();
           }
-          updateLineBuilder();
           return;
         }
 
-        // 3. Node count minus
-        const btnMinus = e.target.closest('.btn-node-minus');
-        if (btnMinus) {
-          const rawId = btnMinus.getAttribute('data-raw');
-          const current = parseInt(btnMinus.getAttribute('data-current'), 10) || 1;
-          const newVal = Math.max(1, current - 1);
+        // 3. Add a drill to this resource
+        const btnAddDrill = e.target.closest('.btn-add-drill');
+        if (btnAddDrill) {
+          const rawId = btnAddDrill.getAttribute('data-raw');
+          state.builder.rawNodesConfig = state.builder.rawNodesConfig || {};
+          if (!state.builder.rawNodesConfig[rawId]) {
+            state.builder.rawNodesConfig[rawId] = [];
+          }
+          state.builder.rawNodesConfig[rawId].push({
+            id: Date.now() + Math.random(),
+            purity: 'normal',
+            minerKey: state.builder.globalMinerTier || 'miner_mk1'
+          });
+          const newCount = state.builder.rawNodesConfig[rawId].length;
           state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
-          state.builder.nodeCountOverrides[rawId] = newVal;
-          const primaryRawId = getPrimaryRawId(state.builder.targetGoal, state.builder.altPreferences);
+          state.builder.nodeCountOverrides[rawId] = newCount;
+
           if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
-            state.builder.drillCount = newVal;
+            state.builder.drillCount = newCount;
             syncTargetRateFromDrills();
+            updateCalcModeUI();
           }
           updateLineBuilder();
           return;
         }
 
-        // 4. Node count plus
-        const btnPlus = e.target.closest('.btn-node-plus');
-        if (btnPlus) {
-          const rawId = btnPlus.getAttribute('data-raw');
-          const current = parseInt(btnPlus.getAttribute('data-current'), 10) || 1;
-          const newVal = current + 1;
-          state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
-          state.builder.nodeCountOverrides[rawId] = newVal;
-          const primaryRawId = getPrimaryRawId(state.builder.targetGoal, state.builder.altPreferences);
-          if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
-            state.builder.drillCount = newVal;
-            syncTargetRateFromDrills();
+        // 4. Remove a specific drill from this resource
+        const btnRemove = e.target.closest('.btn-remove-drill');
+        if (btnRemove) {
+          const rawId = btnRemove.getAttribute('data-raw');
+          const idx = parseInt(btnRemove.getAttribute('data-index'), 10);
+          if (state.builder.rawNodesConfig && state.builder.rawNodesConfig[rawId] && state.builder.rawNodesConfig[rawId].length > 1) {
+            state.builder.rawNodesConfig[rawId].splice(idx, 1);
+            const newCount = state.builder.rawNodesConfig[rawId].length;
+            state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
+            state.builder.nodeCountOverrides[rawId] = newCount;
+
+            if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
+              state.builder.drillCount = newCount;
+              syncTargetRateFromDrills();
+              updateCalcModeUI();
+            }
+            updateLineBuilder();
           }
-          updateLineBuilder();
           return;
         }
 
-        // 5. Node count auto reset
+        // 5. Node count auto reset (al mínimo calculado)
         const btnAuto = e.target.closest('.btn-node-auto');
         if (btnAuto) {
           const rawId = btnAuto.getAttribute('data-raw');
-          if (state.builder.nodeCountOverrides) {
-            delete state.builder.nodeCountOverrides[rawId];
+          const minNodes = parseInt(btnAuto.getAttribute('data-minnodes'), 10) || 1;
+          state.builder.rawNodesConfig = state.builder.rawNodesConfig || {};
+          const defaultMinerTier = (state.builder.minerOverrides && state.builder.minerOverrides[rawId]) || state.builder.globalMinerTier || 'miner_mk1';
+          state.builder.rawNodesConfig[rawId] = Array.from({ length: minNodes }, (_, i) => ({
+            id: i + 1,
+            purity: 'normal',
+            minerKey: defaultMinerTier
+          }));
+          state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
+          state.builder.nodeCountOverrides[rawId] = minNodes;
+
+          if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
+            state.builder.drillCount = minNodes;
+            syncTargetRateFromDrills();
+            updateCalcModeUI();
           }
           updateLineBuilder();
           return;
@@ -659,6 +715,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const minerOverrides = state.builder.minerOverrides || {};
     const nodeCountOverrides = state.builder.nodeCountOverrides || {};
     const globalMinerTier = state.builder.globalMinerTier || 'miner_mk1';
+    const rawNodesConfig = state.builder.rawNodesConfig || {};
 
     const plan = SatisCalc.buildTargetFactoryPlan(
       targetGoal,
@@ -667,7 +724,8 @@ document.addEventListener('DOMContentLoaded', () => {
       purityOverrides,
       minerOverrides,
       nodeCountOverrides,
-      globalMinerTier
+      globalMinerTier,
+      rawNodesConfig
     );
     const targetMeta = plan.targetMeta || { name: targetGoal };
 
@@ -726,7 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 2. Render Raw Material Cards (Auto-calculated!)
+    // 2. Render Raw Material Cards (Heterogeneous Individual Drills per Resource)
     const rawContainer = document.getElementById('builderRawCardsContainer');
     if (rawContainer) {
       if (plan.rawBreakdown.length === 0) {
@@ -737,27 +795,68 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       } else {
         let cardsHtml = '';
-        plan.rawBreakdown.forEach(raw => {
-          const curPurity = raw.purityKey || 'normal';
-          const belt = raw.beltNeeded;
+        state.builder.rawNodesConfig = state.builder.rawNodesConfig || {};
 
-          // Miner Selector HTML (only for solids)
-          let minerSelectorHtml = '';
-          if (!raw.isFluid) {
-            minerSelectorHtml = `
-              <div style="margin-top: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                  <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Tecnología de Taladro:</span>
-                  <span style="font-size: 0.72rem; color: #f59e0b; font-weight: 700;">${raw.minerName}</span>
+        plan.rawBreakdown.forEach(raw => {
+          const belt = raw.beltNeeded;
+          const nodes = raw.nodes || [];
+
+          // Keep state.builder.rawNodesConfig in sync
+          if (!state.builder.rawNodesConfig[raw.rawId] || state.builder.rawNodesConfig[raw.rawId].length !== nodes.length) {
+            state.builder.rawNodesConfig[raw.rawId] = nodes.map(n => ({
+              id: n.nodeIndex,
+              purity: n.purityKey,
+              minerKey: n.minerKey,
+              clock: n.clock || 100
+            }));
+          }
+
+          // Individual Drills List HTML
+          const drillsListHtml = nodes.map((n, idx) => {
+            return `
+              <div class="raw-drill-row">
+                <div class="drill-row-header">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="drill-tag">⛏️ Taladro #${n.nodeIndex}</span>
+                    <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;">${!raw.isFluid ? n.minerName : 'Extractor'}</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="drill-output-badge" style="color: #4ade80;">
+                      <strong>+${n.outputRate}/m</strong>
+                      <span style="color: ${n.belt.color}; font-size: 0.68rem; font-weight: 700;">(${n.belt.name})</span>
+                    </span>
+                    ${nodes.length > 1 ? `
+                      <button type="button" class="btn-remove-drill" data-raw="${raw.rawId}" data-index="${idx}" title="Eliminar este taladro">🗑️</button>
+                    ` : ''}
+                  </div>
                 </div>
-                <div class="raw-purity-group">
-                  <button type="button" class="btn-raw-miner ${raw.minerKey === 'miner_mk1' ? 'active' : ''}" data-raw="${raw.rawId}" data-miner="miner_mk1">⛏️ Mk.1</button>
-                  <button type="button" class="btn-raw-miner ${raw.minerKey === 'miner_mk2' ? 'active' : ''}" data-raw="${raw.rawId}" data-miner="miner_mk2">⛏️ Mk.2</button>
-                  <button type="button" class="btn-raw-miner ${raw.minerKey === 'miner_mk3' ? 'active' : ''}" data-raw="${raw.rawId}" data-miner="miner_mk3">⛏️ Mk.3</button>
+
+                <div class="drill-row-controls">
+                  <!-- Selector de Pureza de esta mena específica -->
+                  <div class="drill-control-group">
+                    <span class="drill-sublabel">Pureza:</span>
+                    <div class="raw-purity-group-sm">
+                      <button type="button" class="btn-node-purity ${n.purityKey === 'impure' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="impure" title="Mena Impura (0.5x velocidad)">Impuro</button>
+                      <button type="button" class="btn-node-purity ${n.purityKey === 'normal' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="normal" title="Mena Normal (1.0x velocidad)">Normal</button>
+                      <button type="button" class="btn-node-purity ${n.purityKey === 'pure' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="pure" title="Mena Pura (2.0x velocidad)">Puro</button>
+                    </div>
+                  </div>
+
+                  <!-- Selector de Minero de este taladro (solo para minerales sólidos) -->
+                  ${!raw.isFluid ? `
+                    <div class="drill-control-group">
+                      <span class="drill-sublabel">Nivel:</span>
+                      <div class="raw-miner-group-sm">
+                        <button type="button" class="btn-node-miner ${n.minerKey === 'miner_mk1' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-miner="miner_mk1">Mk.1</button>
+                        <button type="button" class="btn-node-miner ${n.minerKey === 'miner_mk2' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-miner="miner_mk2">Mk.2</button>
+                        <button type="button" class="btn-node-miner ${n.minerKey === 'miner_mk3' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-miner="miner_mk3">Mk.3</button>
+                      </div>
+                    </div>
+                  ` : ''}
                 </div>
               </div>
             `;
-          }
+          }).join('');
 
           cardsHtml += `
             <div class="raw-resource-card">
@@ -776,45 +875,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
               </div>
 
-              <!-- Miner Tier Selector -->
-              ${minerSelectorHtml}
-
-              <!-- Purity Selector Buttons -->
-              <div style="margin-top: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                  <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Pureza de tu Mena:</span>
-                  <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700;">${raw.purityName} (${raw.singleMinerOutput}/m c/u)</span>
-                </div>
-                <div class="raw-purity-group">
-                  <button type="button" class="btn-raw-purity ${curPurity === 'impure' ? 'active' : ''}" data-raw="${raw.rawId}" data-purity="impure">Impuro</button>
-                  <button type="button" class="btn-raw-purity ${curPurity === 'normal' ? 'active' : ''}" data-raw="${raw.rawId}" data-purity="normal">Normal</button>
-                  <button type="button" class="btn-raw-purity ${curPurity === 'pure' ? 'active' : ''}" data-raw="${raw.rawId}" data-purity="pure">Puro</button>
-                </div>
-              </div>
-
-              <!-- Node / Mena Count Stepper -->
-              <div style="margin-top: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                  <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">¿Cuántas menas tienes?</span>
-                  <button type="button" class="btn-node-auto" data-raw="${raw.rawId}">Auto (${raw.minWholeNodes} menas)</button>
-                </div>
-                <div class="node-stepper">
-                  <button type="button" class="btn-node-step btn-node-minus" data-raw="${raw.rawId}" data-current="${raw.userNodeCount}">−</button>
-                  <div class="node-count-display">${raw.userNodeCount} ${raw.userNodeCount === 1 ? 'Mena / Nodo' : 'Menas / Nodos'}</div>
-                  <button type="button" class="btn-node-step btn-node-plus" data-raw="${raw.rawId}" data-current="${raw.userNodeCount}">+</button>
-                </div>
-              </div>
-
               <!-- Supply & Capacity Balance Pill -->
-              <div style="margin-top: 8px;">
+              <div>
                 ${raw.isCovered ? `
                   <div class="raw-balance-pill covered">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                       <span>✅ <strong>Abastecido:</strong> ${raw.totalCapacity} /min extraídos</span>
-                      <span style="color: #4ade80; font-size: 0.72rem;">(Sobra +${raw.balance}/m)</span>
+                      <span style="color: #4ade80; font-size: 0.72rem; font-weight: 800;">(Sobra +${raw.balance}/m)</span>
                     </div>
                     <div style="font-size: 0.69rem; color: #cbd5e1; margin-top: 2px;">
-                      💡 Reloj sugerido: <strong>${raw.optimalClock}%</strong> por minero para gasto justo.
+                      💡 Reloj sugerido: <strong>${raw.optimalClock}%</strong> promedio para gasto exacto.
                     </div>
                   </div>
                 ` : `
@@ -825,28 +895,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div style="font-size: 0.69rem; color: #fca5a5; margin-top: 2px;">
                       ${raw.requiredOverclock <= 250 
-                        ? `Sube a ${raw.minWholeNodes} menas o reloj al <strong>${raw.requiredOverclock}%</strong> con Fragmentos.` 
-                        : `Faltan menas. Agrega más menas o mejora a Taladro Mk.2 / Mk.3.`}
+                        ? `Añade otro taladro (+) o sube reloj al <strong>${raw.requiredOverclock}%</strong> con Fragmentos.` 
+                        : `Faltan taladros. Añade taladros con el botón (+) o mejora a Mk.2 / Mk.3.`}
                     </div>
                   </div>
                 `}
               </div>
 
+              <!-- Lista de Taladros asignados con control individual -->
+              <div style="margin-top: 4px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                  <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 800; text-transform: uppercase;">
+                    ⛏️ Taladros / Menas asignadas (${nodes.length}):
+                  </span>
+                  <button type="button" class="btn-node-auto" data-raw="${raw.rawId}" data-minnodes="${raw.minWholeNodes}">
+                    Auto (${raw.minWholeNodes} ${raw.minWholeNodes === 1 ? 'taladro' : 'taladros'})
+                  </button>
+                </div>
+
+                <div class="raw-drills-list">
+                  ${drillsListHtml}
+                </div>
+
+                <button type="button" class="btn-add-drill" data-raw="${raw.rawId}">
+                  <span>+ Añadir otro Taladro a este mineral</span>
+                </button>
+              </div>
+
               <!-- Node & Belt info -->
-              <div style="margin-top: 6px; padding: 6px 8px; background: rgba(0,0,0,0.25); border-radius: 4px; font-size: 0.74rem; color: #cbd5e1; display: flex; flex-direction: column; gap: 3px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span>Cinta por cada mena:</span>
-                  <strong style="color: ${raw.singleNodeBelt.color}; font-size: 0.72rem;">${raw.singleNodeBelt.name} (${raw.singleMinerOutput}/m)</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <span>Cinta troncal requerida:</span>
-                  <strong style="color: ${belt.color}; font-size: 0.72rem;">${belt.name} (${belt.speed}/m)</strong>
-                </div>
+              <div style="margin-top: 6px; padding: 6px 8px; background: rgba(0,0,0,0.25); border-radius: 4px; font-size: 0.74rem; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
+                <span>Cinta troncal requerida:</span>
+                <strong style="color: ${belt.color}; font-size: 0.72rem;">${belt.name} (${belt.speed || belt.flow}/m)</strong>
               </div>
 
               <!-- Button to adapt entire factory to this mineral's extraction rate -->
               <button type="button" class="btn-sync-factory-to-drill" data-raw="${raw.rawId}" data-capacity="${raw.totalCapacity}" data-nodes="${raw.userNodeCount}">
-                ⚡ Adaptar Fábrica a este Recurso (${raw.totalCapacity}/m extraídos)
+                ⚡ Adaptar Fábrica a estos Taladros (${raw.totalCapacity}/m extraídos)
               </button>
             </div>
           `;
@@ -864,29 +948,33 @@ document.addEventListener('DOMContentLoaded', () => {
       if (plan.rawBreakdown.length > 0) {
         let minersListHtml = '';
         plan.rawBreakdown.forEach(raw => {
+          const drillSubList = (raw.nodes || []).map(n => `
+            <div style="font-size: 0.72rem; color: #cbd5e1; display: flex; align-items: center; justify-content: space-between; padding: 3px 8px; background: rgba(0,0,0,0.25); border-radius: 4px; border-left: 2px solid ${n.purityColor};">
+              <span>⛏️ <strong>Taladro #${n.nodeIndex}:</strong> Mena ${n.purityName} (${n.minerName})</span>
+              <span style="color: #4ade80; font-weight: 700;">+${n.outputRate}/m <span style="color: ${n.belt.color}; font-size: 0.68rem;">(${n.belt.name})</span></span>
+            </div>
+          `).join('');
+
           minersListHtml += `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.04); flex-wrap: wrap; gap: 8px;">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                ${getItemIcon(raw.rawId, 26)}
-                <div>
-                  <strong style="color: #f1f5f9; font-size: 0.9rem;">${raw.userNodeCount}x ${raw.minerName} &bull; ${raw.name}</strong>
-                  <div style="font-size: 0.73rem; color: var(--text-muted);">
-                    Nodo ${raw.purityName} (${raw.singleMinerOutput}/m c/u) &bull; Cinta por minero: <span style="color: ${raw.singleNodeBelt.color}; font-weight: 700;">${raw.singleNodeBelt.name}</span>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.04);">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  ${getItemIcon(raw.rawId, 26)}
+                  <div>
+                    <strong style="color: #f1f5f9; font-size: 0.9rem;">${raw.nodes ? raw.nodes.length : raw.userNodeCount}x Taladros &bull; ${raw.name}</strong>
+                    <div style="font-size: 0.73rem; color: var(--text-muted);">
+                      Extracción total: <span style="color: #4ade80; font-weight: 800;">${raw.totalCapacity} ${raw.isFluid ? 'm³/m' : '/min'}</span> &bull; Necesario: ${raw.requiredRate}/m
+                    </div>
                   </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="badge" style="background: rgba(255,255,255,0.06); color: ${raw.beltNeeded.color}; border: 1px solid ${raw.beltNeeded.color}; font-size: 0.72rem; padding: 2px 8px;">
+                    Troncal: ${raw.beltNeeded.name}
+                  </span>
                 </div>
               </div>
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <div style="text-align: right;">
-                  <div style="font-size: 0.9rem; font-weight: 800; color: ${raw.isCovered ? '#4ade80' : '#ef4444'};">
-                    ${raw.totalCapacity} ${raw.isFluid ? 'm³/m' : '/min'}
-                  </div>
-                  <div style="font-size: 0.7rem; color: var(--text-muted);">
-                    (Fábrica necesita: ${raw.requiredRate}/m)
-                  </div>
-                </div>
-                <span class="badge" style="background: rgba(255,255,255,0.06); color: ${raw.beltNeeded.color}; border: 1px solid ${raw.beltNeeded.color}; font-size: 0.72rem; padding: 2px 8px;">
-                  Troncal: ${raw.beltNeeded.name}
-                </span>
+              <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 4px;">
+                ${drillSubList}
               </div>
             </div>
           `;
@@ -2503,7 +2591,7 @@ document.addEventListener('DOMContentLoaded', () => {
         titleEl.innerHTML = `<span>🎯 Catálogo FICSIT &bull; Meta de Fábrica</span>`;
       }
       if (subtitleEl) {
-        subtitleEl.innerHTML = `Elige el producto que deseas fabricar (ej: Motor, Rotor, Marco Modular). La fábrica calculará todos los minerales requeridos (Hierro, Cobre, Caliza, Carbón) de forma 100% automática.`;
+        subtitleEl.innerHTML = `Elige el producto que deseas fabricar (ej: Motor, Rotor, Armazón Modular). La fábrica calculará todos los minerales requeridos (Hierro, Cobre, Caliza, Carbón) de forma 100% automática.`;
       }
 
       // Todas las recetas estándar para elegir cualquier producto objetivo
@@ -2788,6 +2876,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sbPurityBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.sandbox.purity = btn.getAttribute('data-purity');
+        if (state.sandbox.minerNodes) {
+          state.sandbox.minerNodes.forEach(n => { n.purity = state.sandbox.purity; });
+        }
         if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
         updateSandbox();
       });
@@ -2796,6 +2887,9 @@ document.addEventListener('DOMContentLoaded', () => {
     sbMinerTierSelect.value = state.sandbox.minerTier;
     sbMinerTierSelect.addEventListener('change', (e) => {
       state.sandbox.minerTier = e.target.value;
+      if (state.sandbox.minerNodes) {
+        state.sandbox.minerNodes.forEach(n => { n.minerTier = state.sandbox.minerTier; });
+      }
       if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
       updateSandbox();
     });
@@ -2978,6 +3072,36 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    // 7.1. Individual Miners in Sandbox delegation
+    const sbIndivMinersBox = document.getElementById('sbIndividualMinersContainer');
+    if (sbIndivMinersBox) {
+      sbIndivMinersBox.addEventListener('click', (e) => {
+        const btnP = e.target.closest('.btn-sb-node-purity');
+        if (btnP) {
+          const idx = parseInt(btnP.getAttribute('data-index'), 10);
+          const purity = btnP.getAttribute('data-purity');
+          if (state.sandbox.minerNodes && state.sandbox.minerNodes[idx]) {
+            state.sandbox.minerNodes[idx].purity = purity;
+            if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+            updateSandbox();
+          }
+          return;
+        }
+
+        const btnM = e.target.closest('.btn-sb-node-miner');
+        if (btnM) {
+          const idx = parseInt(btnM.getAttribute('data-index'), 10);
+          const tier = btnM.getAttribute('data-miner');
+          if (state.sandbox.minerNodes && state.sandbox.minerNodes[idx]) {
+            state.sandbox.minerNodes[idx].minerTier = tier;
+            if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+            updateSandbox();
+          }
+          return;
+        }
+      });
+    }
+
     // 8. Banner shortcut button
     if (btnGoToSandbox) {
       btnGoToSandbox.addEventListener('click', () => {
@@ -3040,12 +3164,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getSandboxSupply() {
     if (state.sandbox.mode === 'miners') {
-      const p1Calc = SatisCalc.calculateExtraction(state.sandbox.purity, state.sandbox.minerTier, 100);
-      const singleMinerRate = p1Calc.rate;
-      const rawRate = Number((state.sandbox.minerCount * singleMinerRate).toFixed(2));
+      const count = Math.max(1, state.sandbox.minerCount || 1);
+      state.sandbox.minerNodes = state.sandbox.minerNodes || [];
+      while (state.sandbox.minerNodes.length < count) {
+        state.sandbox.minerNodes.push({
+          purity: state.sandbox.purity || 'normal',
+          minerTier: state.sandbox.minerTier || 'miner_mk1'
+        });
+      }
+      if (state.sandbox.minerNodes.length > count) {
+        state.sandbox.minerNodes = state.sandbox.minerNodes.slice(0, count);
+      }
+
+      let rawRate = 0;
+      let minerPower = 0;
+      state.sandbox.minerNodes.forEach(n => {
+        const p1Calc = SatisCalc.calculateExtraction(n.purity || state.sandbox.purity, n.minerTier || state.sandbox.minerTier, 100);
+        rawRate += p1Calc.rate;
+        minerPower += p1Calc.powerMw;
+      });
+      rawRate = Number(rawRate.toFixed(2));
+      minerPower = Number(minerPower.toFixed(1));
       const rawMeta = SATIS_DATA.rawResources[state.sandbox.resource] || { name: state.sandbox.resource };
-      const minerBldg = SATIS_DATA.miners[state.sandbox.minerTier] || { name: 'Minero', power: 5 };
-      const minerPower = Number((state.sandbox.minerCount * p1Calc.powerMw).toFixed(1));
 
       const smeltRecipe = SATIS_DATA.recipes.find(r => 
         r.building === 'smelter' && !r.isAlt && r.inputs.some(inp => inp.item === state.sandbox.resource)
@@ -3151,6 +3291,49 @@ document.addEventListener('DOMContentLoaded', () => {
         sbSmeltBadge.textContent = `🔥 ${supply.rate.toFixed(1)} Lingotes/min (${supply.smeltersNeeded} Hornos - ${supply.smelterPower.toFixed(1)} MW)`;
       } else {
         sbSmeltBadge.textContent = `Mineral directo sin fundición previa`;
+      }
+    }
+
+    // Render individual miners in sandbox if minerCount > 1
+    const sbIndivMinersContainer = document.getElementById('sbIndividualMinersContainer');
+    const sbIndivMinersList = document.getElementById('sbIndividualMinersList');
+    if (sbIndivMinersContainer && sbIndivMinersList) {
+      if (state.sandbox.mode === 'miners' && state.sandbox.minerCount > 1) {
+        sbIndivMinersContainer.style.display = 'block';
+        sbIndivMinersList.innerHTML = (state.sandbox.minerNodes || []).map((n, idx) => {
+          const calc = SatisCalc.calculateExtraction(n.purity, n.minerTier, 100);
+          return `
+            <div class="raw-drill-row">
+              <div class="drill-row-header">
+                <span class="drill-tag">⛏️ Taladro #${idx + 1}</span>
+                <span class="drill-output-badge" style="color: #4ade80;">
+                  <strong>+${calc.rate}/m</strong>
+                  <span style="color: ${calc.recommendedBelt.color}; font-size: 0.68rem; font-weight: 700;">(${calc.recommendedBelt.name})</span>
+                </span>
+              </div>
+              <div class="drill-row-controls">
+                <div class="drill-control-group">
+                  <span class="drill-sublabel">Pureza:</span>
+                  <div class="raw-purity-group-sm">
+                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'impure' ? 'active' : ''}" data-index="${idx}" data-purity="impure">Impuro</button>
+                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'normal' ? 'active' : ''}" data-index="${idx}" data-purity="normal">Normal</button>
+                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'pure' ? 'active' : ''}" data-index="${idx}" data-purity="pure">Puro</button>
+                  </div>
+                </div>
+                <div class="drill-control-group">
+                  <span class="drill-sublabel">Nivel:</span>
+                  <div class="raw-miner-group-sm">
+                    <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk1' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk1">Mk.1</button>
+                    <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk2' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk2">Mk.2</button>
+                    <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk3' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk3">Mk.3</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        sbIndivMinersContainer.style.display = 'none';
       }
     }
 

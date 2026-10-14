@@ -1826,6 +1826,168 @@ body {
   box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4);
 }
 
+/* --- FILAS DE TALADROS Y MENAS INDIVIDUALES (HETEROGÉNEAS) --- */
+.raw-drills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.raw-drill-row {
+  background: #0d1522;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 3px solid #38bdf8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.raw-drill-row:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: #111b2b;
+}
+
+.drill-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.drill-tag {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #f8fafc;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+.drill-output-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-remove-drill {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-remove-drill:hover {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.drill-row-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.drill-control-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.drill-sublabel {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.raw-purity-group-sm, .raw-miner-group-sm {
+  display: inline-flex;
+  gap: 2px;
+  background: #070c14;
+  padding: 2px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-node-purity, .btn-node-miner {
+  background: transparent;
+  border: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  line-height: 1;
+}
+
+.btn-node-purity:hover, .btn-node-miner:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-node-purity.active[data-purity="impure"] {
+  background: #64748b;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.btn-node-purity.active[data-purity="normal"] {
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.btn-node-purity.active[data-purity="pure"] {
+  background: #16a34a;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.btn-node-miner.active {
+  background: #f59e0b;
+  color: #0b1120;
+  font-weight: 800;
+}
+
+.btn-add-drill {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px dashed rgba(56, 189, 248, 0.45);
+  color: #38bdf8;
+  font-size: 0.73rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  margin-top: 4px;
+}
+
+.btn-add-drill:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #ffffff;
+  border-style: solid;
+  border-color: #38bdf8;
+}
+
 .node-stepper {
   display: flex;
   align-items: center;

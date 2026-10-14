@@ -343,7 +343,7 @@ const SatisCalc = {
    * Calculates all raw minerals required, groups manufacturing stages forward,
    * and provides manifold splitters and logistics for the entire factory.
    */
-  buildTargetFactoryPlan(targetItemId, targetRate, selectedRecipes = {}, purityOverrides = {}, minerOverrides = {}, nodeCountOverrides = {}, globalMinerTier = 'miner_mk1') {
+  buildTargetFactoryPlan(targetItemId, targetRate, selectedRecipes = {}, purityOverrides = {}, minerOverrides = {}, nodeCountOverrides = {}, globalMinerTier = 'miner_mk1', rawNodesConfig = {}) {
     const rawRequirements = {};
     const rawStepList = [];
 
@@ -503,7 +503,7 @@ const SatisCalc = {
       };
     });
 
-    // Process Raw Requirements & Miners
+    // Process Raw Requirements & Miners (Supports individual / heterogeneous nodes per resource)
     let totalMinerPower = 0;
     const buildingCounts = {};
 
@@ -513,33 +513,84 @@ const SatisCalc = {
       const purityKey = purityOverrides[rawId] || 'normal';
       const purity = SATIS_DATA.purities[purityKey] || SATIS_DATA.purities.normal;
 
-      // Miner Selection: check if resource is fluid or solid
-      let minerKey = 'miner_mk1';
+      // Default Miner Selection: check if resource is fluid or solid
+      let defaultMinerKey = 'miner_mk1';
       if (rawMeta.isFluid) {
-        minerKey = (rawId === 'water') ? 'water_extractor' : 'oil_extractor';
+        defaultMinerKey = (rawId === 'water') ? 'water_extractor' : 'oil_extractor';
       } else {
-        minerKey = minerOverrides[rawId] || globalMinerTier || 'miner_mk1';
+        defaultMinerKey = minerOverrides[rawId] || globalMinerTier || 'miner_mk1';
       }
-      const minerMeta = SATIS_DATA.miners[minerKey] || SATIS_DATA.miners.miner_mk1;
+      const defaultMinerMeta = SATIS_DATA.miners[defaultMinerKey] || SATIS_DATA.miners.miner_mk1;
 
-      // Output of a single node with this miner tier at 100% clock
-      const singleMinerOutput = Number((minerMeta.baseRate * purity.factor).toFixed(2));
-
-      // Minimum nodes needed
-      const exactMiners = singleMinerOutput > 0 ? Number((rate / singleMinerOutput).toFixed(2)) : 1;
+      // Base single miner output with default purity/miner
+      const baseSingleOutput = Number((defaultMinerMeta.baseRate * ((defaultMinerMeta.isFixedRate || (rawMeta.isFluid && rawId === 'water')) ? 1.0 : purity.factor)).toFixed(2));
+      const exactMiners = baseSingleOutput > 0 ? Number((rate / baseSingleOutput).toFixed(2)) : 1;
       const minWholeNodes = Math.max(1, Math.ceil(exactMiners));
 
-      // User assigned node count (or defaults to minimum whole nodes)
-      const userNodeCount = (nodeCountOverrides && nodeCountOverrides[rawId] !== undefined)
-        ? Math.max(1, parseInt(nodeCountOverrides[rawId], 10) || 1)
-        : minWholeNodes;
+      // Check if specific node configurations exist for this resource
+      const configuredNodes = rawNodesConfig && Array.isArray(rawNodesConfig[rawId]) && rawNodesConfig[rawId].length > 0
+        ? rawNodesConfig[rawId]
+        : null;
 
-      // Capacity & Supply Balance
-      const totalCapacity = Number((userNodeCount * singleMinerOutput).toFixed(2));
+      let nodes = [];
+      if (configuredNodes) {
+        nodes = configuredNodes.map((n, idx) => {
+          const nPurityKey = n.purity || purityKey;
+          const nPurity = SATIS_DATA.purities[nPurityKey] || SATIS_DATA.purities.normal;
+          let nMinerKey = n.minerKey;
+          if (rawMeta.isFluid) {
+            nMinerKey = (rawId === 'water') ? 'water_extractor' : 'oil_extractor';
+          } else if (!nMinerKey) {
+            nMinerKey = defaultMinerKey;
+          }
+          const nMinerMeta = SATIS_DATA.miners[nMinerKey] || defaultMinerMeta;
+          const nFactor = (nMinerMeta.isFixedRate || (rawMeta.isFluid && rawId === 'water')) ? 1.0 : nPurity.factor;
+          const nClock = (n.clock !== undefined) ? n.clock : 100;
+          const nOutput = Number((nMinerMeta.baseRate * nFactor * (nClock / 100)).toFixed(2));
+          const nPower = Number((nMinerMeta.power * Math.pow(nClock / 100, 1.321928)).toFixed(2));
+          const nBelt = rawMeta.isFluid ? SatisCalc.getPipeForRate(nOutput) : SatisCalc.getBeltForRate(nOutput);
+
+          return {
+            nodeIndex: idx + 1,
+            purityKey: nPurityKey,
+            purityName: nPurity.name,
+            purityColor: nPurity.color,
+            minerKey: nMinerKey,
+            minerName: nMinerMeta.name,
+            clock: nClock,
+            outputRate: nOutput,
+            powerMw: nPower,
+            belt: nBelt
+          };
+        });
+      } else {
+        const userNodeCount = (nodeCountOverrides && nodeCountOverrides[rawId] !== undefined)
+          ? Math.max(1, parseInt(nodeCountOverrides[rawId], 10) || 1)
+          : minWholeNodes;
+
+        for (let i = 0; i < userNodeCount; i++) {
+          const nBelt = rawMeta.isFluid ? SatisCalc.getPipeForRate(baseSingleOutput) : SatisCalc.getBeltForRate(baseSingleOutput);
+          nodes.push({
+            nodeIndex: i + 1,
+            purityKey,
+            purityName: purity.name,
+            purityColor: purity.color,
+            minerKey: defaultMinerKey,
+            minerName: defaultMinerMeta.name,
+            clock: 100,
+            outputRate: baseSingleOutput,
+            powerMw: defaultMinerMeta.power,
+            belt: nBelt
+          });
+        }
+      }
+
+      const userNodeCount = nodes.length;
+      const totalCapacity = Number(nodes.reduce((sum, n) => sum + n.outputRate, 0).toFixed(2));
       const balance = Number((totalCapacity - rate).toFixed(2));
       const isCovered = (balance >= -0.01);
 
-      // Clock calculations
+      // Optimal Clock or Overclock required
       let optimalClock = 100;
       let requiredOverclock = 100;
       if (isCovered) {
@@ -548,17 +599,28 @@ const SatisCalc = {
         requiredOverclock = totalCapacity > 0 ? Number(((rate / totalCapacity) * 100).toFixed(1)) : 100;
       }
 
-      // Energy consumption in MW
-      const powerFactor = isCovered ? (optimalClock / 100) : Math.min(2.5, Math.pow(requiredOverclock / 100, 1.321928));
-      const powerMw = Number((minerMeta.power * userNodeCount * powerFactor).toFixed(1));
+      // Energy consumption
+      let resourcePowerMw = 0;
+      if (isCovered && optimalClock < 100) {
+        const underRatio = optimalClock / 100;
+        resourcePowerMw = Number(nodes.reduce((sum, n) => {
+          const baseP = (SATIS_DATA.miners[n.minerKey] || defaultMinerMeta).power;
+          return sum + (baseP * Math.pow(underRatio, 1.321928));
+        }, 0).toFixed(1));
+      } else {
+        resourcePowerMw = Number(nodes.reduce((sum, n) => sum + n.powerMw, 0).toFixed(1));
+      }
 
-      totalMinerPower += powerMw;
-      buildingCounts[minerMeta.name] = (buildingCounts[minerMeta.name] || 0) + userNodeCount;
+      totalMinerPower += resourcePowerMw;
 
-      // Belts / Pipes
+      // Count buildings per machine name
+      nodes.forEach(n => {
+        buildingCounts[n.minerName] = (buildingCounts[n.minerName] || 0) + 1;
+      });
+
       const beltNeeded = rawMeta.isFluid ? SatisCalc.getPipeForRate(rate) : SatisCalc.getBeltForRate(rate);
-      const singleNodeBelt = rawMeta.isFluid ? SatisCalc.getPipeForRate(singleMinerOutput) : SatisCalc.getBeltForRate(singleMinerOutput);
       const totalCapacityBelt = rawMeta.isFluid ? SatisCalc.getPipeForRate(totalCapacity) : SatisCalc.getBeltForRate(totalCapacity);
+      const singleNodeBelt = nodes[0] ? nodes[0].belt : beltNeeded;
 
       return {
         rawId,
@@ -566,12 +628,13 @@ const SatisCalc = {
         isFluid: rawMeta.isFluid,
         category: rawMeta.category,
         requiredRate: rate,
-        minerKey,
-        minerName: minerMeta.name,
-        minerPower: minerMeta.power,
+        nodes,
+        minerKey: defaultMinerKey,
+        minerName: defaultMinerMeta.name,
+        minerPower: defaultMinerMeta.power,
         purityKey,
         purityName: purity.name,
-        singleMinerOutput,
+        singleMinerOutput: baseSingleOutput,
         exactMiners,
         minWholeNodes,
         userNodeCount,
@@ -580,7 +643,7 @@ const SatisCalc = {
         isCovered,
         optimalClock,
         requiredOverclock,
-        powerMw,
+        powerMw: resourcePowerMw,
         beltNeeded,
         singleNodeBelt,
         totalCapacityBelt

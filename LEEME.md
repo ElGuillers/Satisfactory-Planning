@@ -23,10 +23,11 @@ Calculadora y planificador de producción ultra liviano diseñado para pioneros 
 * **Botón directo "Dividir esta Cinta":** Envía la salida del minero a la pestaña de splitters automáticamente.
 
 ### 2. 🏭 Diseñador de Fábrica por Taladros y Objetivo
-* Elige el producto al que quieres llegar (Motor, Rotor, Marco Modular, Ascensor Espacial...).
+* Elige el producto al que quieres llegar (Motor, Rotor, Armazón Modular, Ascensor Espacial...).
 * **Cálculo directo por Número de Taladros:** Define cuántos taladros colocas (1, 2, 3, 4...) con el selector o botones rápidos.
+* **Configuración Individual de Vetas / Menas:** Elige independientemente si cada taladro está sobre una veta **Pura, Normal o Impura**, y su tecnología (**Mk.1, Mk.2 o Mk.3**), permitiendo mezclas heterogéneas exactas (ej: 1 Puro Mk.2 + 1 Normal Mk.1 + 1 Impuro Mk.1).
 * La calculadora determina matemáticamente la producción máxima continua que satura al 100% esa extracción de minerales.
-* **Pre-selección de Tecnología:** Elige previamente tu tecnología de taladros (Mk.1, Mk.2, Mk.3) y la pureza de cada veta (Impuro, Normal, Puro).
+* **Pre-selección de Tecnología:** Elige previamente tu tecnología de taladros (Mk.1, Mk.2, Mk.3) y añade o elimina taladros por recurso.
 * **Botón '⚡ Adaptar Fábrica a este Recurso':** Ajusta toda la cadena de montaje a cualquier mineral secundario o cuello de botella con 1 solo clic.
 * Desglosa:
   * Número exacto de máquinas por etapa (ej: *3 al 100% + 1 al 33.33%*).

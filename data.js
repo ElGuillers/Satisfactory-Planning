@@ -91,7 +91,7 @@ const SATIS_DATA = {
     // Tier 3 - 4 Parts
     reinforced_iron_plate: { id: 'reinforced_iron_plate', name: 'Plancha de Hierro Reforzada', category: 'Componentes' },
     rotor: { id: 'rotor', name: 'Rotor', category: 'Componentes' },
-    modular_frame: { id: 'modular_frame', name: 'Marco Modular', category: 'Componentes' },
+    modular_frame: { id: 'modular_frame', name: 'Armazón Modular', category: 'Componentes' },
     steel_beam: { id: 'steel_beam', name: 'Viga de Acero', category: 'Acero' },
     steel_pipe: { id: 'steel_pipe', name: 'Tubería de Acero', category: 'Acero' },
     encased_industrial_beam: { id: 'encased_industrial_beam', name: 'Viga Industrial Encapsulada', category: 'Acero' },
@@ -107,7 +107,7 @@ const SATIS_DATA = {
     quickwire: { id: 'quickwire', name: 'Alambre Rápido (Caterio)', category: 'Electrónica' },
     ai_limiter: { id: 'ai_limiter', name: 'Limitador de IA', category: 'Electrónica' },
     high_speed_connector: { id: 'high_speed_connector', name: 'Conector de Alta Velocidad', category: 'Electrónica' },
-    heavy_modular_frame: { id: 'heavy_modular_frame', name: 'Marco Modular Pesado', category: 'Componentes' },
+    heavy_modular_frame: { id: 'heavy_modular_frame', name: 'Armazón Modular Pesado', category: 'Componentes' },
     computer: { id: 'computer', name: 'Computadora', category: 'Electrónica' },
 
     // Tier 7 - 8 Parts (Aluminum & Advanced)
@@ -120,7 +120,7 @@ const SATIS_DATA = {
     radio_control_unit: { id: 'radio_control_unit', name: 'Unidad de Control de Radio', category: 'Electrónica' },
     supercomputer: { id: 'supercomputer', name: 'Supercomputadora', category: 'Electrónica' },
     cooling_system: { id: 'cooling_system', name: 'Sistema de Refrigeración', category: 'Componentes' },
-    fused_modular_frame: { id: 'fused_modular_frame', name: 'Marco Modular Fusionado', category: 'Componentes' },
+    fused_modular_frame: { id: 'fused_modular_frame', name: 'Armazón Modular Fusionado', category: 'Componentes' },
     turbo_motor: { id: 'turbo_motor', name: 'Motor Turbo', category: 'Componentes' },
 
     // Space Elevator Project Parts (Fases 1 a 5 - Satisfactory 1.0)
@@ -419,7 +419,7 @@ const SATIS_DATA = {
     },
     {
       id: 'modular_frame_std',
-      name: 'Marco Modular',
+      name: 'Armazón Modular',
       building: 'assembler',
       isAlt: false,
       inputs: [
@@ -430,7 +430,7 @@ const SATIS_DATA = {
     },
     {
       id: 'modular_frame_steeled',
-      name: 'Marco de Acero Fundido (Alt)',
+      name: 'Armazón de Acero (Alt)',
       building: 'assembler',
       isAlt: true,
       inputs: [
@@ -588,7 +588,7 @@ const SATIS_DATA = {
     // --- FABRICANTE (MANUFACTURER) ---
     {
       id: 'heavy_modular_frame_std',
-      name: 'Marco Modular Pesado',
+      name: 'Armazón Modular Pesado',
       building: 'manufacturer',
       isAlt: false,
       inputs: [
@@ -601,7 +601,7 @@ const SATIS_DATA = {
     },
     {
       id: 'heavy_modular_frame_encased',
-      name: 'Marco Pesado Encapsulado (Alt)',
+      name: 'Armazón Pesado Encapsulado (Alt)',
       building: 'manufacturer',
       isAlt: true,
       inputs: [
@@ -823,7 +823,7 @@ const SATIS_DATA = {
     },
     {
       id: 'fused_modular_frame_std',
-      name: 'Marco Modular Fusionado',
+      name: 'Armazón Modular Fusionado',
       building: 'blender',
       isAlt: false,
       inputs: [
