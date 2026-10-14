@@ -25,6 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
         reinforced_iron_plate: null
       }
     },
+    power: {
+      targetMW: 8000,
+      fuelId: 'coal',
+      pipeTier: 1,
+      beltTier: 3,
+      minerTier: 'miner_mk2',
+      purity: 'normal'
+    },
     sandbox: {
       mode: 'miners', // 'miners' | 'free'
       resource: 'iron_ore',
@@ -73,11 +81,26 @@ document.addEventListener('DOMContentLoaded', () => {
     panX: 0,
     panY: 0,
     isDragging: false,
+    isZooming: false,
+    focusModeEnabled: true,
     startX: 0,
     startY: 0,
     currentModel: null,
     showRatios: true,
     activeMaterialFilter: null,
+    isInitialized: false
+  };
+
+  const powerBpState = {
+    scale: 1,
+    panX: 0,
+    panY: 0,
+    isDragging: false,
+    isZooming: false,
+    focusModeEnabled: true,
+    startX: 0,
+    startY: 0,
+    currentModel: null,
     isInitialized: false
   };
 
@@ -98,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLineBuilder();
     initRecipePickerModal();
     initSandboxTab();
+    initPowerTab();
     initMinersTab();
     initFactoryTab();
     initSplitterTab();
@@ -132,6 +156,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.tab-panel').forEach(panel => {
       panel.classList.toggle('active', panel.id === tabId);
     });
+
+    if (tabId === 'tab-power') {
+      renderPowerPlantSection();
+      setTimeout(() => fitPowerBlueprintToViewport(), 80);
+    }
   }
 
   // =========================================================================
@@ -2172,6 +2201,8 @@ document.addEventListener('DOMContentLoaded', () => {
       bpViewerState.startX = e.clientX - bpViewerState.panX;
       bpViewerState.startY = e.clientY - bpViewerState.panY;
       viewport.style.cursor = 'grabbing';
+      canvas.classList.add('is-navigating');
+      clearBlueprintHighlights();
     });
 
     window.addEventListener('mousemove', (e) => {
@@ -2185,12 +2216,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (bpViewerState.isDragging) {
         bpViewerState.isDragging = false;
         viewport.style.cursor = 'grab';
+        canvas.classList.remove('is-navigating');
       }
     });
 
-    // Zoom con rueda de ratón centrado en el cursor
+    // Zoom con rueda de ratón centrado en el cursor (estable, sin parpadeos ni desenfoques)
+    let wheelZoomTimer = null;
     viewport.addEventListener('wheel', (e) => {
       e.preventDefault();
+      bpViewerState.isZooming = true;
+      canvas.classList.add('is-navigating');
+      clearBlueprintHighlights();
+
       const rect = viewport.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -2203,12 +2240,26 @@ document.addEventListener('DOMContentLoaded', () => {
       bpViewerState.scale = newScale;
 
       applyBlueprintTransform(canvas, bpViewerState);
+
+      clearTimeout(wheelZoomTimer);
+      wheelZoomTimer = setTimeout(() => {
+        bpViewerState.isZooming = false;
+        canvas.classList.remove('is-navigating');
+      }, 160);
     }, { passive: false });
+
+    // Clic en el fondo del plano para enfocar todo y limpiar resaltados
+    viewport.addEventListener('click', (e) => {
+      if (e.target === viewport || (e.target && e.target.tagName === 'svg')) {
+        clearBlueprintHighlights();
+      }
+    });
 
     // Botones de la barra de herramientas
     const btnIn = document.getElementById('btnBpZoomIn');
     const btnOut = document.getElementById('btnBpZoomOut');
     const btnReset = document.getElementById('btnBpReset');
+    const btnToggleFocus = document.getElementById('btnBpToggleFocus');
     const btnToggleLabels = document.getElementById('btnBpToggleLabels');
     const btnFs = document.getElementById('btnBpFullscreen');
 
@@ -2224,7 +2275,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnReset) btnReset.addEventListener('click', () => {
       fitBlueprintToViewport(false);
+      clearBlueprintHighlights();
     });
+
+    if (btnToggleFocus) {
+      btnToggleFocus.addEventListener('click', () => {
+        bpViewerState.focusModeEnabled = !bpViewerState.focusModeEnabled;
+        if (!bpViewerState.focusModeEnabled) {
+          clearBlueprintHighlights();
+          canvas.classList.add('inspection-disabled');
+          btnToggleFocus.innerHTML = '🎯 Foco: Desactivado';
+          btnToggleFocus.style.opacity = '0.7';
+        } else {
+          canvas.classList.remove('inspection-disabled');
+          btnToggleFocus.innerHTML = '🎯 Foco: Suave';
+          btnToggleFocus.style.opacity = '1';
+        }
+      });
+    }
 
     if (btnToggleLabels) btnToggleLabels.addEventListener('click', () => {
       bpViewerState.showRatios = !bpViewerState.showRatios;
@@ -2243,26 +2311,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function clearBlueprintHighlights() {
+    const tooltip = document.getElementById('blueprintTooltip');
+    const canvas = document.getElementById('blueprintCanvas');
+    if (!canvas) return;
+    if (tooltip) tooltip.style.display = 'none';
+    canvas.classList.remove('has-active-focus');
+    canvas.querySelectorAll('.is-hovered, .is-active-in, .is-active-out, .is-active-source, .is-active-target, .is-dimmed').forEach(el => {
+      el.classList.remove('is-hovered', 'is-active-in', 'is-active-out', 'is-active-source', 'is-active-target', 'is-dimmed');
+    });
+    if (bpViewerState.activeMaterialFilter) {
+      applyBlueprintMaterialFilter();
+    }
+  }
+
   function attachBlueprintHoverTooltips() {
     const viewport = document.getElementById('blueprintViewport');
     const tooltip = document.getElementById('blueprintTooltip');
     const canvas = document.getElementById('blueprintCanvas');
     if (!viewport || !tooltip || !canvas) return;
 
-    function clearBlueprintHighlights() {
-      tooltip.style.display = 'none';
-      canvas.classList.remove('has-active-focus');
-      canvas.querySelectorAll('.is-hovered, .is-active-in, .is-active-out, .is-active-source, .is-active-target, .is-dimmed').forEach(el => {
-        el.classList.remove('is-hovered', 'is-active-in', 'is-active-out', 'is-active-source', 'is-active-target', 'is-dimmed');
-      });
-      if (bpViewerState.activeMaterialFilter) {
-        applyBlueprintMaterialFilter();
-      }
-    }
-
     // 1. Trazado Interactivo al Pasar el Ratón por Máquinas
     canvas.querySelectorAll('.blueprint-machine').forEach(mEl => {
       mEl.addEventListener('mouseenter', () => {
+        if (bpViewerState.isZooming || bpViewerState.isDragging || !bpViewerState.focusModeEnabled) return;
+
         const mId = mEl.getAttribute('data-id');
         const name = mEl.getAttribute('data-name');
         const bldg = mEl.getAttribute('data-bldg');
@@ -2342,6 +2415,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Trazado Interactivo al Pasar el Ratón por Cintas Transportadoras
     canvas.querySelectorAll('.blueprint-belt').forEach(bEl => {
       bEl.addEventListener('mouseenter', () => {
+        if (bpViewerState.isZooming || bpViewerState.isDragging || !bpViewerState.focusModeEnabled) return;
+
         const from = bEl.getAttribute('data-from');
         const to = bEl.getAttribute('data-to');
         const fromName = bEl.getAttribute('data-fromname') || 'Origen';
@@ -3957,6 +4032,644 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `;
+  }
+
+  // =========================================================================
+  // 1.9. TAB POWER: CENTRALES DE ENERGÍA Y PLANOS 2D AÉREOS (FICSIT ENERGY)
+  // =========================================================================
+  function initPowerTab() {
+    const inputMW = document.getElementById('inputPowerTargetMW');
+    const btnMinus = document.getElementById('btnPowerMwMinus');
+    const btnPlus = document.getElementById('btnPowerMwPlus');
+    const pipeSelect = document.getElementById('selectPowerPipeTier');
+    const beltSelect = document.getElementById('selectPowerBeltTier');
+    const btnCopy = document.getElementById('btnPowerCopySummary');
+
+    if (inputMW) {
+      inputMW.addEventListener('input', () => {
+        state.power.targetMW = Math.max(10, Number(inputMW.value) || 8000);
+        updatePresetButtons(state.power.targetMW);
+        renderPowerPlantSection();
+      });
+    }
+
+    if (btnMinus && inputMW) {
+      btnMinus.addEventListener('click', () => {
+        const step = state.power.targetMW > 2000 ? 500 : 100;
+        state.power.targetMW = Math.max(50, state.power.targetMW - step);
+        inputMW.value = state.power.targetMW;
+        updatePresetButtons(state.power.targetMW);
+        renderPowerPlantSection();
+      });
+    }
+
+    if (btnPlus && inputMW) {
+      btnPlus.addEventListener('click', () => {
+        const step = state.power.targetMW >= 2000 ? 500 : 100;
+        state.power.targetMW = state.power.targetMW + step;
+        inputMW.value = state.power.targetMW;
+        updatePresetButtons(state.power.targetMW);
+        renderPowerPlantSection();
+      });
+    }
+
+    // Presets de MW
+    document.querySelectorAll('.btn-power-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mw = Number(btn.getAttribute('data-mw')) || 8000;
+        state.power.targetMW = mw;
+        if (inputMW) inputMW.value = mw;
+        updatePresetButtons(mw);
+        renderPowerPlantSection();
+      });
+    });
+
+    function updatePresetButtons(currentMW) {
+      document.querySelectorAll('.btn-power-preset').forEach(b => {
+        b.classList.toggle('active', Number(b.getAttribute('data-mw')) === currentMW);
+      });
+    }
+
+    // Selector de Combustibles
+    document.querySelectorAll('.btn-power-fuel').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fuel = btn.getAttribute('data-fuel');
+        state.power.fuelId = fuel;
+        document.querySelectorAll('.btn-power-fuel').forEach(b => b.classList.toggle('active', b === btn));
+        renderPowerPlantSection();
+      });
+    });
+
+    if (pipeSelect) {
+      pipeSelect.addEventListener('change', () => {
+        state.power.pipeTier = Number(pipeSelect.value) || 1;
+        renderPowerPlantSection();
+      });
+    }
+
+    if (beltSelect) {
+      beltSelect.addEventListener('change', () => {
+        state.power.beltTier = Number(beltSelect.value) || 3;
+        renderPowerPlantSection();
+      });
+    }
+
+    if (btnCopy) {
+      btnCopy.addEventListener('click', () => {
+        const plant = SatisCalc.calculateDedicatedPowerPlant(state.power);
+        const lines = [
+          `=== REPORTE DE CENTRAL ELÉCTRICA FICSIT (Satisfactory 1.0) ===`,
+          `POTENCIA OBJETIVO: ${plant.powerBalance.grossMW.toLocaleString()} MW`,
+          `POTENCIA NETA LIMPIA: ${plant.powerBalance.netMW.toLocaleString()} MW (Eficiencia: ${plant.powerBalance.netEfficiency}%)`,
+          `AUTOCONSUMO INTERNO: -${plant.powerBalance.totalInternalMW.toLocaleString()} MW (Bombas: ${plant.water.extractorPower} MW, Taladros: ${plant.fuel.minersPower} MW)`,
+          ``,
+          `--- MAQUINARIA DE GENERACIÓN ---`,
+          `• Generadores: ${plant.totalGeneratorsCount}x ${plant.generator.name} (${plant.fullGenerators} al 100%${plant.hasFractional ? ` + 1 al ${plant.lastClock}%` : ''})`,
+          `• Combustible: ${plant.fuel.totalRate} /min de ${plant.fuel.name} (${plant.fuel.beltsNeededCount ? `${plant.fuel.beltsNeededCount} Cintas ${plant.fuel.belt.name}` : `${plant.fuel.pipesNeededCount} Tuberías`})`,
+          plant.water.requiresWater ? `• Agua: ${plant.water.totalRate} m³/min (${plant.water.extractorsCount} Extractores de Agua al 100% en ${plant.water.pipesNeededCount} ${plant.water.pipeName})` : `• Agua: No requerida`,
+          ``,
+          plant.modularArchitecture ? `--- ARQUITECTURA MODULAR RECOMENDADA ---` : ``,
+          plant.modularArchitecture ? `• Esquema: ${plant.modularArchitecture.type}` : ``,
+          plant.modularArchitecture ? `• ${plant.modularArchitecture.description}` : ``,
+          plant.modularArchitecture ? `• Módulos Estándar: ${plant.modularArchitecture.standardModulesCount} Bloques de 600 MW (${plant.modularArchitecture.standardModulesCount * 600} MW)` : ``,
+          plant.modularArchitecture && plant.modularArchitecture.hasRemainder ? `• Módulo de Ajuste Remanente: ${plant.modularArchitecture.remainderGenerators} Generadores (${plant.modularArchitecture.remainderMW} MW)` : ``
+        ].filter(Boolean);
+
+        navigator.clipboard.writeText(lines.join('\n')).then(() => {
+          const original = btnCopy.innerHTML;
+          btnCopy.innerHTML = '✅ ¡Copiado!';
+          setTimeout(() => { btnCopy.innerHTML = original; }, 2000);
+        });
+      });
+    }
+
+    initPowerBlueprintInteractions();
+    renderPowerPlantSection();
+  }
+
+  function renderPowerPlantSection() {
+    const statsGrid = document.getElementById('powerStatsGrid');
+    const archCard = document.getElementById('powerArchitectureCard');
+    if (!statsGrid) return;
+
+    const plant = SatisCalc.calculateDedicatedPowerPlant(state.power);
+
+    // 1. Renderizar Cuadrícula de Métricas
+    statsGrid.innerHTML = `
+      <div class="power-stat-card stat-gross">
+        <span class="power-stat-label">⚡ Potencia Bruta Total</span>
+        <span class="power-stat-value" style="color: #38bdf8;">${plant.powerBalance.grossMW.toLocaleString()} MW</span>
+        <span class="power-stat-sub">Generación total antes de pérdidas</span>
+      </div>
+
+      <div class="power-stat-card stat-net">
+        <span class="power-stat-label">🔌 Potencia Neta Suministrada</span>
+        <span class="power-stat-value" style="color: #4ade80;">${plant.powerBalance.netMW.toLocaleString()} MW</span>
+        <span class="power-stat-sub">
+          <strong style="color: #4ade80;">⚡ ${plant.powerBalance.netEfficiency}%</strong> disponible para tu fábrica
+        </span>
+      </div>
+
+      <div class="power-stat-card stat-generators">
+        <span class="power-stat-label">🏭 Generadores Requeridos</span>
+        <span class="power-stat-value" style="color: #c084fc;">${plant.totalGeneratorsCount} <small style="font-size: 0.85rem;">Edificios</small></span>
+        <span class="power-stat-sub">
+          ${plant.fullGenerators} al 100%${plant.hasFractional ? ` + 1 ajustado al <strong>${plant.lastClock}%</strong>` : ''}
+        </span>
+      </div>
+
+      <div class="power-stat-card stat-fuel">
+        <span class="power-stat-label">🪨 Combustible Requerido</span>
+        <span class="power-stat-value" style="color: #f59e0b;">${plant.fuel.totalRate.toLocaleString()} <small style="font-size: 0.85rem;">/min</small></span>
+        <span class="power-stat-sub">
+          ${plant.fuel.name} &bull; ${plant.fuel.beltsNeededCount ? `${plant.fuel.beltsNeededCount}x ${plant.fuel.belt.name}` : `${plant.fuel.pipesNeededCount}x ${plant.water.pipeName}`}
+          ${plant.fuel.minersNeeded ? ` (~${plant.fuel.minersNeeded} Taladros)` : ''}
+        </span>
+      </div>
+
+      <div class="power-stat-card stat-water">
+        <span class="power-stat-label">💧 Consumo de Agua</span>
+        <span class="power-stat-value" style="color: #06b6d4;">${plant.water.requiresWater ? `${plant.water.totalRate.toLocaleString()} m³/min` : '0 m³/min'}</span>
+        <span class="power-stat-sub">
+          ${plant.water.requiresWater 
+            ? `<strong>${plant.water.extractorsCount} Extractores</strong> al 100% en <strong>${plant.water.pipesNeededCount}x</strong> ${plant.water.pipeName}` 
+            : 'Esta central no utiliza agua'
+          }
+        </span>
+      </div>
+
+      <div class="power-stat-card stat-gross" style="border-top-color: #ef4444;">
+        <span class="power-stat-label">🔄 Autoconsumo de la Central</span>
+        <span class="power-stat-value" style="color: #f87171;">-${plant.powerBalance.totalInternalMW.toLocaleString()} MW</span>
+        <span class="power-stat-sub">
+          ${plant.water.extractorPower} MW bombas + ${plant.fuel.minersPower} MW minería
+        </span>
+      </div>
+    `;
+
+    // 2. Renderizar Arquitectura Modular FICSIT
+    if (archCard) {
+      if (plant.modularArchitecture) {
+        archCard.style.display = 'block';
+        archCard.innerHTML = `
+          <div class="power-architecture-header">
+            <div>
+              <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Arquitectura de Máxima Eficiencia FICSIT</span>
+              <h3 style="margin: 2px 0 0; font-size: 1.05rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
+                <span>📐 ${plant.modularArchitecture.type}</span>
+              </h3>
+            </div>
+            <span class="blueprint-badge" style="background: rgba(74, 222, 128, 0.15); border-color: #4ade80; color: #4ade80;">
+              Zero Fluid Fluctuations (100% Estable)
+            </span>
+          </div>
+
+          <div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 12px;">
+            ${plant.modularArchitecture.description}
+          </div>
+
+          <div class="power-module-box">
+            <div>
+              <div style="font-size: 0.78rem; font-weight: 800; color: #38bdf8; margin-bottom: 4px;">
+                🏗️ CÓMO CONSTRUIR ESTA PLANTA DE ${plant.powerBalance.grossMW.toLocaleString()} MW:
+              </div>
+              <div style="font-size: 0.82rem; color: #f8fafc; line-height: 1.5;">
+                • Construye <strong>${plant.modularArchitecture.standardModulesCount} Módulos Estándar</strong> independientes de 8 Generadores + 3 Extractores de Agua cada uno (suman ${(plant.modularArchitecture.standardModulesCount * 600).toLocaleString()} MW).<br>
+                ${plant.modularArchitecture.hasRemainder ? `• Construye <strong>1 Módulo de Ajuste Final</strong> con <strong>${plant.modularArchitecture.remainderGenerators} Generadores</strong> (${plant.modularArchitecture.remainderMW} MW) alimentado por <strong>${plant.modularArchitecture.remainderExtractors} Extractor(es)</strong> de agua.<br>` : ''}
+                • Conecta el agua de cada módulo en un <strong>colector cerrado por ambos extremos (manifold en bucle)</strong>. ¡Así evitarás que los últimos generadores se queden secos por límites de tubería!
+              </div>
+            </div>
+            <div style="text-align: right; white-space: nowrap;">
+              <span style="display: block; font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Total de Bloques:</span>
+              <strong style="font-size: 1.4rem; color: #fbbf24;">${plant.modularArchitecture.standardModulesCount + (plant.modularArchitecture.hasRemainder ? 1 : 0)} Módulos</strong>
+            </div>
+          </div>
+        `;
+      } else {
+        archCard.style.display = 'none';
+      }
+    }
+
+    // 3. Renderizar Plano 2D Aéreo de la Central Eléctrica
+    renderPowerPlantBlueprint(plant);
+  }
+
+  function renderPowerPlantBlueprint(plant) {
+    const canvas = document.getElementById('powerBlueprintCanvas');
+    const subtitle = document.getElementById('powerBpSubtitle');
+    if (!canvas) return;
+
+    if (subtitle) {
+      subtitle.innerHTML = `Central de ${plant.powerBalance.grossMW.toLocaleString()} MW &bull; ${plant.totalGeneratorsCount} Generadores &bull; ${plant.water.requiresWater ? `${plant.water.extractorsCount} Extractores de Agua` : 'Sin Agua'}`;
+    }
+
+    const { svg, model } = generatePowerPlantBlueprintSvg(plant);
+    canvas.innerHTML = svg;
+    powerBpState.currentModel = model;
+
+    requestAnimationFrame(() => {
+      fitPowerBlueprintToViewport();
+    });
+
+    attachPowerBlueprintHoverTooltips();
+  }
+
+  function generatePowerPlantBlueprintSvg(plant) {
+    // Calculamos la representación gráfica aérea de la central
+    // Si la planta tiene más de 16 generadores (ej. 107 para 8000 MW), representamos
+    // los módulos en hileras bien organizadas con sus tuberías y manifolds
+    const genCount = plant.totalGeneratorsCount;
+    const isCoal = plant.generator.id === 'coal_generator';
+    const hasWater = !!plant.water.requiresWater;
+
+    // Determinamos cuántos generadores dibujar para un renderizado nítido y perfecto
+    const displayGens = Math.min(genCount, 24); // Representación gráfica a escala de hasta 24 generadores o módulos
+    const isMultiplied = genCount > displayGens;
+    const multiplierText = isMultiplied ? `(Mostrando bloque representativo de ${displayGens} / ${genCount} generadores)` : '';
+
+    const genW = 110;
+    const genH = 68;
+    const gapX = 36;
+    const startX = 60;
+    const startY = 190;
+
+    const totalW = Math.max(1200, startX + displayGens * (genW + gapX) + 160);
+    const totalH = 580;
+
+    let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #060a12; font-family: var(--font-main);">
+      <defs>
+        <!-- Rejilla de cimientos Satisfactory -->
+        <pattern id="powerGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+          <path d="M 30 0 L 30 60 M 0 30 L 60 30" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="0.5"/>
+        </pattern>
+
+        <!-- Gradiente de Agua / Lago -->
+        <linearGradient id="lakeGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#0284c7" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#0369a1" stop-opacity="0.65"/>
+        </linearGradient>
+
+        <!-- Gradiente de Generador -->
+        <linearGradient id="genBodyGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1e293b"/>
+          <stop offset="100%" stop-color="#0f172a"/>
+        </linearGradient>
+
+        <linearGradient id="substationGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#d97706" stop-opacity="0.4"/>
+        </linearGradient>
+
+        <filter id="powerGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      <!-- Fondo Cuadrícula -->
+      <rect width="${totalW}" height="${totalH}" fill="url(#powerGridPat)" />
+    `;
+
+    // 1. ZONA COSTERA / LAGO DE AGUA (Parte Inferior)
+    if (hasWater) {
+      const lakeY = 380;
+      svg += `
+        <!-- Costa Marina / Lago -->
+        <rect x="0" y="${lakeY}" width="${totalW}" height="${totalH - lakeY}" fill="url(#lakeGrad)" />
+        <line x1="0" y1="${lakeY}" x2="${totalW}" y2="${lakeY}" stroke="#38bdf8" stroke-width="2" stroke-dasharray="8 4" opacity="0.6"/>
+        <text x="30" y="${lakeY + 24}" fill="#38bdf8" font-size="11" font-weight="800" letter-spacing="1">
+          🌊 FUENTE DE AGUA NATURAL (LAGO / OCÉANO) &bull; ${plant.water.extractorsCount} Extractores requeridos (${plant.water.totalRate} m³/min)
+        </text>
+      `;
+
+      // Extractores de Agua
+      const extractorCount = Math.min(plant.water.extractorsCount, Math.ceil(displayGens * 3 / 8));
+      const extStepX = (totalW - 200) / Math.max(1, extractorCount);
+
+      for (let i = 0; i < extractorCount; i++) {
+        const extX = 80 + i * extStepX;
+        const extY = 430;
+
+        svg += `
+          <g class="power-extractor-node" data-id="ext_${i}" data-name="Extractor de Agua #${i + 1}" data-flow="120 m³/min" data-mw="20 MW" style="cursor: pointer;">
+            <!-- Muelle / Plataforma -->
+            <rect x="${extX - 6}" y="${extY - 6}" width="64" height="64" rx="8" fill="#0f172a" stroke="#0284c7" stroke-width="1.5" />
+            <!-- Cuerpo circular de la bomba -->
+            <circle cx="${extX + 26}" cy="${extY + 26}" r="20" fill="#0369a1" stroke="#38bdf8" stroke-width="2" />
+            <text x="${extX + 26}" y="${extY + 31}" fill="#ffffff" font-size="16" text-anchor="middle">💧</text>
+            <text x="${extX + 26}" y="${extY + 70}" fill="#94a3b8" font-size="10" font-weight="700" text-anchor="middle">Pump #${i + 1}</text>
+            <text x="${extX + 26}" y="${extY + 82}" fill="#38bdf8" font-size="9" text-anchor="middle">+120 m³/m</text>
+
+            <!-- Tubería de subida al manifold -->
+            <path d="M ${extX + 26} ${extY - 6} L ${extX + 26} 310" stroke="#0284c7" stroke-width="4" fill="none" opacity="0.8" />
+            <circle cx="${extX + 26}" cy="310" r="4" fill="#38bdf8" />
+          </g>
+        `;
+      }
+
+      // Tubería Manifold Horizontal de Agua
+      svg += `
+        <!-- Manifold Colector de Agua Principal -->
+        <path d="M 50 310 L ${totalW - 120} 310" stroke="#0284c7" stroke-width="6" fill="none" stroke-linecap="round" />
+        <path d="M 50 310 L ${totalW - 120} 310" class="blueprint-belt-flow" stroke="#38bdf8" stroke-width="2" stroke-dasharray="12 12" fill="none" />
+        <rect x="50" y="298" width="160" height="24" rx="4" fill="#0b1320" stroke="#0284c7" stroke-width="1" />
+        <text x="60" y="314" fill="#38bdf8" font-size="10" font-weight="800">
+          💧 MANIFOLD DE AGUA (${plant.water.pipeName})
+        </text>
+      `;
+    }
+
+    // 2. LÍNEA TRONCAL DE COMBUSTIBLE (Parte Superior de Generadores)
+    svg += `
+      <!-- Manifold Troncal de Combustible -->
+      <path d="M 50 130 L ${totalW - 120} 130" stroke="#78350f" stroke-width="6" fill="none" stroke-linecap="round" />
+      <path d="M 50 130 L ${totalW - 120} 130" class="blueprint-belt-flow" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="10 8" fill="none" />
+      <rect x="50" y="118" width="180" height="24" rx="4" fill="#0b1320" stroke="#f59e0b" stroke-width="1" />
+      <text x="60" y="134" fill="#fbbf24" font-size="10" font-weight="800">
+        🪨 LÍNEA DE COMBUSTIBLE (${plant.fuel.totalRate} /min ${plant.fuel.name})
+      </text>
+    `;
+
+    // 3. GENERADORES ELÉCTRICOS (Fila Central)
+    for (let i = 0; i < displayGens; i++) {
+      const gx = startX + i * (genW + gapX);
+      const gy = startY;
+      const isLastFractional = (i === displayGens - 1) && plant.hasFractional;
+      const genClock = isLastFractional ? plant.lastClock : 100;
+      const genMw = isLastFractional ? Number(((genClock / 100) * plant.unitMW).toFixed(1)) : plant.unitMW;
+
+      // Alimentación de combustible (de arriba al generador)
+      svg += `
+        <!-- Splitter de combustible -->
+        <rect x="${gx + genW / 2 - 8}" y="122" width="16" height="16" rx="2" fill="#eab308" stroke="#facc15" stroke-width="1.5" />
+        <path d="M ${gx + genW / 2} 138 L ${gx + genW / 2} ${gy}" stroke="#f59e0b" stroke-width="3" fill="none" />
+      `;
+
+      // Alimentación de agua (de abajo al generador, si requiere)
+      if (hasWater) {
+        svg += `
+          <!-- Conexión de tubería de agua -->
+          <circle cx="${gx + genW / 2}" cy="310" r="4" fill="#38bdf8" />
+          <path d="M ${gx + genW / 2} 310 L ${gx + genW / 2} ${gy + genH}" stroke="#0284c7" stroke-width="3.5" fill="none" />
+        `;
+      }
+
+      // Cable de alta tensión (del generador al bus superior de energía)
+      svg += `
+        <path d="M ${gx + genW / 2} ${gy} Q ${gx + genW / 2} 75 ${totalW - 100} 75" stroke="#facc15" stroke-width="1.5" stroke-dasharray="4 4" fill="none" opacity="0.6"/>
+      `;
+
+      // Edificio del Generador
+      svg += `
+        <g class="power-generator-node" data-id="gen_${i}" data-name="${plant.generator.name} #${i + 1}" data-mw="${genMw} MW" data-clock="${genClock}%" data-fuel="${plant.fuel.unitRate}/min" data-water="${plant.water.unitRate} m³/min" style="cursor: pointer;">
+          <!-- Chasis -->
+          <rect x="${gx}" y="${gy}" width="${genW}" height="${genH}" rx="6" fill="url(#genBodyGrad)" stroke="${isLastFractional ? '#fbbf24' : '#f59e0b'}" stroke-width="2" />
+          
+          <!-- Chimenea de Vapor -->
+          <circle cx="${gx + 22}" cy="${gy + 20}" r="12" fill="#0f172a" stroke="#d97706" stroke-width="2" />
+          <circle cx="${gx + 22}" cy="${gy + 20}" r="6" fill="#f59e0b" filter="url(#powerGlow)" />
+          
+          <!-- Etiqueta del Generador -->
+          <text x="${gx + 42}" y="${gy + 22}" fill="#f1f5f9" font-size="11" font-weight="800">Gen #${i + 1}</text>
+          <text x="${gx + 42}" y="${gy + 36}" fill="#fbbf24" font-size="10" font-weight="800">+${genMw} MW</text>
+          <text x="${gx + 12}" y="${gy + 56}" fill="#94a3b8" font-size="9">Clock: <strong>${genClock}%</strong></text>
+          <text x="${gx + genW - 12}" y="${gy + 56}" fill="#4ade80" font-size="9" text-anchor="end">100% OK</text>
+        </g>
+      `;
+    }
+
+    // 4. SUBESTACIÓN ELÉCTRICA Y RECEPTOR DE ENERGÍA (Lado Derecho Superior)
+    const subX = totalW - 160;
+    const subY = 40;
+    svg += `
+      <!-- Subestación y Contador Principal FICSIT -->
+      <g class="power-substation-node">
+        <rect x="${subX}" y="${subY}" width="140" height="90" rx="8" fill="url(#substationGrad)" stroke="#f59e0b" stroke-width="2" filter="url(#powerGlow)" />
+        <text x="${subX + 70}" y="${subY + 22}" fill="#fbbf24" font-size="10" font-weight="900" text-anchor="middle" letter-spacing="1">
+          ⚡ SUBESTACIÓN RED
+        </text>
+        <text x="${subX + 70}" y="${subY + 44}" fill="#ffffff" font-size="14" font-weight="900" text-anchor="middle">
+          +${plant.powerBalance.netMW.toLocaleString()} MW
+        </text>
+        <text x="${subX + 70}" y="${subY + 60}" fill="#86efac" font-size="10" font-weight="800" text-anchor="middle">
+          POTENCIA NETA FICSIT
+        </text>
+        <text x="${subX + 70}" y="${subY + 76}" fill="#cbd5e1" font-size="9" text-anchor="middle">
+          Bruto: ${plant.powerBalance.grossMW.toLocaleString()} MW
+        </text>
+      </g>
+    `;
+
+    // 5. BANNER INFORMATIVO INFERIOR SI ES PLANTA MASIVA (ej. 8000 MW)
+    if (isMultiplied) {
+      svg += `
+        <rect x="50" y="20" width="460" height="30" rx="6" fill="#0d1522" stroke="rgba(245, 158, 11, 0.4)" stroke-width="1"/>
+        <text x="65" y="40" fill="#fbbf24" font-size="11" font-weight="700">
+          ℹ️ PLANTA INDUSTRIAL: ${plant.totalGeneratorsCount} Generadores en ${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount + (plant.modularArchitecture.hasRemainder ? 1 : 0) : ''} Módulos 8:3
+        </text>
+      `;
+    }
+
+    svg += `</svg>`;
+
+    return {
+      svg,
+      model: { totalW, totalH }
+    };
+  }
+
+  function applyPowerBlueprintTransform(canvasEl, stateObj) {
+    if (!canvasEl) return;
+    canvasEl.style.transform = `translate(${stateObj.panX}px, ${stateObj.panY}px) scale(${stateObj.scale})`;
+  }
+
+  function fitPowerBlueprintToViewport() {
+    const viewport = document.getElementById('powerBlueprintViewport');
+    const canvas = document.getElementById('powerBlueprintCanvas');
+    if (!viewport || !canvas || !powerBpState.currentModel) return;
+
+    const vW = viewport.clientWidth || 900;
+    const vH = viewport.clientHeight || 540;
+    const mW = powerBpState.currentModel.totalW;
+    const mH = powerBpState.currentModel.totalH;
+
+    const pad = 24;
+    const scale = Math.min((vW - pad * 2) / mW, (vH - pad * 2) / mH);
+    powerBpState.scale = Math.max(0.35, Math.min(1.2, Number(scale.toFixed(3))));
+    powerBpState.panX = Math.round((vW - mW * powerBpState.scale) / 2);
+    powerBpState.panY = Math.round((vH - mH * powerBpState.scale) / 2);
+
+    applyPowerBlueprintTransform(canvas, powerBpState);
+  }
+
+  function initPowerBlueprintInteractions() {
+    const viewport = document.getElementById('powerBlueprintViewport');
+    const canvas = document.getElementById('powerBlueprintCanvas');
+    if (!viewport || !canvas || powerBpState.isInitialized) return;
+    powerBpState.isInitialized = true;
+
+    // Arrastre y Paneo
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      powerBpState.isDragging = true;
+      powerBpState.startX = e.clientX - powerBpState.panX;
+      powerBpState.startY = e.clientY - powerBpState.panY;
+      viewport.style.cursor = 'grabbing';
+      canvas.classList.add('is-navigating');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!powerBpState.isDragging) return;
+      powerBpState.panX = e.clientX - powerBpState.startX;
+      powerBpState.panY = e.clientY - powerBpState.startY;
+      applyPowerBlueprintTransform(canvas, powerBpState);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (powerBpState.isDragging) {
+        powerBpState.isDragging = false;
+        viewport.style.cursor = 'grab';
+        canvas.classList.remove('is-navigating');
+      }
+    });
+
+    // Zoom con rueda centrado en el cursor (estable sin desenfoques)
+    let zoomTimer = null;
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      powerBpState.isZooming = true;
+      canvas.classList.add('is-navigating');
+
+      const rect = viewport.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+      const newScale = Math.max(0.2, Math.min(2.8, powerBpState.scale * zoomFactor));
+
+      powerBpState.panX = mouseX - (mouseX - powerBpState.panX) * (newScale / powerBpState.scale);
+      powerBpState.panY = mouseY - (mouseY - powerBpState.panY) * (newScale / powerBpState.scale);
+      powerBpState.scale = newScale;
+
+      applyPowerBlueprintTransform(canvas, powerBpState);
+
+      clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(() => {
+        powerBpState.isZooming = false;
+        canvas.classList.remove('is-navigating');
+      }, 160);
+    }, { passive: false });
+
+    // Botones de Toolbar
+    const btnIn = document.getElementById('btnPowerBpZoomIn');
+    const btnOut = document.getElementById('btnPowerBpZoomOut');
+    const btnReset = document.getElementById('btnPowerBpReset');
+    const btnToggleFocus = document.getElementById('btnPowerBpToggleFocus');
+    const btnFs = document.getElementById('btnPowerBpFullscreen');
+
+    if (btnIn) btnIn.addEventListener('click', () => {
+      powerBpState.scale = Math.min(2.8, powerBpState.scale * 1.25);
+      applyPowerBlueprintTransform(canvas, powerBpState);
+    });
+
+    if (btnOut) btnOut.addEventListener('click', () => {
+      powerBpState.scale = Math.max(0.2, powerBpState.scale * 0.8);
+      applyPowerBlueprintTransform(canvas, powerBpState);
+    });
+
+    if (btnReset) btnReset.addEventListener('click', () => {
+      fitPowerBlueprintToViewport();
+    });
+
+    if (btnToggleFocus) {
+      btnToggleFocus.addEventListener('click', () => {
+        powerBpState.focusModeEnabled = !powerBpState.focusModeEnabled;
+        if (!powerBpState.focusModeEnabled) {
+          canvas.classList.add('inspection-disabled');
+          btnToggleFocus.innerHTML = '🎯 Foco: Desactivado';
+          btnToggleFocus.style.opacity = '0.7';
+        } else {
+          canvas.classList.remove('inspection-disabled');
+          btnToggleFocus.innerHTML = '🎯 Foco: Suave';
+          btnToggleFocus.style.opacity = '1';
+        }
+      });
+    }
+
+    if (btnFs) btnFs.addEventListener('click', () => {
+      const card = document.getElementById('powerBlueprintCard');
+      if (!card) return;
+      const isFs = card.classList.toggle('is-fullscreen');
+      btnFs.innerHTML = isFs ? '✕ Salir' : '⛶ Pantalla Completa';
+      setTimeout(() => fitPowerBlueprintToViewport(), 150);
+    });
+  }
+
+  function attachPowerBlueprintHoverTooltips() {
+    const viewport = document.getElementById('powerBlueprintViewport');
+    const tooltip = document.getElementById('powerBlueprintTooltip');
+    const canvas = document.getElementById('powerBlueprintCanvas');
+    if (!viewport || !tooltip || !canvas) return;
+
+    canvas.querySelectorAll('.power-generator-node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        if (powerBpState.isZooming || powerBpState.isDragging || !powerBpState.focusModeEnabled) return;
+        const name = node.getAttribute('data-name');
+        const mw = node.getAttribute('data-mw');
+        const clock = node.getAttribute('data-clock');
+        const fuel = node.getAttribute('data-fuel');
+        const water = node.getAttribute('data-water');
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #fbbf24; font-size: 0.88rem; margin-bottom: 4px;">⚡ ${name}</div>
+          <div><strong>Producción:</strong> <span style="color: #4ade80; font-weight: 800;">${mw}</span></div>
+          <div><strong>Ajuste de Reloj:</strong> ${clock}</div>
+          <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
+            <div>🪨 Combustible: <strong>${fuel}</strong></div>
+            ${water !== '0 m³/min' ? `<div>💧 Agua: <strong>${water}</strong></div>` : ''}
+          </div>
+        `;
+        tooltip.style.display = 'block';
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        const rect = viewport.getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    });
+
+    canvas.querySelectorAll('.power-extractor-node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        if (powerBpState.isZooming || powerBpState.isDragging || !powerBpState.focusModeEnabled) return;
+        const name = node.getAttribute('data-name');
+        const flow = node.getAttribute('data-flow');
+        const mw = node.getAttribute('data-mw');
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">💧 ${name}</div>
+          <div><strong>Suministro de Agua:</strong> <span style="color: #38bdf8; font-weight: 800;">+${flow}</span></div>
+          <div><strong>Consumo Eléctrico:</strong> <span style="color: #f87171;">-${mw}</span></div>
+          <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 4px;">Conectado a manifold colector</div>
+        `;
+        tooltip.style.display = 'block';
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        const rect = viewport.getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    });
   }
 
   // =========================================================================

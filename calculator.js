@@ -1362,6 +1362,193 @@ const SatisCalc = {
       recommendedGenerators,
       recommendedStorage
     };
+  },
+
+  /**
+   * CÁLCULO DE MÁXIMA EFICIENCIA PARA CENTRALES ELÉCTRICAS (Satisfactory 1.0 / 1.2)
+   * Calcula generadores exactos, consumo de combustible, agua, extractores, tuberías,
+   * balance de red, arquitectura modular 8:3 y datos para el plano 2D.
+   */
+  calculateDedicatedPowerPlant({
+    targetMW = 8000,
+    fuelId = 'coal',
+    pipeTier = 1,
+    beltTier = 3,
+    minerTier = 'miner_mk2',
+    purity = 'normal'
+  }) {
+    const target = Math.max(10, Number(targetMW) || 8000);
+
+    // Mapeo de combustible a generador y parámetros oficiales 1.0
+    let genData = SATIS_DATA.powerGenerators.coal_generator;
+    let fuelData = genData.fuelOptions[0];
+
+    if (fuelId === 'compacted_coal') {
+      genData = SATIS_DATA.powerGenerators.coal_generator;
+      fuelData = genData.fuelOptions[1];
+    } else if (fuelId === 'petroleum_coke') {
+      genData = SATIS_DATA.powerGenerators.coal_generator;
+      fuelData = genData.fuelOptions[2];
+    } else if (fuelId === 'fuel') {
+      genData = SATIS_DATA.powerGenerators.fuel_generator;
+      fuelData = genData.fuelOptions[0];
+    } else if (fuelId === 'turbofuel') {
+      genData = SATIS_DATA.powerGenerators.fuel_generator;
+      fuelData = genData.fuelOptions[1];
+    } else if (fuelId === 'uranium_fuel_rod') {
+      genData = SATIS_DATA.powerGenerators.nuclear_power_plant;
+      fuelData = genData.fuelOptions[0];
+    } else if (fuelId === 'solid_biofuel') {
+      genData = SATIS_DATA.powerGenerators.biomass_burner;
+      fuelData = genData.fuelOptions[0];
+    }
+
+    const unitMW = genData.powerMW;
+    const exactGenerators = target / unitMW;
+    const fullGenerators = Math.floor(exactGenerators);
+    const fractionalPart = exactGenerators - fullGenerators;
+    const hasFractional = fractionalPart > 0.0001;
+    const lastClock = hasFractional ? Number((fractionalPart * 100).toFixed(1)) : 100;
+    const totalGeneratorsCount = hasFractional ? fullGenerators + 1 : fullGenerators;
+
+    // Consumo de Combustible
+    const unitFuelRate = fuelData.ratePerGen;
+    const totalFuelRate = Number((exactGenerators * unitFuelRate).toFixed(2));
+    const isFuelFluid = !!fuelData.isFluid;
+
+    // Manejo de Cintas o Tuberías para el combustible
+    const beltObj = SATIS_DATA.belts.find(b => b.tier === Number(beltTier)) || SATIS_DATA.belts[2]; // Default Mk.3 (270)
+    const fuelBeltsCount = !isFuelFluid ? Math.max(1, Math.ceil(totalFuelRate / beltObj.speed)) : 0;
+    const fuelPipesCount = isFuelFluid ? Math.max(1, Math.ceil(totalFuelRate / (pipeTier === 2 ? 600 : 300))) : 0;
+
+    // Estimación de taladros para combustible sólido (ej. Carbón)
+    let minersNeeded = 0;
+    let minersPower = 0;
+    let nodeRate = 120;
+    if (!isFuelFluid && (fuelId === 'coal' || fuelId === 'compacted_coal' || fuelId === 'uranium_fuel_rod')) {
+      const purityFactor = SATIS_DATA.purities[purity]?.factor || 1.0;
+      const minerBase = SATIS_DATA.miners[minerTier]?.baseRate || 120;
+      nodeRate = minerBase * purityFactor;
+      minersNeeded = Number((totalFuelRate / Math.max(1, nodeRate)).toFixed(2));
+      minersPower = Math.ceil(minersNeeded) * (SATIS_DATA.miners[minerTier]?.power || 12);
+    }
+
+    // Consumo de Agua y Extractores
+    const requiresWater = !!genData.requiresWater;
+    const unitWaterRate = genData.waterRatePerGen || 0;
+    const totalWaterRate = requiresWater ? Number((exactGenerators * unitWaterRate).toFixed(2)) : 0;
+    const waterExtractorsExact = requiresWater ? (totalWaterRate / 120) : 0;
+    const waterExtractorsCount = requiresWater ? Math.ceil(waterExtractorsExact) : 0;
+    const lastExtractorClock = (waterExtractorsExact > 0 && (waterExtractorsCount - waterExtractorsExact) > 0.001)
+      ? Number(((waterExtractorsExact - Math.floor(waterExtractorsExact)) * 100).toFixed(1))
+      : 100;
+    const waterExtractorsPower = waterExtractorsCount * 20; // 20 MW cada extractor de agua
+    const pipeCapacity = pipeTier === 2 ? 600 : 300;
+    const waterPipesCount = requiresWater ? Math.max(1, Math.ceil(totalWaterRate / pipeCapacity)) : 0;
+
+    // Arquitectura Modular de Máxima Eficiencia (Golden Ratios)
+    let modularArchitecture = null;
+    if (genData.id === 'coal_generator') {
+      // Ratio de oro 8 Generadores de Carbón : 3 Extractores de Agua (600 MW por módulo)
+      const modules8_3 = Math.floor(fullGenerators / 8);
+      const remGens = (fullGenerators % 8) + (hasFractional ? fractionalPart : 0);
+      const remExtractors = remGens > 0 ? Number(((remGens * 45) / 120).toFixed(2)) : 0;
+
+      modularArchitecture = {
+        type: 'Ratio Áureo FICSIT 8:3',
+        description: 'Cada módulo une 8 Generadores (600 MW) + 3 Extractores de Agua (360 m³/min) + 120 Carbón/min (Cinta Mk.2). Previene bloqueos por límite de caudal en tuberías.',
+        standardModulesCount: modules8_3,
+        standardModuleMW: 600,
+        standardModuleCoal: 120,
+        standardModuleWater: 360,
+        standardModuleExtractors: 3,
+        hasRemainder: remGens > 0,
+        remainderGenerators: Number(remGens.toFixed(2)),
+        remainderMW: Number((remGens * 75).toFixed(1)),
+        remainderExtractors: Math.ceil(remExtractors),
+        remainderCoal: Number((remGens * 15).toFixed(1))
+      };
+    } else if (genData.id === 'fuel_generator') {
+      // Bloques de 4 Generadores = 1000 MW (80 m3/min Fuel) o 12 Generadores = 3000 MW (240 m3/min Fuel)
+      const modules4 = Math.floor(fullGenerators / 4);
+      const remGens = (fullGenerators % 4) + (hasFractional ? fractionalPart : 0);
+      modularArchitecture = {
+        type: 'Módulos de 1,000 MW (4 Generadores)',
+        description: 'Cada bloque de 4 Generadores produce 1,000 MW con 80 m³/min de Combustible, ideal para manifolds simétricos.',
+        standardModulesCount: modules4,
+        standardModuleMW: 1000,
+        standardModuleFuel: 80,
+        hasRemainder: remGens > 0,
+        remainderGenerators: Number(remGens.toFixed(2)),
+        remainderMW: Number((remGens * 250).toFixed(1))
+      };
+    } else if (genData.id === 'nuclear_power_plant') {
+      modularArchitecture = {
+        type: 'Módulos Nucleares de 2,500 MW',
+        description: 'Cada Reactor Nuclear produce 2,500 MW, consume 0.2 varillas/min y 240 m³/min de Agua (2 Extractores de Agua a 120 m³/min).',
+        standardModulesCount: fullGenerators,
+        standardModuleMW: 2500,
+        standardModuleWater: 240,
+        standardModuleExtractors: 2,
+        hasRemainder: hasFractional,
+        remainderGenerators: hasFractional ? 1 : 0,
+        remainderMW: Number((fractionalPart * 2500).toFixed(1))
+      };
+    }
+
+    // Balance Eléctrico
+    const grossMW = target;
+    const internalPumpsMW = waterExtractorsPower;
+    const internalMinersMW = minersPower;
+    const totalInternalMW = internalPumpsMW + internalMinersMW;
+    const netMW = Math.max(0, Number((grossMW - totalInternalMW).toFixed(1)));
+    const netEfficiency = Number(((netMW / grossMW) * 100).toFixed(1));
+
+    return {
+      targetMW: target,
+      generator: genData,
+      fuelOption: fuelData,
+      unitMW,
+      exactGenerators: Number(exactGenerators.toFixed(3)),
+      fullGenerators,
+      hasFractional,
+      lastClock,
+      totalGeneratorsCount,
+      fuel: {
+        id: fuelData.id,
+        name: fuelData.name,
+        isFluid: isFuelFluid,
+        unitRate: unitFuelRate,
+        totalRate: totalFuelRate,
+        belt: beltObj,
+        beltsNeededCount: fuelBeltsCount,
+        pipesNeededCount: fuelPipesCount,
+        minersNeeded,
+        minersPower,
+        nodeRate
+      },
+      water: {
+        requiresWater,
+        unitRate: unitWaterRate,
+        totalRate: totalWaterRate,
+        extractorsExact: Number(waterExtractorsExact.toFixed(2)),
+        extractorsCount: waterExtractorsCount,
+        lastExtractorClock,
+        extractorPower: waterExtractorsPower,
+        pipesNeededCount: waterPipesCount,
+        pipeCapacity,
+        pipeName: pipeTier === 2 ? 'Tubería Mk.2 (600 m³/min)' : 'Tubería Mk.1 (300 m³/min)'
+      },
+      modularArchitecture,
+      powerBalance: {
+        grossMW,
+        internalPumpsMW,
+        internalMinersMW,
+        totalInternalMW,
+        netMW,
+        netEfficiency
+      }
+    };
   }
 };
 

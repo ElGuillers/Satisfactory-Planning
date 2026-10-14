@@ -51,6 +51,60 @@ const SATIS_DATA = {
     quantum_encoder: { id: 'quantum_encoder', name: 'Codificador Cuántico', power: 2000, icon: '🔮', image: 'images/buildings/quantum_encoder.png' }
   },
 
+  // Official Power Generators & Fuels (Satisfactory 1.0 / 1.2)
+  powerGenerators: {
+    biomass_burner: {
+      id: 'biomass_burner',
+      name: 'Quemador de Biomasa',
+      powerMW: 30,
+      icon: '🌿',
+      image: 'images/buildings/biomass_burner.png',
+      requiresWater: false,
+      fuelOptions: [
+        { id: 'solid_biofuel', name: 'Biocombustible Sólido', ratePerGen: 4, isFluid: false },
+        { id: 'biomass', name: 'Biomasa', ratePerGen: 12, isFluid: false }
+      ]
+    },
+    coal_generator: {
+      id: 'coal_generator',
+      name: 'Generador de Carbón',
+      powerMW: 75,
+      icon: '🪨',
+      image: 'images/buildings/coal_generator.png',
+      requiresWater: true,
+      waterRatePerGen: 45, // 45 m3/min
+      fuelOptions: [
+        { id: 'coal', name: 'Carbón', ratePerGen: 15, isFluid: false, defaultPurity: 'normal' },
+        { id: 'compacted_coal', name: 'Carbón Compactado (Alt)', ratePerGen: 7.142857, isFluid: false },
+        { id: 'petroleum_coke', name: 'Coque de Petróleo', ratePerGen: 25, isFluid: false }
+      ]
+    },
+    fuel_generator: {
+      id: 'fuel_generator',
+      name: 'Generador de Combustible',
+      powerMW: 250, // 250 MW en Satisfactory 1.0
+      icon: '🛢️',
+      image: 'images/buildings/fuel_generator.png',
+      requiresWater: false,
+      fuelOptions: [
+        { id: 'fuel', name: 'Combustible Líquido (Fuel)', ratePerGen: 20, isFluid: true },
+        { id: 'turbofuel', name: 'Turbocombustible', ratePerGen: 7.5, isFluid: true }
+      ]
+    },
+    nuclear_power_plant: {
+      id: 'nuclear_power_plant',
+      name: 'Central Nuclear',
+      powerMW: 2500,
+      icon: '☢️',
+      image: 'images/buildings/nuclear_power_plant.png',
+      requiresWater: true,
+      waterRatePerGen: 240, // 240 m3/min en 1.0
+      fuelOptions: [
+        { id: 'uranium_fuel_rod', name: 'Varilla de Combustible de Uranio', ratePerGen: 0.2, isFluid: false, wastePerGen: 10 }
+      ]
+    }
+  },
+
   // Raw Resources
   rawResources: {
     iron_ore: { id: 'iron_ore', name: 'Mineral de Hierro', isFluid: false, category: 'Mineral' },

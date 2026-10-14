@@ -86,7 +86,10 @@ Calculadora y planificador de producción ultra liviano diseñado para pioneros 
   * Botones en la barra superior (`[🌟 Ver Todo]`, `[🪨 Mineral]`, `[🪙 Lingote]`, `[🔩 Tornillos]...`).
   * Al hacer 1 clic en un material, la fábrica entera aísla visualmente toda su línea de transporte y manufactura.
 * **Dimensiones y Conteo de Cimientos:** Insignia que te indica los cimientos exactos y compactos que debes construir en el juego (ej. `20x5 Cimientos (160m x 40m • 100 bloques)` ajustados al milímetro con cero espacio desperdiciado) con reglas perimetrales de coordenadas.
-* **Controles Interactivos Fluidos:** Arrastre (*Pan* libre), zoom con rueda hacia el cursor, pantalla completa (⛶) y alternador de ratios.
+* **Controles Interactivos Fluidos & Anti-Desenfoque:**
+  * **Zoom y Pan ultra-estables:** La vista se traslada y escala de forma suave y nítida sin artefactos de desenfoque. Durante el desplazamiento o zoom, los efectos de hover se suspenden automáticamente para evitar cualquier parpadeo.
+  * **🎯 Botón de Modo Foco:** Permite alternar entre foco interactivo suave (`Foco: Suave`) o vista fija inalterable (`Foco: Desactivado`) si deseas que el 100% de la fábrica se mantenga siempre visible.
+  * Botón para centrar y ajustar (⟲), pantalla completa (⛶) y alternador de etiquetas de ratios.
 
 ---
 
@@ -98,12 +101,29 @@ Calculadora y planificador de producción ultra liviano diseñado para pioneros 
   2. 🟡 **Modo Estándar (100%):** Operación nominal clásica de Satisfactory (máquinas enteras al 100% y 1 residual al porcentaje restante).
   3. 🔴 **Modo Compacto (Overclocking 200%):** Reduce el número de máquinas y el espacio en cimientos a la mitad, calculando el consumo extra y el total de **Fragmentos de Energía (💎 Power Shards)** requeridos.
 * **Barra Segmentada de Desglose:** Visualiza en tiempo real qué porcentaje y cuántos MW consumen tus Mineros, Fundiciones, Constructoras y Ensambladoras.
-* **Dimensionamiento de Centrales Eléctricas FICSIT:**
-  * Calcula cuántas centrales necesitas construir para alimentar tu fábrica completa:
-    * ⛏️ **Generadores de Carbón (75 MW c/u):** Cantidad de plantas, consumo de Carbón/min y consumo de Agua en $m^3$/min (+ número de Extractores de Agua).
-    * 🛢️ **Generadores de Combustible (250 MW c/u):** Cantidad de generadores y tasa de Fuel/min.
-    * 🌿 **Quemadores de Biomasa (30 MW c/u):** Para arranques en Tier 1-2.
-    * ☢️ **Centrales Nucleares (2500 MW c/u):** Para megaproyectos de alta capacidad.
-    * 🔋 **Almacenamiento de Energía FICSIT:** Baterías recomendadas (100 MWh c/u) para absorber picos y evitar caídas de red.
+
+---
+
+### 11. ⚡ Centrales de Energía & Planos 2D Aéreos Dedicados (Objetivo en MW)
+* **Generación por Meta Eléctrica:** Introduce directamente la potencia en Megavatios que deseas generar (ej. **8,000 MW**, **1,200 MW**, **15,000 MW**) o usa los botones de presets rápidos.
+* **Selección de Fuente de Combustible:**
+  * 🪨 **Carbón Estándar (75 MW c/u):** 15 carbón/min + 45 m³/min de agua.
+  * 🧱 **Carbón Compactado (75 MW c/u):** 7.14 carbón/min + 45 m³/min de agua (ahorro de más del 52% de carbón).
+  * ⚫ **Coque de Petróleo (75 MW c/u):** 25 coque/min + 45 m³/min de agua.
+  * 🛢️ **Combustible Líquido 1.0 (250 MW c/u):** 20 m³/min de Fuel (sin agua).
+  * 🚀 **Turbocombustible 1.0 (250 MW c/u):** 7.5 m³/min de Turbofuel.
+  * ☢️ **Central Nuclear (2,500 MW c/u):** 0.2 varillas uranio/min + 240 m³/min agua.
+  * 🌿 **Quemador de Biomasa (30 MW c/u):** 4 biocombustible sólido/min.
+* **Cálculo de Máxima Eficiencia (Golden Ratios):**
+  * **Generadores exactos:** Desglose entre generadores enteros al 100% y ajuste preciso de reloj (clock) del generador remanente.
+  * **Consumo de agua y bombas:** Número exacto de Extractores de Agua al 100% y tuberías requeridas (Mk.1 de 300 m³/min o Mk.2 de 600 m³/min).
+  * **Balance Eléctrico Neto:** Calcula la potencia bruta generada, resta el autoconsumo de las bombas de agua y taladros, y muestra los **MW Netos limpios** suministrados a la red.
+  * **Arquitectura Áurea 8:3:** Instrucciones de construcción modular de 8 generadores : 3 extractores para evitar cuellos de botella de fluidos en tuberías.
+* **Plano Aéreo 2D Interactivo de la Central Eléctrica:**
+  * Dibuja la costa o lago marino con extractores de agua alineados.
+  * Manifolds colectores de agua (azul) y líneas troncales de combustible (amarillo) con splitters individuales hacia cada generador.
+  * Chimeneas con visualización de calor y vapor.
+  * Red de distribución y Subestación eléctrica con display digital de MW brutos y netos.
+
 
 
