@@ -243,6 +243,73 @@ const SatisCalc = {
   },
 
   /**
+   * Discovers all items involved in the production chain of targetItemId
+   * and returns items that have alternative recipes along with their base and alternative options.
+   */
+  getRecipeOptionsForChain(targetItemId, selectedAltRecipes = {}) {
+    const chainItems = new Set();
+    const visited = new Set();
+
+    function collectItems(itemId) {
+      if (!itemId || visited.has(itemId) || (SATIS_DATA.rawResources && SATIS_DATA.rawResources[itemId])) return;
+      visited.add(itemId);
+      chainItems.add(itemId);
+
+      const allRecipesForItem = SATIS_DATA.recipes.filter(r => r.outputs.some(o => o.item === itemId));
+      for (const r of allRecipesForItem) {
+        for (const inp of r.inputs) {
+          collectItems(inp.item);
+        }
+      }
+    }
+
+    collectItems(targetItemId);
+
+    const options = [];
+
+    for (const itemId of chainItems) {
+      const allForThis = SATIS_DATA.recipes.filter(r => r.outputs.some(o => o.item === itemId));
+      const standardRecipe = allForThis.find(r => !r.isAlt) || allForThis[0];
+      const altRecipes = allForThis.filter(r => r.isAlt);
+
+      if (altRecipes.length > 0 && standardRecipe) {
+        const itemMeta = SATIS_DATA.items[itemId] || { name: itemId };
+        const activeRecipeId = selectedAltRecipes[itemId] || standardRecipe.id;
+        const activeRecipe = allForThis.find(r => r.id === activeRecipeId) || standardRecipe;
+
+        const formatSummary = (rec) => {
+          const bldg = SATIS_DATA.buildings[rec.building]?.name || rec.building;
+          const inSummary = rec.inputs.map(i => {
+            const iMeta = SATIS_DATA.items[i.item] || SATIS_DATA.rawResources[i.item] || { name: i.item };
+            return `${i.rate}/m ${iMeta.name}`;
+          }).join(' + ');
+          const outRate = rec.outputs.find(o => o.item === itemId)?.rate || rec.outputs[0]?.rate || 0;
+          return `${bldg}: ${inSummary} ➔ ${outRate}/m ${itemMeta.name}`;
+        };
+
+        options.push({
+          itemId,
+          itemName: itemMeta.name,
+          standardRecipe: {
+            ...standardRecipe,
+            buildingName: SATIS_DATA.buildings[standardRecipe.building]?.name || standardRecipe.building,
+            summary: formatSummary(standardRecipe)
+          },
+          altRecipes: altRecipes.map(alt => ({
+            ...alt,
+            buildingName: SATIS_DATA.buildings[alt.building]?.name || alt.building,
+            summary: formatSummary(alt)
+          })),
+          activeRecipeId,
+          isUsingAlt: !!activeRecipe.isAlt
+        });
+      }
+    }
+
+    return options;
+  },
+
+  /**
    * Multi-tier recursive factory plan
    * Computes entire chain backwards from target item
    */

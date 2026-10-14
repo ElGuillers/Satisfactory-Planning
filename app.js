@@ -19,11 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
       minerOverrides: {},
       nodeCountOverrides: {},
       rawNodesConfig: {},
-      altPreferences: {
-        screw: 'screw_cast',
-        steel_ingot: null,
-        reinforced_iron_plate: null
-      }
+      altPreferences: {}
     },
     power: {
       targetMW: 8000,
@@ -62,11 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     factory: {
       targetItem: 'modular_frame',
       targetRate: 10,
-      altPreferences: {
-        screw: 'screw_cast',
-        steel_ingot: null,
-        reinforced_iron_plate: null
-      }
+      altPreferences: {}
     },
     splitter: {
       inputRate: 120,
@@ -973,6 +965,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // 2.5. Render Recipe Preferences Box (Base vs Alternativas MAM)
+    renderRecipePreferencesBox(plan.targetItemId);
+
     // 3. Render Pipeline Phases into #builderDynamicPhasesContainer
     const pipelineContainer = document.getElementById('builderDynamicPhasesContainer');
     if (pipelineContainer) {
@@ -1099,8 +1094,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${clockDetail}
                       </span>
                     </div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                      Receta: <span style="color: #f1f5f9; font-weight: 600;">${step.recipe.name}</span>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                      <span>Receta: <strong style="color: #f1f5f9;">${step.recipe.name}</strong></span>
+                      ${step.recipe.isAlt 
+                        ? `<span class="recipe-badge-tag tag-alt" style="font-size: 0.65rem;">⚡ Alt (MAM)</span>` 
+                        : `<span class="recipe-badge-tag tag-base" style="font-size: 0.65rem;">⭐ Base Oficial</span>`}
                     </div>
                   </div>
                 </div>
@@ -1404,6 +1402,138 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Error in updateLineBuilder:', err);
       document.body.setAttribute('data-app-error', `${err.message} :: ${err.stack}`);
     }
+  }
+
+  function renderRecipePreferencesBox(targetGoal) {
+    const altBox = document.getElementById('builderAltOptionsBox');
+    if (!altBox) return;
+
+    const options = SatisCalc.getRecipeOptionsForChain(targetGoal, state.builder.altPreferences);
+
+    if (!options || options.length === 0) {
+      altBox.style.display = 'block';
+      altBox.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.1rem;">📋</span>
+            <span style="font-size: 0.8rem; color: #cbd5e1;">
+              <strong>Recetas de Fabricación:</strong> Esta línea de producción utiliza exclusivamente <strong>Recetas Base oficiales</strong> (sin discos duros ni MAM).
+            </span>
+          </div>
+          <span class="badge" style="background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80; font-size: 0.72rem; padding: 2px 8px; font-weight: 700;">
+            ⭐ 100% Recetas Base
+          </span>
+        </div>
+      `;
+      return;
+    }
+
+    altBox.style.display = 'block';
+
+    const activeAltsCount = options.filter(opt => opt.isUsingAlt).length;
+
+    let itemsHtml = options.map(opt => {
+      const isBaseActive = !opt.isUsingAlt;
+      return `
+        <div class="recipe-choice-card">
+          <div class="recipe-choice-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${getItemIcon(opt.itemId, 22)}
+              <strong style="color: #f1f5f9; font-size: 0.86rem;">${opt.itemName}</strong>
+            </div>
+            <span class="recipe-choice-status ${opt.isUsingAlt ? 'status-alt' : 'status-base'}">
+              ${opt.isUsingAlt ? '⚡ Alternativa Activa (MAM)' : '⭐ Receta Base Activa'}
+            </span>
+          </div>
+
+          <div class="recipe-choice-buttons">
+            <!-- Receta Base Oficial -->
+            <button type="button" class="btn-recipe-choice ${isBaseActive ? 'active-base' : ''}" data-item="${opt.itemId}" data-recipe="${opt.standardRecipe.id}" title="${opt.standardRecipe.summary}">
+              <div class="recipe-btn-top">
+                <span class="recipe-badge-tag tag-base">⭐ BASE OFICIAL</span>
+                <span class="recipe-name-text">${opt.standardRecipe.name}</span>
+              </div>
+              <div class="recipe-btn-desc">${opt.standardRecipe.summary}</div>
+            </button>
+
+            <!-- Recetas Alternativas -->
+            ${opt.altRecipes.map(alt => {
+              const isThisAltActive = (opt.activeRecipeId === alt.id);
+              return `
+                <button type="button" class="btn-recipe-choice ${isThisAltActive ? 'active-alt' : ''}" data-item="${opt.itemId}" data-recipe="${alt.id}" title="${alt.summary}">
+                  <div class="recipe-btn-top">
+                    <span class="recipe-badge-tag tag-alt">⚡ ALT (MAM)</span>
+                    <span class="recipe-name-text">${alt.name}</span>
+                  </div>
+                  <div class="recipe-btn-desc">${alt.summary}</div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    altBox.innerHTML = `
+      <div class="recipe-pref-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 1.1rem;">📋</span>
+            <h3 style="margin: 0; font-size: 0.92rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">
+              Recetas de Fabricación (Base vs Alternativas MAM)
+            </h3>
+            ${activeAltsCount > 0 
+              ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem; padding: 2px 8px; font-weight: 700;">⚡ ${activeAltsCount} Alternativas en uso</span>`
+              : `<span class="badge" style="background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid #4ade80; font-size: 0.72rem; padding: 2px 8px; font-weight: 700;">⭐ 100% Recetas Base (Sin MAM)</span>`
+            }
+          </div>
+          <div style="font-size: 0.74rem; color: #cbd5e1; margin-top: 4px; line-height: 1.4;">
+            Por defecto todas las máquinas usan las <strong>Recetas Base (Estándar)</strong> del juego. Si tienes discos duros desbloqueados en el MAM, puedes activar aquí tus recetas alternativas para optimizar tu producción:
+          </div>
+        </div>
+
+        <button type="button" class="btn-reset-base" id="btnResetAllBaseRecipes" title="Restablecer todos los materiales a sus recetas base oficiales">
+          ⭐ Restablecer Todas a Recetas Base
+        </button>
+      </div>
+
+      <div class="recipe-choices-grid" style="margin-top: 12px;">
+        ${itemsHtml}
+      </div>
+    `;
+
+    // Event listeners
+    const resetBtn = altBox.querySelector('#btnResetAllBaseRecipes');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        state.builder.altPreferences = {};
+        if (state.builder.calcMode === 'drills') {
+          syncTargetRateFromDrills();
+        }
+        updateLineBuilder();
+      });
+    }
+
+    altBox.querySelectorAll('.btn-recipe-choice').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const itemId = btn.getAttribute('data-item');
+        const recipeId = btn.getAttribute('data-recipe');
+        const opt = options.find(o => o.itemId === itemId);
+        if (!opt) return;
+
+        state.builder.altPreferences = state.builder.altPreferences || {};
+        if (recipeId === opt.standardRecipe.id) {
+          delete state.builder.altPreferences[itemId];
+        } else {
+          state.builder.altPreferences[itemId] = recipeId;
+        }
+
+        if (state.builder.calcMode === 'drills') {
+          syncTargetRateFromDrills();
+        }
+        updateLineBuilder();
+      });
+    });
   }
 
   // =========================================================================
@@ -1976,7 +2106,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <image href="${iconImg}" x="6" y="6" width="22" height="22" onerror="this.outerHTML='<text x=6 y=22 font-size=16>${iconEmoji}</text>'"/>
 
           <text x="32" y="16" fill="#ffffff" font-size="9" font-weight="800">${m.name}</text>
-          <text x="32" y="27" fill="#94a3b8" font-size="7.5" font-weight="600">${m.recipe.name}</text>
+          <text x="32" y="27" fill="${m.recipe.isAlt ? '#fbbf24' : '#94a3b8'}" font-size="7.5" font-weight="600">${m.recipe.isAlt ? '⚡ Alt: ' : '⭐ '}${m.recipe.name}</text>
 
           <text x="6" y="${m.height - 14}" fill="#4ade80" font-size="7.5" font-weight="700">➔ +${m.outputRate}/m ${SATIS_DATA.items[m.itemId]?.name || m.itemId}</text>
           <text x="6" y="${m.height - 5}" fill="#facc15" font-size="7" font-weight="700">⚡ ${m.clock}% &bull; ${m.mw} MW</text>
