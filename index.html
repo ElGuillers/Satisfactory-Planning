@@ -464,13 +464,60 @@
               </div>
             </div>
 
-            <!-- Configuración Individual de Mineros para Espacio Libre si hay > 1 -->
+            <!-- Configuración Individual de Mineros para Espacio Libre -->
             <div id="sbIndividualMinersContainer" style="display: none; margin-top: 12px; padding: 10px 12px; background: #0a101b; border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-sm);">
               <div style="font-size: 0.74rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
                 <span>⛏️ Personalizar Pureza y Nivel de cada Taladro por separado:</span>
                 <span style="font-size: 0.68rem; color: #94a3b8; font-weight: 600;">(Puedes combinar vetas Puras, Normales e Impuras)</span>
               </div>
               <div id="sbIndividualMinersList" class="raw-drills-list"></div>
+            </div>
+
+            <!-- Segundo Mineral Opcional para Productos Avanzados (ej. Carbón para Acero, o Cobre) -->
+            <div id="sbSecondaryMineralRow" style="margin-top: 10px;">
+              <button type="button" id="btnToggleSbSecondaryMineral" class="btn btn-secondary" style="font-size: 0.76rem; padding: 5px 12px; border-color: #38bdf8; color: #38bdf8; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                <span>➕ Agregar Segundo Mineral (ej. Carbón para Acero, o Cobre)</span>
+              </button>
+              <div id="sbSecondaryMineralPanel" style="display: none; margin-top: 10px; padding: 12px; background: #0c1626; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: var(--radius-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span style="font-size: 0.8rem; font-weight: 800; color: #38bdf8; text-transform: uppercase;">
+                    ⛏️ Segundo Mineral de Entrada:
+                  </span>
+                  <button type="button" id="btnRemoveSbSecondaryMineral" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; cursor: pointer; font-weight: 700;">
+                    ✕ Quitar
+                  </button>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 120px; gap: 10px; align-items: end;">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Mineral</label>
+                    <select id="sbSecondaryResourceSelect" class="form-select"></select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Pureza</label>
+                    <div class="purity-pills">
+                      <button type="button" class="purity-btn sb-sec-purity-btn" data-purity="impure">Impuro</button>
+                      <button type="button" class="purity-btn sb-sec-purity-btn active" data-purity="normal">Normal</button>
+                      <button type="button" class="purity-btn sb-sec-purity-btn" data-purity="pure">Puro</button>
+                    </div>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">Minero</label>
+                    <select id="sbSecondaryMinerTierSelect" class="form-select">
+                      <option value="miner_mk1" selected>Minero Mk.1 (60 base)</option>
+                      <option value="miner_mk2">Minero Mk.2 (120 base)</option>
+                      <option value="miner_mk3">Minero Mk.3 (240 base)</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label class="form-label">¿Cuántos?</label>
+                    <div class="stepper-control" style="height: 38px;">
+                      <button type="button" class="stepper-btn" id="btnSbSecMinerMinus">-</button>
+                      <input type="number" id="sbSecondaryMinerCount" class="stepper-input" value="1" min="1" max="10" step="1">
+                      <button type="button" class="stepper-btn" id="btnSbSecMinerPlus">+</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Panel Libre -->
@@ -553,6 +600,65 @@
             <button type="button" id="btnAddSbBranch" class="btn btn-secondary" style="width: 100%; padding: 10px; font-weight: 800; border: 1px dashed var(--ficsit-orange); color: var(--ficsit-orange); display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 8px;">
               <span>➕ Agregar Otra Rama / Producto Diferente</span>
             </button>
+          </div>
+
+          <!-- CONTENEDOR DE PLANO AÉREO 2D (ESPACIO LIBRE: DIVISIÓN DE RAMAS Y SPLITTERS) -->
+          <div id="sandboxBlueprintSection" class="ficsit-card ficsit-blueprint-card" style="padding: 0; overflow: hidden; margin-bottom: 20px; border: 1px solid rgba(56, 189, 248, 0.35);">
+            <!-- Barra de Herramientas del Plano -->
+            <div class="blueprint-toolbar" style="border-bottom-color: rgba(56, 189, 248, 0.25);">
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span class="blueprint-badge" style="background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; color: #38bdf8;">
+                  📐 PLANO AÉREO 2D &bull; DISTRIBUCIÓN DE RAMAS Y SPLITTERS
+                </span>
+                <span id="sbBpSummaryBadge" class="badge" style="background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); font-weight: 700; font-size: 0.74rem;">
+                  <!-- Dinámico: ej. 120 Lingotes ➔ 2 Ramas -->
+                </span>
+                <span style="font-size: 0.72rem; color: #94a3b8;">
+                  (Guía física para colocar taladros, hornos, splitters y máquinas en el juego)
+                </span>
+              </div>
+
+              <!-- Controles Interactivos -->
+              <div class="blueprint-controls">
+                <button type="button" class="btn-bp-tool" id="btnSbBpZoomIn" title="Acercar plano (+)">➕</button>
+                <button type="button" class="btn-bp-tool" id="btnSbBpZoomOut" title="Alejar plano (-)">➖</button>
+                <button type="button" class="btn-bp-tool" id="btnSbBpReset" title="Centrar y ajustar plano completo">⟲ Ajustar</button>
+                <button type="button" class="btn-bp-tool" id="btnSbBpToggleFocus" title="Modo Inspección: Permite fijar la vista sin que nada se atenúe al mover el ratón">🎯 Foco: Suave</button>
+                <button type="button" class="btn-bp-tool" id="btnSbBpFullscreen" title="Ver plano en pantalla completa">⛶ Pantalla Completa</button>
+              </div>
+            </div>
+
+            <!-- Viewport Interactivo con Pan & Zoom -->
+            <div id="sandboxBlueprintViewport" class="blueprint-viewport" style="height: 540px; background-color: #060a12;">
+              <div id="sandboxBlueprintCanvas" class="blueprint-canvas">
+                <!-- SVG generado dinámicamente -->
+              </div>
+              <div id="sandboxBlueprintTooltip" class="blueprint-tooltip" style="display: none;"></div>
+            </div>
+
+            <!-- Leyenda FICSIT -->
+            <div class="blueprint-legend">
+              <div class="legend-item">
+                <span class="legend-color-box" style="background: #ea580c;"></span>
+                <span>⛏️ Extracción / Mineros</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color-box" style="background: #f97316;"></span>
+                <span>🔥 Fundición (Hornos)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color-box" style="background: #f59e0b;"></span>
+                <span>🔀 Divisores (Splitters)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color-box" style="background: #38bdf8;"></span>
+                <span>🏭 Máquinas de Ramas (Constructores / Ensambladoras)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color-box" style="background: #4ade80;"></span>
+                <span>📦 Entrega de Productos Finales</span>
+              </div>
+            </div>
           </div>
 
           <!-- Card 3: Balance y Diagnóstico en Tiempo Real -->

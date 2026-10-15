@@ -2745,7 +2745,8 @@ body {
   margin-top: 10px;
 }
 
-.power-blueprint-card.is-fullscreen {
+.power-blueprint-card.is-fullscreen,
+.ficsit-blueprint-card.is-fullscreen {
   position: fixed !important;
   inset: 0 !important;
   z-index: 99999 !important;
@@ -2756,7 +2757,8 @@ body {
   margin: 0 !important;
 }
 
-.power-blueprint-card.is-fullscreen .power-blueprint-viewport {
+.power-blueprint-card.is-fullscreen .power-blueprint-viewport,
+.ficsit-blueprint-card.is-fullscreen .blueprint-viewport {
   height: calc(100vh - 90px) !important;
 }
 

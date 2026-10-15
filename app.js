@@ -41,6 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
       purity: 'normal',
       minerTier: 'miner_mk1',
       minerCount: 2,
+      hasSecondary: false,
+      secondaryResource: 'coal',
+      secondaryPurity: 'normal',
+      secondaryMinerTier: 'miner_mk1',
+      secondaryMinerCount: 1,
       autoSmelt: true,
       autoBalance: true,
       freeItem: 'iron_ingot',
@@ -102,6 +107,20 @@ document.addEventListener('DOMContentLoaded', () => {
     isInitialized: false
   };
 
+  const sbBpState = {
+    scale: 1,
+    panX: 0,
+    panY: 0,
+    isDragging: false,
+    isZooming: false,
+    focusModeEnabled: true,
+    startX: 0,
+    startY: 0,
+    currentModel: null,
+    isInitialized: false,
+    highlightedBranchIdx: null
+  };
+
   const bpModalState = {
     scale: 1,
     panX: 0,
@@ -158,6 +177,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabId === 'tab-power') {
       renderPowerPlantSection();
       setTimeout(() => fitPowerBlueprintToViewport(), 80);
+    } else if (tabId === 'tab-sandbox') {
+      updateSandbox();
+      setTimeout(() => fitSandboxBlueprintToViewport(), 80);
     }
   }
 
@@ -181,10 +203,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const drillInput = document.getElementById('builderDrillCountInput');
     const rateInput = document.getElementById('builderTargetRate');
 
+    const basePlan = SatisCalc.buildTargetFactoryPlan(state.builder.targetGoal || 'iron_plate', 1.0, state.builder.altPreferences);
+    const isMultiRaw = basePlan && basePlan.rawBreakdown && basePlan.rawBreakdown.length > 1;
+
     if (drillInputBox) drillInputBox.style.display = isDrills ? 'flex' : 'none';
     if (rateInputBox) rateInputBox.style.display = isDrills ? 'none' : 'flex';
     if (quantityLabel) {
-      quantityLabel.textContent = isDrills ? '⛏️ 2. ¿Cuántos Taladros colocas?' : '📦 2. Cantidad deseada (piezas/min)';
+      if (isDrills) {
+        quantityLabel.innerHTML = isMultiRaw
+          ? `⛏️ 2. ¿Cuántos Taladros colocas? <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700;">(${state.builder.drillCount || 1} por cada mineral requerido: ${basePlan.rawBreakdown.map(r => r.name).join(' + ')})</span>`
+          : '⛏️ 2. ¿Cuántos Taladros colocas?';
+      } else {
+        quantityLabel.textContent = '📦 2. Cantidad deseada (piezas/min)';
+      }
     }
     if (btnToggleCalcMode) {
       btnToggleCalcMode.textContent = isDrills ? '(Cambiar a piezas/min manual)' : '(Cambiar a cálculo por taladros)';
@@ -193,49 +224,63 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rateInput) rateInput.value = state.builder.targetRate;
   }
 
-  function syncTargetRateFromDrills() {
+  function syncTargetRateFromDrills(applyToAll = true) {
     const targetGoal = state.builder.targetGoal || 'iron_plate';
-    const primaryRawId = getPrimaryRawId(targetGoal, state.builder.altPreferences);
-    const defaultMinerTier = (state.builder.minerOverrides && state.builder.minerOverrides[primaryRawId]) || state.builder.globalMinerTier || 'miner_mk1';
-    const defaultPurity = (state.builder.purityOverrides && state.builder.purityOverrides[primaryRawId]) || 'normal';
+    const basePlan = SatisCalc.buildTargetFactoryPlan(targetGoal, 1.0, state.builder.altPreferences);
+    const requiredRaws = (basePlan && basePlan.rawBreakdown && basePlan.rawBreakdown.length > 0)
+      ? basePlan.rawBreakdown
+      : [{ rawId: 'iron_ore', name: 'Mineral de Hierro', requiredRate: 1.0 }];
+
     const drillCount = Math.max(1, state.builder.drillCount || 1);
-
     state.builder.rawNodesConfig = state.builder.rawNodesConfig || {};
-    let primaryNodes = state.builder.rawNodesConfig[primaryRawId];
+    state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
 
-    if (!primaryNodes || !Array.isArray(primaryNodes)) {
-      primaryNodes = [];
-    }
+    // 1. Si applyToAll es true (usuario cambió el input general de taladros o usó un preset),
+    // ajustamos la cantidad de taladros para TODOS los minerales requeridos (ej. Hierro Y Carbón)
+    if (applyToAll) {
+      requiredRaws.forEach(raw => {
+        const rawId = raw.rawId;
+        const defaultMinerTier = (state.builder.minerOverrides && state.builder.minerOverrides[rawId]) || state.builder.globalMinerTier || 'miner_mk1';
+        const defaultPurity = (state.builder.purityOverrides && state.builder.purityOverrides[rawId]) || 'normal';
 
-    // Ajustar longitud a drillCount conservando las configuraciones personalizadas ya hechas
-    while (primaryNodes.length < drillCount) {
-      primaryNodes.push({
-        id: Date.now() + Math.random(),
-        purity: defaultPurity,
-        minerKey: defaultMinerTier
+        let nodes = state.builder.rawNodesConfig[rawId];
+        if (!nodes || !Array.isArray(nodes)) nodes = [];
+
+        while (nodes.length < drillCount) {
+          nodes.push({
+            id: Date.now() + Math.random(),
+            purity: defaultPurity,
+            minerKey: defaultMinerTier
+          });
+        }
+        if (nodes.length > drillCount) {
+          nodes = nodes.slice(0, drillCount);
+        }
+        state.builder.rawNodesConfig[rawId] = nodes;
+        state.builder.nodeCountOverrides[rawId] = drillCount;
       });
     }
-    if (primaryNodes.length > drillCount) {
-      primaryNodes = primaryNodes.slice(0, drillCount);
-    }
-    state.builder.rawNodesConfig[primaryRawId] = primaryNodes;
 
-    // Sumar la tasa exacta de extracción de cada taladro individual
-    const availableRawRate = Number(primaryNodes.reduce((sum, n) => {
-      const pMeta = SATIS_DATA.purities[n.purity] || SATIS_DATA.purities.normal;
-      const mMeta = SATIS_DATA.miners[n.minerKey] || SATIS_DATA.miners[defaultMinerTier] || SATIS_DATA.miners.miner_mk1;
-      const factor = (mMeta.isFixedRate || primaryRawId === 'water') ? 1.0 : pMeta.factor;
-      const clock = (n.clock !== undefined) ? n.clock : 100;
-      return sum + (mMeta.baseRate * factor * (clock / 100));
-    }, 0).toFixed(2));
+    // 2. Calcular la tasa de extracción de cada mineral
+    const availableRatesMap = {};
+    requiredRaws.forEach(raw => {
+      const rawId = raw.rawId;
+      const nodes = state.builder.rawNodesConfig[rawId] || [];
+      const defaultTier = (state.builder.minerOverrides && state.builder.minerOverrides[rawId]) || state.builder.globalMinerTier || 'miner_mk1';
+      const rawRate = Number(nodes.reduce((sum, n) => {
+        const pMeta = SATIS_DATA.purities[n.purity] || SATIS_DATA.purities.normal;
+        const mMeta = SATIS_DATA.miners[n.minerKey] || SATIS_DATA.miners[defaultTier] || SATIS_DATA.miners.miner_mk1;
+        const factor = (mMeta.isFixedRate || rawId === 'water') ? 1.0 : pMeta.factor;
+        const clock = (n.clock !== undefined) ? n.clock : 100;
+        return sum + (mMeta.baseRate * factor * (clock / 100));
+      }, 0).toFixed(2));
+      availableRatesMap[rawId] = rawRate;
+    });
 
-    state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
-    state.builder.nodeCountOverrides[primaryRawId] = drillCount;
-
-    const calculatedRate = SatisCalc.calculateTargetRateFromRawExtraction(
+    // 3. Calcular la tasa objetivo respetando todos los insumos (cuello de botella)
+    const calculatedRate = SatisCalc.calculateTargetRateFromAllRawExtraction(
       targetGoal,
-      primaryRawId,
-      availableRawRate,
+      availableRatesMap,
       state.builder.altPreferences
     );
 
@@ -425,8 +470,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const rawCardsBox = document.getElementById('builderRawCardsContainer');
     if (rawCardsBox) {
       rawCardsBox.addEventListener('click', (e) => {
-        const primaryRawId = getPrimaryRawId(state.builder.targetGoal, state.builder.altPreferences);
-
         // 1. Purity toggle for a specific drill
         const btnNodePurity = e.target.closest('.btn-node-purity');
         if (btnNodePurity) {
@@ -435,8 +478,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const purity = btnNodePurity.getAttribute('data-purity');
           if (state.builder.rawNodesConfig && state.builder.rawNodesConfig[rawId] && state.builder.rawNodesConfig[rawId][idx]) {
             state.builder.rawNodesConfig[rawId][idx].purity = purity;
-            if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
-              syncTargetRateFromDrills();
+            if (state.builder.calcMode === 'drills') {
+              syncTargetRateFromDrills(false);
             }
             updateLineBuilder();
           }
@@ -451,8 +494,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const minerKey = btnNodeMiner.getAttribute('data-miner');
           if (state.builder.rawNodesConfig && state.builder.rawNodesConfig[rawId] && state.builder.rawNodesConfig[rawId][idx]) {
             state.builder.rawNodesConfig[rawId][idx].minerKey = minerKey;
-            if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
-              syncTargetRateFromDrills();
+            if (state.builder.calcMode === 'drills') {
+              syncTargetRateFromDrills(false);
             }
             updateLineBuilder();
           }
@@ -476,9 +519,8 @@ document.addEventListener('DOMContentLoaded', () => {
           state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
           state.builder.nodeCountOverrides[rawId] = newCount;
 
-          if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
-            state.builder.drillCount = newCount;
-            syncTargetRateFromDrills();
+          if (state.builder.calcMode === 'drills') {
+            syncTargetRateFromDrills(false);
             updateCalcModeUI();
           }
           updateLineBuilder();
@@ -496,9 +538,8 @@ document.addEventListener('DOMContentLoaded', () => {
             state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
             state.builder.nodeCountOverrides[rawId] = newCount;
 
-            if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
-              state.builder.drillCount = newCount;
-              syncTargetRateFromDrills();
+            if (state.builder.calcMode === 'drills') {
+              syncTargetRateFromDrills(false);
               updateCalcModeUI();
             }
             updateLineBuilder();
@@ -521,16 +562,15 @@ document.addEventListener('DOMContentLoaded', () => {
           state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
           state.builder.nodeCountOverrides[rawId] = minNodes;
 
-          if (state.builder.calcMode === 'drills' && rawId === primaryRawId) {
-            state.builder.drillCount = minNodes;
-            syncTargetRateFromDrills();
+          if (state.builder.calcMode === 'drills') {
+            syncTargetRateFromDrills(false);
             updateCalcModeUI();
           }
           updateLineBuilder();
           return;
         }
 
-        // 6. Sync factory to this drill / mineral capacity
+        // 6. Sync factory to this drill / mineral capacity and auto-balance other required minerals
         const btnSync = e.target.closest('.btn-sync-factory-to-drill');
         if (btnSync) {
           const rawId = btnSync.getAttribute('data-raw');
@@ -540,12 +580,39 @@ document.addEventListener('DOMContentLoaded', () => {
           state.builder.drillCount = nodes;
           state.builder.nodeCountOverrides = state.builder.nodeCountOverrides || {};
           state.builder.nodeCountOverrides[rawId] = nodes;
-          state.builder.targetRate = SatisCalc.calculateTargetRateFromRawExtraction(
+
+          const targetRate = SatisCalc.calculateTargetRateFromRawExtraction(
             state.builder.targetGoal,
             rawId,
             cap,
             state.builder.altPreferences
           );
+          state.builder.targetRate = targetRate;
+
+          // Auto-equilibrar los demás minerales requeridos para que no queden con déficit
+          const basePlan = SatisCalc.buildTargetFactoryPlan(state.builder.targetGoal, targetRate, state.builder.altPreferences);
+          if (basePlan && basePlan.rawBreakdown) {
+            basePlan.rawBreakdown.forEach(r => {
+              if (r.rawId !== rawId) {
+                const neededRate = r.requiredRate;
+                const defaultTier = (state.builder.minerOverrides && state.builder.minerOverrides[r.rawId]) || state.builder.globalMinerTier || 'miner_mk1';
+                const defaultPurity = (state.builder.purityOverrides && state.builder.purityOverrides[r.rawId]) || 'normal';
+                const pFactor = SATIS_DATA.purities[defaultPurity]?.factor || 1.0;
+                const mBase = SATIS_DATA.miners[defaultTier]?.baseRate || 60;
+                const singleOutput = mBase * pFactor;
+                const neededNodes = Math.max(1, Math.ceil(neededRate / singleOutput));
+
+                state.builder.rawNodesConfig = state.builder.rawNodesConfig || {};
+                let otherNodes = state.builder.rawNodesConfig[r.rawId] || [];
+                while (otherNodes.length < neededNodes) {
+                  otherNodes.push({ id: Date.now() + Math.random(), purity: defaultPurity, minerKey: defaultTier });
+                }
+                state.builder.rawNodesConfig[r.rawId] = otherNodes;
+                state.builder.nodeCountOverrides[r.rawId] = otherNodes.length;
+              }
+            });
+          }
+
           updateCalcModeUI();
           updateLineBuilder();
           return;
@@ -3049,6 +3116,8 @@ document.addEventListener('DOMContentLoaded', () => {
       btnSbModeFree.classList.remove('active');
       sbMinersPanel.style.display = 'grid';
       sbFreePanel.style.display = 'none';
+      const sbSecRow = document.getElementById('sbSecondaryMineralRow');
+      if (sbSecRow) sbSecRow.style.display = 'block';
       checkAutoSmeltVisibility();
       updateSandbox();
     });
@@ -3059,6 +3128,8 @@ document.addEventListener('DOMContentLoaded', () => {
       btnSbModeMiners.classList.remove('active');
       sbMinersPanel.style.display = 'none';
       sbFreePanel.style.display = 'grid';
+      const sbSecRow = document.getElementById('sbSecondaryMineralRow');
+      if (sbSecRow) sbSecRow.style.display = 'none';
       checkAutoSmeltVisibility();
       updateSandbox();
     });
@@ -3131,6 +3202,89 @@ document.addEventListener('DOMContentLoaded', () => {
       state.sandbox.autoSmelt = e.target.checked;
       if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
       updateSandbox();
+    });
+
+    // 4.1. Controles de Segundo Mineral Opcional (ej. Carbón para Acero, Cobre, etc.)
+    const sbSecondaryResourceSelect = document.getElementById('sbSecondaryResourceSelect');
+    const btnToggleSbSecondaryMineral = document.getElementById('btnToggleSbSecondaryMineral');
+    const btnRemoveSbSecondaryMineral = document.getElementById('btnRemoveSbSecondaryMineral');
+    const sbSecondaryMineralPanel = document.getElementById('sbSecondaryMineralPanel');
+    const sbSecondaryMinerTierSelect = document.getElementById('sbSecondaryMinerTierSelect');
+    const sbSecondaryMinerCount = document.getElementById('sbSecondaryMinerCount');
+    const btnSbSecMinerMinus = document.getElementById('btnSbSecMinerMinus');
+    const btnSbSecMinerPlus = document.getElementById('btnSbSecMinerPlus');
+    const sbSecPurityBtns = document.querySelectorAll('.sb-sec-purity-btn');
+
+    if (sbSecondaryResourceSelect) {
+      sbSecondaryResourceSelect.innerHTML = Object.values(SATIS_DATA.rawResources).map(r => `
+        <option value="${r.id}">${r.name} (${r.category})</option>
+      `).join('');
+      sbSecondaryResourceSelect.value = state.sandbox.secondaryResource || 'coal';
+      sbSecondaryResourceSelect.addEventListener('change', (e) => {
+        state.sandbox.secondaryResource = e.target.value;
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
+    }
+
+    if (btnToggleSbSecondaryMineral && sbSecondaryMineralPanel) {
+      btnToggleSbSecondaryMineral.addEventListener('click', () => {
+        state.sandbox.hasSecondary = true;
+        sbSecondaryMineralPanel.style.display = 'block';
+        btnToggleSbSecondaryMineral.style.display = 'none';
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
+    }
+
+    if (btnRemoveSbSecondaryMineral && sbSecondaryMineralPanel) {
+      btnRemoveSbSecondaryMineral.addEventListener('click', () => {
+        state.sandbox.hasSecondary = false;
+        sbSecondaryMineralPanel.style.display = 'none';
+        if (btnToggleSbSecondaryMineral) btnToggleSbSecondaryMineral.style.display = 'inline-flex';
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
+    }
+
+    if (sbSecondaryMinerTierSelect) {
+      sbSecondaryMinerTierSelect.value = state.sandbox.secondaryMinerTier || 'miner_mk1';
+      sbSecondaryMinerTierSelect.addEventListener('change', (e) => {
+        state.sandbox.secondaryMinerTier = e.target.value;
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
+    }
+
+    if (sbSecondaryMinerCount && btnSbSecMinerMinus && btnSbSecMinerPlus) {
+      sbSecondaryMinerCount.value = state.sandbox.secondaryMinerCount || 1;
+      btnSbSecMinerMinus.addEventListener('click', () => {
+        state.sandbox.secondaryMinerCount = Math.max(1, (state.sandbox.secondaryMinerCount || 1) - 1);
+        sbSecondaryMinerCount.value = state.sandbox.secondaryMinerCount;
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
+      btnSbSecMinerPlus.addEventListener('click', () => {
+        state.sandbox.secondaryMinerCount = Math.min(10, (state.sandbox.secondaryMinerCount || 1) + 1);
+        sbSecondaryMinerCount.value = state.sandbox.secondaryMinerCount;
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
+      sbSecondaryMinerCount.addEventListener('input', (e) => {
+        state.sandbox.secondaryMinerCount = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
+    }
+
+    sbSecPurityBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        sbSecPurityBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.sandbox.secondaryPurity = btn.getAttribute('data-purity');
+        if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
+        updateSandbox();
+      });
     });
 
     // 5. Free Mode Controls
@@ -3247,7 +3401,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const bpBtn = e.target.closest('.btn-open-branch-blueprint');
       if (bpBtn) {
         const idx = parseInt(bpBtn.getAttribute('data-index'), 10);
-        openBranchBlueprintModal(idx);
+        sbBpState.highlightedBranchIdx = idx;
+        const section = document.getElementById('sandboxBlueprintSection');
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        updateSandbox();
         return;
       }
 
@@ -3374,6 +3533,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getSandboxSupply() {
+    let secondarySupply = null;
+    if (state.sandbox.mode === 'miners' && state.sandbox.hasSecondary && state.sandbox.secondaryResource) {
+      const secRes = state.sandbox.secondaryResource;
+      const secPurity = state.sandbox.secondaryPurity || 'normal';
+      const secTier = state.sandbox.secondaryMinerTier || 'miner_mk1';
+      const secCount = Math.max(1, state.sandbox.secondaryMinerCount || 1);
+      const secExt = SatisCalc.calculateExtraction(secPurity, secTier, 100);
+      const secTotalRate = Number((secExt.rate * secCount).toFixed(2));
+      const secPower = Number((secExt.powerMw * secCount).toFixed(1));
+      const secMeta = SATIS_DATA.rawResources[secRes] || { name: secRes };
+      const secBelt = SatisCalc.getBeltForRate(secTotalRate);
+      secondarySupply = {
+        item: secRes,
+        itemName: secMeta.name,
+        rate: secTotalRate,
+        purity: secPurity,
+        minerTier: secTier,
+        minerCount: secCount,
+        powerMw: secPower,
+        recommendedBelt: secBelt
+      };
+    }
+
     if (state.sandbox.mode === 'miners') {
       const count = Math.max(1, state.sandbox.minerCount || 1);
       state.sandbox.minerNodes = state.sandbox.minerNodes || [];
@@ -3421,7 +3603,8 @@ document.addEventListener('DOMContentLoaded', () => {
           smeltRecipe: smeltRecipe,
           smeltersNeeded: smeltersNeeded,
           smelterPower: smelterPower,
-          minerPower: minerPower
+          minerPower: minerPower,
+          secondary: secondarySupply
         };
       } else {
         return {
@@ -3435,7 +3618,8 @@ document.addEventListener('DOMContentLoaded', () => {
           smeltRecipe: null,
           smeltersNeeded: 0,
           smelterPower: 0,
-          minerPower: minerPower
+          minerPower: minerPower,
+          secondary: secondarySupply
         };
       }
     } else {
@@ -3453,7 +3637,8 @@ document.addEventListener('DOMContentLoaded', () => {
         smeltRecipe: null,
         smeltersNeeded: 0,
         smelterPower: 0,
-        minerPower: 0
+        minerPower: 0,
+        secondary: null
       };
     }
   }
@@ -3491,7 +3676,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update badges
     const sbAvailableBadge = document.getElementById('sbAvailableBadge');
     if (sbAvailableBadge) {
-      sbAvailableBadge.innerHTML = `<span>${trunkBelt.name}:</span> <strong>${supply.rate.toFixed(1)} /min ${supply.itemName}</strong>`;
+      let badgeHtml = `<span>${trunkBelt.name}:</span> <strong>${supply.rate.toFixed(1)} /min ${supply.itemName}</strong>`;
+      if (supply.secondary) {
+        badgeHtml += ` <span style="margin-left: 8px; padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.25); color: #38bdf8;">⛏️ ${supply.secondary.rate.toFixed(1)} /min ${supply.secondary.itemName} (${supply.secondary.recommendedBelt.name})</span>`;
+      }
+      sbAvailableBadge.innerHTML = badgeHtml;
       sbAvailableBadge.style.color = trunkBelt.color;
       sbAvailableBadge.style.borderColor = trunkBelt.color;
     }
@@ -3549,7 +3738,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Find derivable recipes for this supply (direct + multi-tier)
-    let derivableRecipes = SatisCalc.getDerivableRecipesForSupply(supply.item);
+    let supplyItems = [supply.item];
+    if (supply.secondary && supply.secondary.item) {
+      supplyItems.push(supply.secondary.item);
+    }
+    let derivableRecipes = SatisCalc.getDerivableRecipesForSupply(supplyItems);
     if (derivableRecipes.length === 0) {
       derivableRecipes = SATIS_DATA.recipes.map(r => ({
         ...r,
@@ -3570,6 +3763,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const mName = SATIS_DATA.miners[state.sandbox.minerTier]?.name || 'Minero';
       buildingCounts[mName] = (buildingCounts[mName] || 0) + state.sandbox.minerCount;
     }
+    if (supply.secondary) {
+      const secMName = SATIS_DATA.miners[supply.secondary.minerTier]?.name || 'Minero (Secundario)';
+      buildingCounts[secMName] = (buildingCounts[secMName] || 0) + supply.secondary.minerCount;
+    }
     if (supply.isSmelted && supply.smeltersNeeded > 0) {
       buildingCounts['Hornos (Fundiciones)'] = (buildingCounts['Hornos (Fundiciones)'] || 0) + Math.ceil(supply.smeltersNeeded);
     }
@@ -3580,7 +3777,7 @@ document.addEventListener('DOMContentLoaded', () => {
         b.recipeId = derivableRecipes[0].id;
       }
 
-      const chain = SatisCalc.resolveBranchSubchain(supply.item, b.recipeId, b.machineCount);
+      const chain = SatisCalc.resolveBranchSubchain(supplyItems, b.recipeId, b.machineCount);
       if (!chain) return;
 
       totalConsumed += chain.supplyIntakeRate;
@@ -4012,8 +4209,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Render Splitter Schematic
     renderSandboxSplittersSchematic(branchDetails, supply, trunkBelt, netBalance);
 
+    // Render 2D Aerial Interactive Blueprint (Sandbox Distribution & Splitters)
+    renderSandboxBlueprint(supply, branchDetails, netBalance);
+
     // Update Right Column (Shopping List & Energy)
-    const totalPowerMw = supply.minerPower + supply.smelterPower + totalBranchPower;
+    const totalPowerMw = supply.minerPower + (supply.secondary ? supply.secondary.powerMw : 0) + supply.smelterPower + totalBranchPower;
     document.getElementById('sbTotalMw').textContent = `${totalPowerMw.toFixed(1)} MW`;
 
     const effVal = supply.rate > 0 ? Math.min(100, (totalConsumed / supply.rate) * 100).toFixed(1) : 0;
@@ -4168,6 +4368,799 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `;
+  }
+
+  // =========================================================================
+  // 1.85. PLANO AÉREO 2D DE ESPACIO LIBRE (DISTRIBUCIÓN Y BALANCE POR SPLITTERS)
+  // =========================================================================
+  function applySandboxBlueprintTransform(canvasEl, stateObj) {
+    if (!canvasEl) return;
+    canvasEl.style.transform = `translate(${stateObj.panX}px, ${stateObj.panY}px) scale(${stateObj.scale})`;
+  }
+
+  function fitSandboxBlueprintToViewport() {
+    const viewport = document.getElementById('sandboxBlueprintViewport');
+    const canvas = document.getElementById('sandboxBlueprintCanvas');
+    if (!viewport || !canvas || !sbBpState.currentModel) return;
+
+    const vW = viewport.clientWidth || 900;
+    const vH = viewport.clientHeight || 540;
+    const mW = sbBpState.currentModel.totalW;
+    const mH = sbBpState.currentModel.totalH;
+
+    const pad = 24;
+    const scale = Math.min((vW - pad * 2) / mW, (vH - pad * 2) / mH);
+    sbBpState.scale = Math.max(0.3, Math.min(1.2, Number(scale.toFixed(3))));
+    sbBpState.panX = Math.round((vW - mW * sbBpState.scale) / 2);
+    sbBpState.panY = Math.round((vH - mH * sbBpState.scale) / 2);
+
+    applySandboxBlueprintTransform(canvas, sbBpState);
+  }
+
+  function initSandboxBlueprintInteractions() {
+    const viewport = document.getElementById('sandboxBlueprintViewport');
+    const canvas = document.getElementById('sandboxBlueprintCanvas');
+    if (!viewport || !canvas || sbBpState.isInitialized) return;
+    sbBpState.isInitialized = true;
+
+    // Pan / Drag
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      sbBpState.isDragging = true;
+      sbBpState.startX = e.clientX - sbBpState.panX;
+      sbBpState.startY = e.clientY - sbBpState.panY;
+      viewport.style.cursor = 'grabbing';
+      canvas.classList.add('is-navigating');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!sbBpState.isDragging) return;
+      sbBpState.panX = e.clientX - sbBpState.startX;
+      sbBpState.panY = e.clientY - sbBpState.startY;
+      applySandboxBlueprintTransform(canvas, sbBpState);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (sbBpState.isDragging) {
+        sbBpState.isDragging = false;
+        viewport.style.cursor = 'grab';
+        canvas.classList.remove('is-navigating');
+      }
+    });
+
+    // Zoom on wheel centered on cursor
+    let zoomTimer = null;
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      sbBpState.isZooming = true;
+      canvas.classList.add('is-navigating');
+
+      const rect = viewport.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+      const newScale = Math.max(0.2, Math.min(2.8, sbBpState.scale * zoomFactor));
+
+      sbBpState.panX = mouseX - (mouseX - sbBpState.panX) * (newScale / sbBpState.scale);
+      sbBpState.panY = mouseY - (mouseY - sbBpState.panY) * (newScale / sbBpState.scale);
+      sbBpState.scale = newScale;
+
+      applySandboxBlueprintTransform(canvas, sbBpState);
+
+      clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(() => {
+        sbBpState.isZooming = false;
+        canvas.classList.remove('is-navigating');
+      }, 160);
+    }, { passive: false });
+
+    // Toolbar buttons
+    const btnIn = document.getElementById('btnSbBpZoomIn');
+    const btnOut = document.getElementById('btnSbBpZoomOut');
+    const btnReset = document.getElementById('btnSbBpReset');
+    const btnToggleFocus = document.getElementById('btnSbBpToggleFocus');
+    const btnFs = document.getElementById('btnSbBpFullscreen');
+
+    if (btnIn) btnIn.addEventListener('click', () => {
+      sbBpState.scale = Math.min(2.8, sbBpState.scale * 1.25);
+      applySandboxBlueprintTransform(canvas, sbBpState);
+    });
+
+    if (btnOut) btnOut.addEventListener('click', () => {
+      sbBpState.scale = Math.max(0.2, sbBpState.scale * 0.8);
+      applySandboxBlueprintTransform(canvas, sbBpState);
+    });
+
+    if (btnReset) btnReset.addEventListener('click', () => {
+      fitSandboxBlueprintToViewport();
+    });
+
+    if (btnToggleFocus) {
+      btnToggleFocus.addEventListener('click', () => {
+        sbBpState.focusModeEnabled = !sbBpState.focusModeEnabled;
+        if (!sbBpState.focusModeEnabled) {
+          canvas.classList.add('inspection-disabled');
+          btnToggleFocus.innerHTML = '🎯 Foco: Desactivado';
+          btnToggleFocus.style.opacity = '0.7';
+        } else {
+          canvas.classList.remove('inspection-disabled');
+          btnToggleFocus.innerHTML = '🎯 Foco: Suave';
+          btnToggleFocus.style.opacity = '1';
+        }
+      });
+    }
+
+    if (btnFs) btnFs.addEventListener('click', () => {
+      const card = document.getElementById('sandboxBlueprintSection');
+      if (!card) return;
+      const isFs = card.classList.toggle('is-fullscreen');
+      btnFs.innerHTML = isFs ? '✕ Salir' : '⛶ Pantalla Completa';
+      setTimeout(() => fitSandboxBlueprintToViewport(), 150);
+    });
+  }
+
+  function attachSandboxBlueprintHoverTooltips() {
+    const viewport = document.getElementById('sandboxBlueprintViewport');
+    const tooltip = document.getElementById('sandboxBlueprintTooltip');
+    const canvas = document.getElementById('sandboxBlueprintCanvas');
+    if (!viewport || !tooltip || !canvas) return;
+
+    function moveTooltip(e) {
+      const rect = viewport.getBoundingClientRect();
+      const x = e.clientX - rect.left + 15;
+      const y = e.clientY - rect.top + 15;
+      tooltip.style.left = `${Math.min(viewport.clientWidth - 260, Math.max(10, x))}px`;
+      tooltip.style.top = `${Math.min(viewport.clientHeight - 140, Math.max(10, y))}px`;
+    }
+
+    // Mineros
+    canvas.querySelectorAll('.blueprint-node-miner').forEach(node => {
+      node.addEventListener('mouseenter', (e) => {
+        if (sbBpState.isZooming || sbBpState.isDragging) return;
+        const name = node.getAttribute('data-name');
+        const rate = node.getAttribute('data-rate');
+        const power = node.getAttribute('data-power');
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #f97316; font-size: 0.88rem; margin-bottom: 4px;">⛏️ Estación de Extracción FICSIT</div>
+          <div><strong>Recurso:</strong> <span style="color: #f8fafc;">${name}</span></div>
+          <div><strong>Tasa de Extracción:</strong> <span style="color: #4ade80; font-weight: 800;">+${rate}/min</span></div>
+          <div><strong>Consumo Eléctrico:</strong> <span style="color: #38bdf8;">⚡ ${power} MW</span></div>
+        `;
+        tooltip.style.display = 'block';
+        moveTooltip(e);
+      });
+      node.addEventListener('mousemove', moveTooltip);
+      node.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    });
+
+    // Hornos / Fundición
+    canvas.querySelectorAll('.blueprint-node-smelter').forEach(node => {
+      node.addEventListener('mouseenter', (e) => {
+        if (sbBpState.isZooming || sbBpState.isDragging) return;
+        const name = node.getAttribute('data-name');
+        const count = node.getAttribute('data-count');
+        const power = node.getAttribute('data-power');
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #fbbf24; font-size: 0.88rem; margin-bottom: 4px;">🔥 Batería de Hornos (Fundición)</div>
+          <div><strong>Edificios:</strong> <span style="color: #f8fafc; font-weight: 800;">${count}x Fundición</span></div>
+          <div><strong>Consumo Eléctrico:</strong> <span style="color: #38bdf8;">⚡ ${power} MW</span></div>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Convierte mineral crudo en lingotes antes de repartir por splitters.</div>
+        `;
+        tooltip.style.display = 'block';
+        moveTooltip(e);
+      });
+      node.addEventListener('mousemove', moveTooltip);
+      node.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    });
+
+    // Splitters Troncales
+    canvas.querySelectorAll('.blueprint-node-splitter').forEach(node => {
+      node.addEventListener('mouseenter', (e) => {
+        if (sbBpState.isZooming || sbBpState.isDragging) return;
+        const idx = parseInt(node.getAttribute('data-split-index'), 10) + 1;
+        const inFlow = node.getAttribute('data-in');
+        const divert = node.getAttribute('data-divert');
+        const pass = node.getAttribute('data-pass');
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #f59e0b; font-size: 0.88rem; margin-bottom: 4px;">🔀 Divisor Troncal (Splitter #${idx})</div>
+          <div><strong>Caudal entrante:</strong> <span style="color: #facc15; font-weight: 800;">${inFlow}/min</span></div>
+          <div><strong>Hacia Rama #${idx}:</strong> <span style="color: #38bdf8; font-weight: 800;">${divert}/min</span></div>
+          <div><strong>Sigue adelante:</strong> <span style="color: #94a3b8; font-weight: 800;">${pass}/min</span></div>
+        `;
+        tooltip.style.display = 'block';
+        moveTooltip(e);
+      });
+      node.addEventListener('mousemove', moveTooltip);
+      node.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    });
+
+    // Máquinas de Ramas
+    canvas.querySelectorAll('.blueprint-node-machine').forEach(node => {
+      node.addEventListener('mouseenter', (e) => {
+        if (sbBpState.isZooming || sbBpState.isDragging) return;
+        const name = node.getAttribute('data-name');
+        const count = node.getAttribute('data-count');
+        const power = node.getAttribute('data-power');
+        const type = node.getAttribute('data-type');
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">🏭 ${type === 'final' ? 'Fabricación Final' : 'Fase Intermedia'}</div>
+          <div><strong>Receta:</strong> <span style="color: #f8fafc; font-weight: 800;">${name}</span></div>
+          <div><strong>Máquinas requeridas:</strong> <span style="color: #4ade80; font-weight: 800;">${count}</span></div>
+          <div><strong>Potencia total:</strong> <span style="color: #38bdf8;">⚡ ${power} MW</span></div>
+        `;
+        tooltip.style.display = 'block';
+        moveTooltip(e);
+      });
+      node.addEventListener('mousemove', moveTooltip);
+      node.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    });
+
+    // Almacén / Entrega
+    canvas.querySelectorAll('.blueprint-node-storage').forEach(node => {
+      node.addEventListener('mouseenter', (e) => {
+        if (sbBpState.isZooming || sbBpState.isDragging) return;
+        const name = node.getAttribute('data-name');
+        const rate = node.getAttribute('data-rate');
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #10b981; font-size: 0.88rem; margin-bottom: 4px;">📦 Almacén FICSIT / Salida Final</div>
+          <div><strong>Producto:</strong> <span style="color: #f8fafc; font-weight: 800;">${name}</span></div>
+          <div><strong>Rendimiento Neto:</strong> <span style="color: #4ade80; font-weight: 900;">+${rate}/min</span></div>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Conéctalo directamente a tus contenedores industriales o trenes.</div>
+        `;
+        tooltip.style.display = 'block';
+        moveTooltip(e);
+      });
+      node.addEventListener('mousemove', moveTooltip);
+      node.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    });
+
+    // Awesome Sink
+    canvas.querySelectorAll('.blueprint-node-sink').forEach(node => {
+      node.addEventListener('mouseenter', (e) => {
+        if (sbBpState.isZooming || sbBpState.isDragging) return;
+        const rate = node.getAttribute('data-rate');
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #c084fc; font-size: 0.88rem; margin-bottom: 4px;">🌟 Trituradora FICSIT Sink</div>
+          <div><strong>Excedente triturado:</strong> <span style="color: #4ade80; font-weight: 800;">+${rate}/min</span></div>
+          <div style="font-size: 0.72rem; color: #e9d5ff; margin-top: 4px;">Genera cupones FICSIT automáticamente y evita que las cintas se atasquen.</div>
+        `;
+        tooltip.style.display = 'block';
+        moveTooltip(e);
+      });
+      node.addEventListener('mousemove', moveTooltip);
+      node.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+    });
+
+    // Enfoque / Dimming por Rama
+    const bays = canvas.querySelectorAll('.blueprint-branch-bay');
+    bays.forEach(bay => {
+      bay.addEventListener('mouseenter', () => {
+        if (!sbBpState.focusModeEnabled || sbBpState.isDragging || sbBpState.isZooming) return;
+        const idx = bay.getAttribute('data-branch-index');
+        canvas.classList.add('has-active-focus');
+        bays.forEach(other => {
+          if (other.getAttribute('data-branch-index') !== idx) {
+            other.classList.add('is-dimmed');
+          } else {
+            other.classList.remove('is-dimmed');
+          }
+        });
+      });
+
+      bay.addEventListener('mouseleave', () => {
+        if (!sbBpState.focusModeEnabled || sbBpState.isDragging || sbBpState.isZooming) return;
+        if (sbBpState.highlightedBranchIdx === null) {
+          canvas.classList.remove('has-active-focus');
+          bays.forEach(other => other.classList.remove('is-dimmed'));
+        } else {
+          bays.forEach(other => {
+            if (other.getAttribute('data-branch-index') !== String(sbBpState.highlightedBranchIdx)) {
+              other.classList.add('is-dimmed');
+            } else {
+              other.classList.remove('is-dimmed');
+            }
+          });
+        }
+      });
+
+      bay.addEventListener('click', () => {
+        const idx = parseInt(bay.getAttribute('data-branch-index'), 10);
+        if (sbBpState.highlightedBranchIdx === idx) {
+          sbBpState.highlightedBranchIdx = null;
+          canvas.classList.remove('has-active-focus');
+          bays.forEach(other => other.classList.remove('is-dimmed'));
+        } else {
+          sbBpState.highlightedBranchIdx = idx;
+          canvas.classList.add('has-active-focus');
+          bays.forEach(other => {
+            if (other.getAttribute('data-branch-index') !== String(idx)) {
+              other.classList.add('is-dimmed');
+            } else {
+              other.classList.remove('is-dimmed');
+            }
+          });
+        }
+      });
+    });
+  }
+
+  function generateSandboxBlueprintSvg(supply, branchDetails, netBalance) {
+    const N = Math.max(1, branchDetails.length);
+    const branchH = 170;
+    const branchGap = 24;
+    const startY = 100;
+    const totalH = Math.max(680, startY + N * (branchH + branchGap) + 120);
+    const totalW = 1680;
+
+    const hasSmelting = (supply.isSmelted && supply.smeltersNeeded > 0);
+    const hasSecondary = !!supply.secondary;
+
+    // Coordinate Anchors
+    const X_MINERS = 50;
+    const W_MINERS = 220;
+
+    const X_SMELT = 330;
+    const W_SMELT = 200;
+
+    const X_SPLITTER = hasSmelting ? 600 : 340;
+    const W_SPLITTER = 70;
+
+    const X_BRANCH_START = X_SPLITTER + 150;
+    const branchW = totalW - X_BRANCH_START - 40;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; user-select: none;">`;
+
+    // Definitions
+    svg += `
+      <defs>
+        <pattern id="sbGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#172338" stroke-width="1.2" />
+          <circle cx="0" cy="0" r="1.5" fill="#334155" />
+          <circle cx="60" cy="0" r="1.5" fill="#334155" />
+          <circle cx="0" cy="60" r="1.5" fill="#334155" />
+          <circle cx="60" cy="60" r="1.5" fill="#334155" />
+        </pattern>
+
+        <linearGradient id="sbMinerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ea580c" />
+          <stop offset="100%" stop-color="#9a3412" />
+        </linearGradient>
+
+        <linearGradient id="sbSecMinerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0284c7" />
+          <stop offset="100%" stop-color="#0369a1" />
+        </linearGradient>
+
+        <linearGradient id="sbSmeltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f97316" />
+          <stop offset="100%" stop-color="#c2410c" />
+        </linearGradient>
+
+        <linearGradient id="sbSplitterGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f59e0b" />
+          <stop offset="100%" stop-color="#b45309" />
+        </linearGradient>
+
+        <linearGradient id="sbSinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#8b5cf6" />
+          <stop offset="100%" stop-color="#6d28d9" />
+        </linearGradient>
+
+        <linearGradient id="sbStorageGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#10b981" />
+          <stop offset="100%" stop-color="#047857" />
+        </linearGradient>
+
+        <filter id="sbGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+
+        <marker id="sbArrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="#f97316" />
+        </marker>
+        <marker id="sbArrowCyan" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="#38bdf8" />
+        </marker>
+        <marker id="sbArrowYellow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="#facc15" />
+        </marker>
+        <marker id="sbArrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="#4ade80" />
+        </marker>
+      </defs>
+    `;
+
+    // Background Foundation Plate
+    svg += `<rect width="${totalW}" height="${totalH}" fill="#080e1a" />`;
+    svg += `<rect width="${totalW}" height="${totalH}" fill="url(#sbGridPat)" opacity="0.65" />`;
+
+    // Top Blueprint Bar
+    svg += `
+      <rect x="40" y="20" width="${totalW - 80}" height="48" rx="8" fill="#0d1728" stroke="#1e293b" stroke-width="1.5" />
+      <text x="60" y="50" font-size="14" font-weight="900" fill="#f8fafc" letter-spacing="0.5">
+        📐 PLANO AÉREO 2D &bull; DISTRIBUCIÓN FICSIT Y DIVISIÓN POR SPLITTERS
+      </text>
+      <text x="${totalW - 60}" y="50" text-anchor="end" font-size="12" font-weight="700" fill="#38bdf8">
+        Suministro: ${supply.rate.toFixed(1)} ${supply.itemName}/min &bull; ${branchDetails.length} Ramas
+      </text>
+    `;
+
+    // 1. EXTRACTION STATION (LEFT COLUMN)
+    const minerH = 140;
+    const isMultiMiner = (supply.minerNodes && supply.minerNodes.length > 1);
+    const minerTierName = SATIS_DATA.miners[supply.minerTier]?.name || 'Minero Mk.1';
+    const purityName = (supply.purity === 'pure') ? 'Pura' : (supply.purity === 'impure') ? 'Impura' : 'Normal';
+
+    svg += `
+      <g class="blueprint-node-miner" data-name="${supply.rawItemName}" data-rate="${supply.rawRate}" data-power="${supply.minerPower}">
+        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="${minerH}" rx="10" fill="#0f172a" stroke="#ea580c" stroke-width="2" />
+        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="28" rx="8" fill="url(#sbMinerGrad)" />
+        <text x="${X_MINERS + 12}" y="${startY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
+          ⛏️ EXTRACCIÓN PRIMARIA
+        </text>
+
+        <text x="${X_MINERS + 14}" y="${startY + 56}" font-size="13" font-weight="800" fill="#f8fafc">
+          ${supply.rawItemName}
+        </text>
+
+        <text x="${X_MINERS + 14}" y="${startY + 84}" font-size="18" font-weight="900" fill="#4ade80">
+          +${supply.rawRate.toFixed(1)} <tspan font-size="12" font-weight="700" fill="#94a3b8">/min</tspan>
+        </text>
+
+        <text x="${X_MINERS + 14}" y="${startY + 110}" font-size="10.5" font-weight="700" fill="#cbd5e1">
+          ${isMultiMiner ? `${supply.minerNodes.length}x Taladros Combinados` : `${minerTierName} (${purityName})`}
+        </text>
+
+        <text x="${X_MINERS + 14}" y="${startY + 126}" font-size="9.5" font-weight="600" fill="#94a3b8">
+          ⚡ Consumo: ${supply.minerPower.toFixed(1)} MW
+        </text>
+      </g>
+    `;
+
+    // Secondary Miner (if present)
+    if (hasSecondary && supply.secondary) {
+      const sec = supply.secondary;
+      const secY = startY + 160;
+      const secH = 125;
+      const secTierName = SATIS_DATA.miners[sec.minerTier]?.name || 'Minero Mk.1';
+      const secPurityName = (sec.purity === 'pure') ? 'Pura' : (sec.purity === 'impure') ? 'Impura' : 'Normal';
+
+      svg += `
+        <g class="blueprint-node-miner" data-name="${sec.itemName}" data-rate="${sec.rate}" data-power="${sec.powerMw}">
+          <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="${secH}" rx="10" fill="#08182b" stroke="#0284c7" stroke-width="2" />
+          <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="28" rx="8" fill="url(#sbSecMinerGrad)" />
+          <text x="${X_MINERS + 12}" y="${secY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
+            ⛏️ SEGUNDO MINERAL
+          </text>
+
+          <text x="${X_MINERS + 14}" y="${secY + 52}" font-size="13" font-weight="800" fill="#f8fafc">
+            ${sec.itemName}
+          </text>
+
+          <text x="${X_MINERS + 14}" y="${secY + 78}" font-size="17" font-weight="900" fill="#38bdf8">
+            +${sec.rate.toFixed(1)} <tspan font-size="11" font-weight="700" fill="#94a3b8">/min</tspan>
+          </text>
+
+          <text x="${X_MINERS + 14}" y="${secY + 100}" font-size="10" font-weight="700" fill="#cbd5e1">
+            ${sec.minerCount}x ${secTierName} (${secPurityName})
+          </text>
+
+          <text x="${X_MINERS + 14}" y="${secY + 115}" font-size="9" font-weight="600" fill="#94a3b8">
+            ⚡ Consumo: ${sec.powerMw.toFixed(1)} MW
+          </text>
+        </g>
+      `;
+    }
+
+    // 2. SMELTING BATTERY (IF AUTO-SMELT)
+    const smeltY = startY;
+    if (hasSmelting) {
+      // Conveyor from Primary Miner to Smelter
+      svg += `
+        <line x1="${X_MINERS + W_MINERS}" y1="${startY + 70}" x2="${X_SMELT}" y2="${startY + 70}" stroke="#f97316" stroke-width="6" stroke-dasharray="8 4" marker-end="url(#sbArrowOrange)" />
+        <rect x="${X_MINERS + W_MINERS + 10}" y="${startY + 48}" width="50" height="18" rx="4" fill="#0f172a" stroke="#f97316" stroke-width="1" />
+        <text x="${X_MINERS + W_MINERS + 35}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="#f97316">
+          ${supply.rawRate.toFixed(0)}/m
+        </text>
+      `;
+
+      // Smelter Box
+      svg += `
+        <g class="blueprint-node-smelter" data-name="Batería de Hornos" data-count="${supply.smeltersNeeded}" data-power="${supply.smelterPower}">
+          <rect x="${X_SMELT}" y="${smeltY}" width="${W_SMELT}" height="${minerH}" rx="10" fill="#18111e" stroke="#f97316" stroke-width="2" />
+          <rect x="${X_SMELT}" y="${smeltY}" width="${W_SMELT}" height="28" rx="8" fill="url(#sbSmeltGrad)" />
+          <text x="${X_SMELT + 12}" y="${smeltY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
+            🔥 BATERÍA DE HORNOS
+          </text>
+
+          <text x="${X_SMELT + 14}" y="${smeltY + 54}" font-size="13" font-weight="800" fill="#f8fafc">
+            ${supply.smeltersNeeded}x Fundición (Horno)
+          </text>
+
+          <text x="${X_SMELT + 14}" y="${smeltY + 80}" font-size="17" font-weight="900" fill="#fbbf24">
+            +${supply.rate.toFixed(1)} <tspan font-size="11" font-weight="700" fill="#94a3b8">Lingotes/m</tspan>
+          </text>
+
+          <text x="${X_SMELT + 14}" y="${smeltY + 104}" font-size="10" font-weight="700" fill="#cbd5e1">
+            Manifold de Fundición 100%
+          </text>
+
+          <text x="${X_SMELT + 14}" y="${smeltY + 122}" font-size="9.5" font-weight="600" fill="#94a3b8">
+            ⚡ Consumo: ${supply.smelterPower.toFixed(1)} MW
+          </text>
+        </g>
+      `;
+
+      // Conveyor from Smelter to Splitter #1
+      svg += `
+        <line x1="${X_SMELT + W_SMELT}" y1="${startY + 70}" x2="${X_SPLITTER}" y2="${startY + 70}" stroke="#facc15" stroke-width="6" stroke-dasharray="8 4" marker-end="url(#sbArrowYellow)" />
+        <rect x="${X_SMELT + W_SMELT + 10}" y="${startY + 48}" width="50" height="18" rx="4" fill="#0f172a" stroke="#facc15" stroke-width="1" />
+        <text x="${X_SMELT + W_SMELT + 35}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="#facc15">
+          ${supply.rate.toFixed(0)}/m
+        </text>
+      `;
+    } else {
+      // No Smelter: Conveyor directly from Miner to Splitter #1
+      svg += `
+        <line x1="${X_MINERS + W_MINERS}" y1="${startY + 70}" x2="${X_SPLITTER}" y2="${startY + 70}" stroke="#f97316" stroke-width="6" stroke-dasharray="8 4" marker-end="url(#sbArrowOrange)" />
+        <rect x="${X_MINERS + W_MINERS + 10}" y="${startY + 48}" width="50" height="18" rx="4" fill="#0f172a" stroke="#f97316" stroke-width="1" />
+        <text x="${X_MINERS + W_MINERS + 35}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="#f97316">
+          ${supply.rate.toFixed(0)}/m
+        </text>
+      `;
+    }
+
+    // 3. TRUNK CONVEYOR & PHYSICAL SPLITTERS
+    let currentFlow = supply.rate;
+    const splPositions = [];
+
+    branchDetails.forEach((d, idx) => {
+      const bY = startY + idx * (branchH + branchGap);
+      const splY = bY + 60;
+      const divertedFlow = d.supplyIntakeRate;
+      const passFlow = Math.max(0, Number((currentFlow - divertedFlow).toFixed(2)));
+      splPositions.push({ splY, inFlow: currentFlow, divertedFlow, passFlow });
+
+      // Vertical connecting conveyor between splitters
+      if (idx > 0) {
+        const prevSplY = splPositions[idx - 1].splY;
+        svg += `
+          <line x1="${X_SPLITTER + 35}" y1="${prevSplY + 45}" x2="${X_SPLITTER + 35}" y2="${splY}" stroke="#facc15" stroke-width="5" stroke-dasharray="6 3" marker-end="url(#sbArrowYellow)" />
+          <rect x="${X_SPLITTER + 42}" y="${(prevSplY + 45 + splY) / 2 - 9}" width="46" height="16" rx="3" fill="#0f172a" stroke="#facc15" stroke-width="1" />
+          <text x="${X_SPLITTER + 65}" y="${(prevSplY + 45 + splY) / 2 + 3}" text-anchor="middle" font-size="8.5" font-weight="800" fill="#facc15">
+            ${currentFlow.toFixed(0)}/m
+          </text>
+        `;
+      }
+
+      // Splitter Box
+      svg += `
+        <g class="blueprint-node-splitter" data-split-index="${idx}" data-in="${currentFlow}" data-divert="${divertedFlow}" data-pass="${passFlow}">
+          <rect x="${X_SPLITTER}" y="${splY}" width="${W_SPLITTER}" height="45" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2" />
+          <text x="${X_SPLITTER + 35}" y="${splY + 20}" text-anchor="middle" font-size="11" font-weight="900" fill="#f59e0b">
+            🔀 S#${idx + 1}
+          </text>
+          <text x="${X_SPLITTER + 35}" y="${splY + 35}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fed7aa">
+            -${divertedFlow.toFixed(0)}/m
+          </text>
+        </g>
+      `;
+
+      // Branch Infeed Conveyor (Splitter -> Branch Bay)
+      const feedBeltColor = d.color || '#38bdf8';
+      svg += `
+        <line x1="${X_SPLITTER + W_SPLITTER}" y1="${splY + 22}" x2="${X_BRANCH_START}" y2="${splY + 22}" stroke="${feedBeltColor}" stroke-width="6" stroke-dasharray="6 3" marker-end="url(#sbArrowCyan)" />
+        <rect x="${X_SPLITTER + W_SPLITTER + 10}" y="${splY + 10}" width="58" height="18" rx="4" fill="#0f172a" stroke="${feedBeltColor}" stroke-width="1" />
+        <text x="${X_SPLITTER + W_SPLITTER + 39}" y="${splY + 23}" text-anchor="middle" font-size="9" font-weight="800" fill="${feedBeltColor}">
+          ➔ ${divertedFlow.toFixed(0)}/m
+        </text>
+      `;
+
+      currentFlow = passFlow;
+    });
+
+    // End of Line / Awesome Sink
+    const lastSpl = splPositions[splPositions.length - 1];
+    const endY = lastSpl.splY + 65;
+
+    if (netBalance > 0.05) {
+      // Excess goes to Awesome Sink
+      svg += `
+        <line x1="${X_SPLITTER + 35}" y1="${lastSpl.splY + 45}" x2="${X_SPLITTER + 35}" y2="${endY}" stroke="#a855f7" stroke-width="5" stroke-dasharray="6 3" marker-end="url(#sbArrowGreen)" />
+        <g class="blueprint-node-sink" data-rate="${netBalance}">
+          <rect x="${X_SPLITTER - 20}" y="${endY}" width="110" height="52" rx="8" fill="#1f1035" stroke="#a855f7" stroke-width="2" />
+          <text x="${X_SPLITTER + 35}" y="${endY + 20}" text-anchor="middle" font-size="10.5" font-weight="900" fill="#c084fc">
+            🌟 FICSIT SINK
+          </text>
+          <text x="${X_SPLITTER + 35}" y="${endY + 38}" text-anchor="middle" font-size="9.5" font-weight="800" fill="#4ade80">
+            +${netBalance.toFixed(1)}/m Excedente
+          </text>
+        </g>
+      `;
+    } else if (netBalance < -0.05) {
+      // Deficit indicator
+      svg += `
+        <line x1="${X_SPLITTER + 35}" y1="${lastSpl.splY + 45}" x2="${X_SPLITTER + 35}" y2="${endY}" stroke="#ef4444" stroke-width="4" stroke-dasharray="4 2" />
+        <rect x="${X_SPLITTER - 15}" y="${endY}" width="100" height="42" rx="6" fill="#2d0f0f" stroke="#ef4444" stroke-width="1.5" />
+        <text x="${X_SPLITTER + 35}" y="${endY + 18}" text-anchor="middle" font-size="10" font-weight="900" fill="#ef4444">
+          ⚠️ DÉFICIT
+        </text>
+        <text x="${X_SPLITTER + 35}" y="${endY + 32}" text-anchor="middle" font-size="9" font-weight="700" fill="#fca5a5">
+          ${netBalance.toFixed(1)}/m faltante
+        </text>
+      `;
+    } else {
+      // 100% Perfect Balance Terminal Cap
+      svg += `
+        <line x1="${X_SPLITTER + 35}" y1="${lastSpl.splY + 45}" x2="${X_SPLITTER + 35}" y2="${endY}" stroke="#4ade80" stroke-width="4" />
+        <circle cx="${X_SPLITTER + 35}" cy="${endY + 12}" r="12" fill="#052e16" stroke="#4ade80" stroke-width="2" />
+        <text x="${X_SPLITTER + 35}" y="${endY + 16}" text-anchor="middle" font-size="11" font-weight="900" fill="#4ade80">✓</text>
+        <text x="${X_SPLITTER + 35}" y="${endY + 38}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#86efac">
+          100% Balance
+        </text>
+      `;
+    }
+
+    // 4. BRANCH FABRICATION BAYS (HORIZONTAL FOUNDATION MODULES)
+    branchDetails.forEach((d, idx) => {
+      const bY = startY + idx * (branchH + branchGap);
+      const isHigh = (sbBpState.highlightedBranchIdx === idx);
+      const bColor = d.color || '#38bdf8';
+
+      // Bay Foundation Plate
+      svg += `
+        <g class="blueprint-branch-bay ${isHigh ? 'is-active-branch' : ''}" data-branch-index="${idx}">
+          <rect x="${X_BRANCH_START}" y="${bY}" width="${branchW}" height="${branchH}" rx="12" fill="#0a1220" stroke="${isHigh ? '#38bdf8' : bColor}" stroke-width="${isHigh ? 3 : 1.5}" ${isHigh ? 'filter="url(#sbGlow)"' : ''} />
+
+          <!-- Bay Header Bar -->
+          <rect x="${X_BRANCH_START}" y="${bY}" width="${branchW}" height="32" rx="10" fill="#0f1d33" />
+          <rect x="${X_BRANCH_START + 12}" y="${bY + 6}" width="80" height="20" rx="4" fill="${bColor}" />
+          <text x="${X_BRANCH_START + 52}" y="${bY + 20}" text-anchor="middle" font-size="10.5" font-weight="900" fill="#0b111e">
+            RAMA #${idx + 1}
+          </text>
+
+          <text x="${X_BRANCH_START + 104}" y="${bY + 21}" font-size="12" font-weight="800" fill="#f8fafc">
+            ${d.recipe.name}
+          </text>
+
+          <text x="${X_BRANCH_START + branchW - 16}" y="${bY + 21}" text-anchor="end" font-size="11" font-weight="800" fill="#4ade80">
+            Entrega: +${d.branchOutputTotal} ${d.outItemMeta.name}/m &bull; <tspan fill="#38bdf8">⚡ ${d.chain.totalPower} MW</tspan>
+          </text>
+      `;
+
+      // Machines Layout inside Bay
+      let curX = X_BRANCH_START + 24;
+      const machY = bY + 48;
+      const machH = 100;
+
+      // Intermediate machines (if any)
+      if (!d.isDirect && d.intermediateSteps && d.intermediateSteps.length > 0) {
+        d.intermediateSteps.forEach(step => {
+          const stepW = 190;
+          svg += `
+            <g class="blueprint-node-machine" data-type="intermediate" data-name="${step.recipe.name}" data-count="${step.machinesCount}" data-power="${step.power}">
+              <rect x="${curX}" y="${machY}" width="${stepW}" height="${machH}" rx="8" fill="#131e31" stroke="#334155" stroke-width="1.5" />
+              <rect x="${curX}" y="${machY}" width="${stepW}" height="22" rx="6" fill="#1e293b" />
+              <text x="${curX + 8}" y="${machY + 15}" font-size="9.5" font-weight="800" fill="#94a3b8">
+                Fase Intermedia &bull; ${step.building.name}
+              </text>
+
+              <text x="${curX + 10}" y="${machY + 40}" font-size="11" font-weight="800" fill="#f8fafc">
+                ${step.machinesCount}x ${step.recipe.name}
+              </text>
+
+              <text x="${curX + 10}" y="${machY + 62}" font-size="12" font-weight="900" fill="#38bdf8">
+                +${step.outputRate} <tspan font-size="9" font-weight="700" fill="#94a3b8">/m ${step.itemName}</tspan>
+              </text>
+
+              <text x="${curX + 10}" y="${machY + 84}" font-size="8.5" font-weight="600" fill="#64748b">
+                ⚡ ${step.power.toFixed(1)} MW &bull; ${step.feederBelt.name}
+              </text>
+            </g>
+          `;
+
+          // Connecting Conveyor to Next Stage
+          svg += `
+            <line x1="${curX + stepW}" y1="${machY + 50}" x2="${curX + stepW + 40}" y2="${machY + 50}" stroke="#94a3b8" stroke-width="4" stroke-dasharray="4 2" marker-end="url(#sbArrowCyan)" />
+          `;
+          curX += stepW + 40;
+        });
+      }
+
+      // Final Target Machine(s)
+      const targetW = 210;
+      svg += `
+        <g class="blueprint-node-machine" data-type="final" data-name="${d.recipe.name}" data-count="${d.branch.machineCount}" data-power="${d.chain.totalPower}">
+          <rect x="${curX}" y="${machY}" width="${targetW}" height="${machH}" rx="8" fill="#14233c" stroke="${bColor}" stroke-width="2" />
+          <rect x="${curX}" y="${machY}" width="${targetW}" height="24" rx="6" fill="#1e3455" />
+          <text x="${curX + 10}" y="${machY + 16}" font-size="10" font-weight="900" fill="${bColor}">
+            FABRICACIÓN FINAL
+          </text>
+
+          <text x="${curX + 12}" y="${machY + 44}" font-size="12" font-weight="800" fill="#f8fafc">
+            ${d.branch.machineCount}x ${d.building.name}
+          </text>
+
+          <text x="${curX + 12}" y="${machY + 68}" font-size="14" font-weight="900" fill="#4ade80">
+            +${d.branchOutputTotal} <tspan font-size="10" font-weight="700" fill="#94a3b8">/m ${d.outItemMeta.name}</tspan>
+          </text>
+
+          <text x="${curX + 12}" y="${machY + 88}" font-size="9" font-weight="600" fill="#94a3b8">
+            ${d.recipe.name} &bull; ⚡ ${(d.branch.machineCount * (d.building.power || 4)).toFixed(1)} MW
+          </text>
+        </g>
+      `;
+
+      // Conveyor to Storage Container
+      const storageX = curX + targetW + 45;
+      svg += `
+        <line x1="${curX + targetW}" y1="${machY + 50}" x2="${storageX}" y2="${machY + 50}" stroke="#4ade80" stroke-width="5" stroke-dasharray="6 3" marker-end="url(#sbArrowGreen)" />
+      `;
+
+      // Final Storage / Delivery Container
+      const storageW = Math.max(160, branchW - (storageX - X_BRANCH_START) - 20);
+      svg += `
+        <g class="blueprint-node-storage" data-name="${d.outItemMeta.name}" data-rate="${d.branchOutputTotal}">
+          <rect x="${storageX}" y="${machY}" width="${storageW}" height="${machH}" rx="8" fill="#04271c" stroke="#10b981" stroke-width="1.8" />
+          <rect x="${storageX}" y="${machY}" width="${storageW}" height="22" rx="6" fill="url(#sbStorageGrad)" />
+          <text x="${storageX + 10}" y="${machY + 15}" font-size="9.5" font-weight="900" fill="#ffffff">
+            📦 ALMACÉN FICSIT
+          </text>
+
+          <text x="${storageX + 12}" y="${machY + 46}" font-size="11.5" font-weight="800" fill="#f8fafc">
+            ${d.outItemMeta.name}
+          </text>
+
+          <text x="${storageX + 12}" y="${machY + 74}" font-size="16" font-weight="900" fill="#4ade80">
+            +${d.branchOutputTotal} <tspan font-size="10" font-weight="700" fill="#a7f3d0">/min</tspan>
+          </text>
+        </g>
+      `;
+
+      svg += `</g>`; // close branch-bay group
+    });
+
+    svg += `</svg>`;
+    return svg;
+  }
+
+  function renderSandboxBlueprint(supply, branchDetails, netBalance) {
+    const canvas = document.getElementById('sandboxBlueprintCanvas');
+    if (!canvas) return;
+
+    initSandboxBlueprintInteractions();
+
+    const svgHtml = generateSandboxBlueprintSvg(supply, branchDetails, netBalance);
+    canvas.innerHTML = svgHtml;
+
+    // Cache model dimensions
+    const N = Math.max(1, branchDetails.length);
+    const branchH = 170;
+    const branchGap = 24;
+    const startY = 100;
+    const totalH = Math.max(680, startY + N * (branchH + branchGap) + 120);
+    const totalW = 1680;
+    sbBpState.currentModel = { totalW, totalH };
+
+    // Update Summary Badge
+    const summaryBadge = document.getElementById('sbBpSummaryBadge');
+    if (summaryBadge) {
+      const balText = Math.abs(netBalance) < 0.05 
+        ? '🟢 100% Balanceado' 
+        : (netBalance > 0 ? `🟡 +${netBalance.toFixed(1)} Sobrante` : `🔴 ${netBalance.toFixed(1)} Déficit`);
+      summaryBadge.textContent = `${supply.rate.toFixed(1)} ${supply.itemName}/min ➔ ${branchDetails.length} Ramas (${balText})`;
+    }
+
+    if (!sbBpState.isInitializedScale) {
+      fitSandboxBlueprintToViewport();
+      sbBpState.isInitializedScale = true;
+    } else {
+      applySandboxBlueprintTransform(canvas, sbBpState);
+    }
+
+    attachSandboxBlueprintHoverTooltips();
   }
 
   // =========================================================================

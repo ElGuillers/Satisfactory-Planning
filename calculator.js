@@ -766,6 +766,26 @@ const SatisCalc = {
   },
 
   /**
+   * Calculate target rate when multiple minerals are configured (respects bottleneck across all inputs)
+   */
+  calculateTargetRateFromAllRawExtraction(targetItemId, rawRatesMap = {}, selectedRecipes = {}) {
+    const basePlan = SatisCalc.buildTargetFactoryPlan(targetItemId, 1.0, selectedRecipes);
+    if (!basePlan || !basePlan.rawBreakdown || basePlan.rawBreakdown.length === 0) {
+      const firstKey = Object.keys(rawRatesMap)[0];
+      return firstKey ? (rawRatesMap[firstKey] || 60) : 60;
+    }
+
+    const possibleRates = basePlan.rawBreakdown.map(r => {
+      const avail = (rawRatesMap && rawRatesMap[r.rawId] !== undefined) ? rawRatesMap[r.rawId] : 60;
+      const perUnit = r.requiredRate > 0 ? r.requiredRate : 1;
+      return avail / perUnit;
+    });
+
+    const minRate = Math.min(...possibleRates);
+    return Math.max(0.1, Number(minRate.toFixed(2)));
+  },
+
+  /**
    * Find all craftable items that can be derived from rawResourceId
    */
   getDerivativesForRaw(rawId) {
@@ -881,6 +901,9 @@ const SatisCalc = {
    * Checks if targetItemId can be derived directly or indirectly from supplyItemId (cached BFS)
    */
   canDeriveItem(targetItemId, supplyItemId) {
+    if (Array.isArray(supplyItemId)) {
+      return supplyItemId.includes(targetItemId) || supplyItemId.some(id => this.canDeriveItem(targetItemId, id));
+    }
     if (targetItemId === supplyItemId) return true;
     const cacheKey = `${targetItemId}__${supplyItemId}`;
     if (this._canDeriveCache.has(cacheKey)) {
@@ -922,6 +945,17 @@ const SatisCalc = {
    * Returns all recipes that can be produced from supplyItemId (direct or multi-tier, cached)
    */
   getDerivableRecipesForSupply(supplyItemId) {
+    if (Array.isArray(supplyItemId)) {
+      const combined = new Map();
+      supplyItemId.forEach(id => {
+        const sub = this.getDerivableRecipesForSupply(id);
+        sub.forEach(r => {
+          if (!combined.has(r.id)) combined.set(r.id, r);
+        });
+      });
+      return Array.from(combined.values());
+    }
+
     if (this._derivableCache.has(supplyItemId)) {
       return this._derivableCache.get(supplyItemId);
     }
@@ -957,7 +991,7 @@ const SatisCalc = {
    */
   resolveBranchSubchain(supplyItemId, targetRecipeId, targetMachineCount = 1, customAltRecipes = {}) {
     const isBase = (targetMachineCount === 1 && Object.keys(customAltRecipes).length === 0);
-    const cacheKey = `${supplyItemId}__${targetRecipeId}`;
+    const cacheKey = `${Array.isArray(supplyItemId) ? supplyItemId.join('+') : supplyItemId}__${targetRecipeId}`;
     if (isBase && this._subchainCache.has(cacheKey)) {
       return this._subchainCache.get(cacheKey);
     }
@@ -971,6 +1005,8 @@ const SatisCalc = {
     const targetPower = Number((targetMachineCount * (targetBuilding.power || 0)).toFixed(1));
 
     let supplyIntakeRate = 0;
+    const supplyIntakeRates = {};
+    const isMatchSupply = (itemId) => Array.isArray(supplyItemId) ? supplyItemId.includes(itemId) : (itemId === supplyItemId);
     const intermediateSteps = [];
     const externalInputs = {};
     const buildingCounts = {};
@@ -1000,8 +1036,9 @@ const SatisCalc = {
     }
 
     function traceInput(itemId, neededRate, visited = new Set()) {
-      if (itemId === supplyItemId) {
+      if (isMatchSupply(itemId)) {
         supplyIntakeRate += neededRate;
+        supplyIntakeRates[itemId] = (supplyIntakeRates[itemId] || 0) + neededRate;
         return;
       }
 
@@ -1094,6 +1131,7 @@ const SatisCalc = {
       targetOutputTotal,
       targetPower,
       supplyIntakeRate,
+      supplyIntakeRates,
       isDirect: (consolidatedSteps.length === 0),
       intermediateSteps: consolidatedSteps,
       totalPower,
