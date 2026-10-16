@@ -205,21 +205,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const basePlan = SatisCalc.buildTargetFactoryPlan(state.builder.targetGoal || 'iron_plate', 1.0, state.builder.altPreferences);
     const isMultiRaw = basePlan && basePlan.rawBreakdown && basePlan.rawBreakdown.length > 1;
+    const hasFluids = basePlan && basePlan.rawBreakdown && basePlan.rawBreakdown.some(r => r.isFluid);
+    const allFluids = basePlan && basePlan.rawBreakdown && basePlan.rawBreakdown.length > 0 && basePlan.rawBreakdown.every(r => r.isFluid);
+    const targetMeta = SATIS_DATA.items[state.builder.targetGoal] || SATIS_DATA.rawResources[state.builder.targetGoal] || { isFluid: false };
+
+    const extractorLabel = allFluids ? 'Extractores' : (hasFluids ? 'Taladros / Extractores' : 'Taladros');
+    const extractorIcon = allFluids ? '🛢️' : (hasFluids ? '⛏️/🛢️' : '⛏️');
 
     if (drillInputBox) drillInputBox.style.display = isDrills ? 'flex' : 'none';
     if (rateInputBox) rateInputBox.style.display = isDrills ? 'none' : 'flex';
     if (quantityLabel) {
       if (isDrills) {
         quantityLabel.innerHTML = isMultiRaw
-          ? `⛏️ 2. ¿Cuántos Taladros colocas? <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700;">(${state.builder.drillCount || 1} por cada mineral requerido: ${basePlan.rawBreakdown.map(r => r.name).join(' + ')})</span>`
-          : '⛏️ 2. ¿Cuántos Taladros colocas?';
+          ? `${extractorIcon} 2. ¿Cuántos ${extractorLabel} colocas? <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700;">(${state.builder.drillCount || 1} por cada recurso: ${basePlan.rawBreakdown.map(r => r.name).join(' + ')})</span>`
+          : `${extractorIcon} 2. ¿Cuántos ${extractorLabel} colocas?`;
       } else {
-        quantityLabel.textContent = '📦 2. Cantidad deseada (piezas/min)';
+        quantityLabel.textContent = targetMeta.isFluid ? '🚰 2. Caudal deseado (m³/min)' : '📦 2. Cantidad deseada (piezas/min)';
       }
     }
     if (btnToggleCalcMode) {
-      btnToggleCalcMode.textContent = isDrills ? '(Cambiar a piezas/min manual)' : '(Cambiar a cálculo por taladros)';
+      btnToggleCalcMode.textContent = isDrills 
+        ? (targetMeta.isFluid ? '(Cambiar a m³/min manual)' : '(Cambiar a piezas/min manual)')
+        : `(Cambiar a cálculo por ${extractorLabel.toLowerCase()})`;
     }
+
+    const presetLabel = document.getElementById('builderDrillPresetLabel');
+    if (presetLabel) {
+      presetLabel.textContent = `Ajustar por ${extractorLabel}:`;
+    }
+    const singLabel = allFluids ? 'Extractor' : (hasFluids ? 'Máq. Extr.' : 'Taladro');
+    const plurLabel = allFluids ? 'Extractores' : (hasFluids ? 'Máqs. Extr.' : 'Taladros');
+    const btnP1 = document.getElementById('btnPreset1Drill');
+    const btnP2 = document.getElementById('btnPreset2Drills');
+    const btnP3 = document.getElementById('btnPreset3Drills');
+    const btnP4 = document.getElementById('btnPreset4Drills');
+    if (btnP1) btnP1.textContent = `${extractorIcon} 1 ${singLabel}`;
+    if (btnP2) btnP2.textContent = `${extractorIcon} 2 ${plurLabel}`;
+    if (btnP3) btnP3.textContent = `${extractorIcon} 3 ${plurLabel}`;
+    if (btnP4) btnP4.textContent = `${extractorIcon} 4 ${plurLabel}`;
+
+    const drillUnitLabel = document.getElementById('builderDrillUnitLabel');
+    if (drillUnitLabel) {
+      drillUnitLabel.textContent = allFluids ? 'Extractor(es)' : (hasFluids ? 'Taladro(s)/Extr.' : 'Taladro(s)');
+    }
+
+    const headerIcon = document.getElementById('builderRawHeaderIcon');
+    const headerTitle = document.getElementById('builderRawHeaderTitle');
+    const headerSubtitle = document.getElementById('builderRawHeaderSubtitle');
+    const globalMinerContainer = document.getElementById('builderGlobalMinerContainer');
+    const globalMinerLabel = document.getElementById('builderGlobalMinerLabel');
+
+    if (headerIcon) headerIcon.textContent = allFluids ? '🛢️' : (hasFluids ? '🛢️/⛏️' : '⛏️');
+    if (headerTitle) {
+      headerTitle.textContent = allFluids 
+        ? 'Pozos de Petróleo y Fluidos Requeridos (Calculados Automáticamente)' 
+        : (hasFluids 
+            ? 'Minerales y Pozos de Petróleo Requeridos (Calculados Automáticamente)' 
+            : 'Minerales y Materias Primas Requeridas (Calculadas Automáticamente)');
+    }
+    if (headerSubtitle) {
+      headerSubtitle.textContent = allFluids
+        ? 'Elige la pureza de cada pozo petrolífero en el mapa (Impuro 60, Normal 120, Puro 240)'
+        : (hasFluids
+            ? 'Elige qué taladros/extractores usar y cuántas menas/pozos tienes en el mapa'
+            : 'Elige qué taladros usar (Mk.1 - Mk.3) y cuántas menas/nodos tienes en el mapa');
+    }
+    if (globalMinerContainer) {
+      if (allFluids) {
+        if (globalMinerLabel) globalMinerLabel.textContent = '🛢️ Extractor Base: 120 m³/m (40 MW)';
+        const group = document.getElementById('builderGlobalMinerGroup');
+        if (group) group.style.display = 'none';
+      } else {
+        if (globalMinerLabel) globalMinerLabel.textContent = 'Taladros Predeterminados:';
+        const group = document.getElementById('builderGlobalMinerGroup');
+        if (group) group.style.display = 'inline-flex';
+      }
+    }
+
     if (drillInput) drillInput.value = state.builder.drillCount || 1;
     if (rateInput) rateInput.value = state.builder.targetRate;
   }
@@ -437,6 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rateInput) rateInput.value = state.builder.targetRate;
           }
         }
+        updateCalcModeUI();
         updateLineBuilder();
       });
     }
@@ -747,19 +810,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderManifoldDiagram(flowSteps, buildingName, itemName, outItemName, outRatePerMachine) {
+  function renderManifoldDiagram(flowSteps, buildingName, itemName, outItemName, outRatePerMachine, isFluid = false) {
     if (!flowSteps || flowSteps.length === 0) return '';
+    const unit = isFluid ? 'm³/m' : '/m';
+    const junctionLabel = isFluid ? 'Cruceta' : 'Splitter';
+    const trunkLabel = isFluid ? 'Tubería Troncal' : 'Troncal';
+    const directTitle = isFluid ? '📐 Conexión Directa por Tubería' : '📐 Conexión Directa (Sin Splitters)';
+    const manifoldTitle = isFluid 
+      ? `📐 Desglose de Tuberías y Crucetas (Manifold de ${flowSteps.length - 1} Crucetas)` 
+      : `📐 Desglose Paso a Paso de Divisores (Manifold de ${flowSteps.length - 1} Splitters)`;
+
     if (flowSteps.length === 1) {
       const s = flowSteps[0];
       return `
         <div class="schematic-box">
           <div class="schematic-title">
-            <span>📐 Conexión Directa (Sin Splitters)</span>
-            <span style="color: ${s.beltIn.color};">${s.beltIn.name} (${s.consumes}/m)</span>
+            <span>${directTitle}</span>
+            <span style="color: ${s.beltIn.color};">${s.beltIn.name} (${s.consumes} ${unit})</span>
           </div>
           <div class="splitter-step-item">
-            <span>1x ${buildingName} recibe directamente <strong>${s.consumes}/m de ${itemName}</strong></span>
-            <strong style="color: #4ade80;">➔ Saca: ${outRatePerMachine}/m ${outItemName}</strong>
+            <span>1x ${buildingName} recibe directamente <strong>${s.consumes} ${unit} de ${itemName}</strong></span>
+            <strong style="color: #4ade80;">➔ Saca: ${outRatePerMachine} ${unit} ${outItemName}</strong>
           </div>
         </div>
       `;
@@ -771,15 +842,15 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="splitter-step-item">
           <div style="display: flex; align-items: center; gap: 8px;">
             ${step.splitterIndex 
-              ? `<span class="splitter-badge-tag">Splitter #${step.splitterIndex}</span>` 
-              : `<span class="splitter-badge-tag" style="background: #334155; color: #94a3b8;">Fin Manifold</span>`
+              ? `<span class="splitter-badge-tag" style="${isFluid ? 'background: #0369a1; color: #bae6fd;' : ''}">${junctionLabel} #${step.splitterIndex}</span>` 
+              : `<span class="splitter-badge-tag" style="background: #334155; color: #94a3b8;">Fin ${isFluid ? 'Tubería' : 'Manifold'}</span>`
             }
-            <span>Entran: <strong style="color: ${step.beltIn.color};">${step.flowIn}/m (${step.beltIn.name})</strong></span>
+            <span>Entran: <strong style="color: ${step.beltIn.color};">${step.flowIn} ${unit} (${step.beltIn.name})</strong></span>
           </div>
           <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="color: #facc15;">├─► <strong>${step.consumes}/m</strong> (${step.feederBelt.name}) ➔ ${buildingName} #${step.machineIndex}</span>
+            <span style="color: ${isFluid ? '#38bdf8' : '#facc15'};">├─► <strong>${step.consumes} ${unit}</strong> (${step.feederBelt.name}) ➔ ${buildingName} #${step.machineIndex}</span>
             ${step.flowRemaining > 0 
-              ? `<span style="color: #94a3b8; font-size: 0.75rem;">└─► Siguen <strong>${step.flowRemaining}/m</strong> (${step.beltContinue ? step.beltContinue.name : ''})</span>` 
+              ? `<span style="color: #94a3b8; font-size: 0.75rem;">└─► Siguen <strong>${step.flowRemaining} ${unit}</strong> (${step.beltContinue ? step.beltContinue.name : ''})</span>` 
               : `<span style="color: #4ade80; font-size: 0.75rem;">(Saturación 100%)</span>`
             }
           </div>
@@ -790,8 +861,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return `
       <div class="schematic-box">
         <div class="schematic-title">
-          <span>📐 Desglose Paso a Paso de Divisores (Manifold de ${flowSteps.length - 1} Splitters)</span>
-          <span style="color: ${flowSteps[0].beltIn.color}; font-size: 0.75rem;">Troncal: ${flowSteps[0].beltIn.name} (${flowSteps[0].flowIn}/m)</span>
+          <span>${manifoldTitle}</span>
+          <span style="color: ${flowSteps[0].beltIn.color}; font-size: 0.75rem;">${trunkLabel}: ${flowSteps[0].beltIn.name} (${flowSteps[0].flowIn} ${unit})</span>
         </div>
         <div class="splitter-step-list">
           ${rows}
@@ -905,34 +976,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }));
           }
 
-          // Individual Drills List HTML
+          // Individual Drills / Extractors List HTML
           const drillsListHtml = nodes.map((n, idx) => {
+            const isOil = raw.rawId === 'crude_oil';
+            const nodeTag = raw.isFluid 
+              ? (isOil ? `🛢️ Pozo #${n.nodeIndex}` : `💧 Extractor #${n.nodeIndex}`)
+              : `⛏️ Taladro #${n.nodeIndex}`;
+            const buildingSubName = raw.isFluid
+              ? (isOil ? 'Extractor de Petróleo (120 m³/m base)' : 'Extractor de Agua (120 m³/m base)')
+              : n.minerName;
+            const unit = raw.isFluid ? 'm³/m' : '/m';
+            const deleteTitle = raw.isFluid ? 'Eliminar este extractor' : 'Eliminar este taladro';
+            const purityImpureTitle = raw.isFluid ? 'Yacimiento Impuro (60 m³/m base)' : 'Mena Impura (0.5x velocidad)';
+            const purityNormalTitle = raw.isFluid ? 'Yacimiento Normal (120 m³/m base)' : 'Mena Normal (1.0x velocidad)';
+            const purityPureTitle = raw.isFluid ? 'Yacimiento Puro (240 m³/m base)' : 'Mena Pura (2.0x velocidad)';
+
             return `
               <div class="raw-drill-row">
                 <div class="drill-row-header">
                   <div style="display: flex; align-items: center; gap: 6px;">
-                    <span class="drill-tag">⛏️ Taladro #${n.nodeIndex}</span>
-                    <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;">${!raw.isFluid ? n.minerName : 'Extractor'}</span>
+                    <span class="drill-tag">${nodeTag}</span>
+                    <span style="font-size: 0.72rem; color: #94a3b8; font-weight: 600;">${buildingSubName}</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 8px;">
                     <span class="drill-output-badge" style="color: #4ade80;">
-                      <strong>+${n.outputRate}/m</strong>
+                      <strong>+${n.outputRate} ${unit}</strong>
                       <span style="color: ${n.belt.color}; font-size: 0.68rem; font-weight: 700;">(${n.belt.name})</span>
                     </span>
                     ${nodes.length > 1 ? `
-                      <button type="button" class="btn-remove-drill" data-raw="${raw.rawId}" data-index="${idx}" title="Eliminar este taladro">🗑️</button>
+                      <button type="button" class="btn-remove-drill" data-raw="${raw.rawId}" data-index="${idx}" title="${deleteTitle}">🗑️</button>
                     ` : ''}
                   </div>
                 </div>
 
                 <div class="drill-row-controls">
-                  <!-- Selector de Pureza de esta mena específica -->
+                  <!-- Selector de Pureza de este nodo específico -->
                   <div class="drill-control-group">
                     <span class="drill-sublabel">Pureza:</span>
                     <div class="raw-purity-group-sm">
-                      <button type="button" class="btn-node-purity ${n.purityKey === 'impure' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="impure" title="Mena Impura (0.5x velocidad)">Impuro</button>
-                      <button type="button" class="btn-node-purity ${n.purityKey === 'normal' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="normal" title="Mena Normal (1.0x velocidad)">Normal</button>
-                      <button type="button" class="btn-node-purity ${n.purityKey === 'pure' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="pure" title="Mena Pura (2.0x velocidad)">Puro</button>
+                      <button type="button" class="btn-node-purity ${n.purityKey === 'impure' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="impure" title="${purityImpureTitle}">${raw.isFluid ? 'Impuro (60)' : 'Impuro'}</button>
+                      <button type="button" class="btn-node-purity ${n.purityKey === 'normal' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="normal" title="${purityNormalTitle}">${raw.isFluid ? 'Normal (120)' : 'Normal'}</button>
+                      <button type="button" class="btn-node-purity ${n.purityKey === 'pure' ? 'active' : ''}" data-raw="${raw.rawId}" data-index="${idx}" data-purity="pure" title="${purityPureTitle}">${raw.isFluid ? 'Puro (240)' : 'Puro'}</button>
                     </div>
                   </div>
 
@@ -974,8 +1058,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${raw.isCovered ? `
                   <div class="raw-balance-pill covered">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                      <span>✅ <strong>Abastecido:</strong> ${raw.totalCapacity} /min extraídos</span>
-                      <span style="color: #4ade80; font-size: 0.72rem; font-weight: 800;">(Sobra +${raw.balance}/m)</span>
+                      <span>✅ <strong>Abastecido:</strong> ${raw.totalCapacity} ${raw.isFluid ? 'm³/m' : '/min'} extraídos</span>
+                      <span style="color: #4ade80; font-size: 0.72rem; font-weight: 800;">(Sobra +${raw.balance} ${raw.isFluid ? 'm³/m' : '/m'})</span>
                     </div>
                     <div style="font-size: 0.69rem; color: #cbd5e1; margin-top: 2px;">
                       💡 Reloj sugerido: <strong>${raw.optimalClock}%</strong> promedio para gasto exacto.
@@ -984,13 +1068,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 ` : `
                   <div class="raw-balance-pill deficit">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                      <span>⚠️ <strong>Déficit:</strong> ${raw.totalCapacity} /min extraídos</span>
-                      <span style="color: #ef4444; font-weight: 800; font-size: 0.72rem;">(Faltan ${Math.abs(raw.balance)}/m)</span>
+                      <span>⚠️ <strong>Déficit:</strong> ${raw.totalCapacity} ${raw.isFluid ? 'm³/m' : '/min'} extraídos</span>
+                      <span style="color: #ef4444; font-weight: 800; font-size: 0.72rem;">(Faltan ${Math.abs(raw.balance)} ${raw.isFluid ? 'm³/m' : '/m'})</span>
                     </div>
                     <div style="font-size: 0.69rem; color: #fca5a5; margin-top: 2px;">
-                      ${raw.requiredOverclock <= 250 
-                        ? `Añade otro taladro (+) o sube reloj al <strong>${raw.requiredOverclock}%</strong> con Fragmentos.` 
-                        : `Faltan taladros. Añade taladros con el botón (+) o mejora a Mk.2 / Mk.3.`}
+                      ${raw.isFluid 
+                        ? (raw.requiredOverclock <= 250 
+                            ? `Añade otro pozo/extractor (+) o sube reloj al <strong>${raw.requiredOverclock}%</strong> con Fragmentos.` 
+                            : `Faltan extractores. Añade pozos adicionales con el botón (+).`)
+                        : (raw.requiredOverclock <= 250 
+                            ? `Añade otro taladro (+) o sube reloj al <strong>${raw.requiredOverclock}%</strong> con Fragmentos.` 
+                            : `Faltan taladros. Añade taladros con el botón (+) o mejora a Mk.2 / Mk.3.`)}
                     </div>
                   </div>
                 `}
@@ -1000,10 +1088,10 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="margin-top: 4px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                   <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 800; text-transform: uppercase;">
-                    ⛏️ Taladros / Menas asignadas (${nodes.length}):
+                    ${raw.isFluid ? (raw.rawId === 'crude_oil' ? '🛢️ Pozos de Petróleo asignados' : '💧 Extractores asignados') : '⛏️ Taladros / Menas asignadas'} (${nodes.length}):
                   </span>
                   <button type="button" class="btn-node-auto" data-raw="${raw.rawId}" data-minnodes="${raw.minWholeNodes}">
-                    Auto (${raw.minWholeNodes} ${raw.minWholeNodes === 1 ? 'taladro' : 'taladros'})
+                    Auto (${raw.minWholeNodes} ${raw.minWholeNodes === 1 ? (raw.isFluid ? 'extractor' : 'taladro') : (raw.isFluid ? 'extractores' : 'taladros')})
                   </button>
                 </div>
 
@@ -1012,19 +1100,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <button type="button" class="btn-add-drill" data-raw="${raw.rawId}">
-                  <span>+ Añadir otro Taladro a este mineral</span>
+                  <span>+ Añadir otro ${raw.isFluid ? (raw.rawId === 'crude_oil' ? 'Pozo / Extractor de Petróleo' : 'Extractor de Agua') : 'Taladro a este mineral'}</span>
                 </button>
               </div>
 
-              <!-- Node & Belt info -->
+              <!-- Node & Belt/Pipe info -->
               <div style="margin-top: 6px; padding: 6px 8px; background: rgba(0,0,0,0.25); border-radius: 4px; font-size: 0.74rem; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
-                <span>Cinta troncal requerida:</span>
-                <strong style="color: ${belt.color}; font-size: 0.72rem;">${belt.name} (${belt.speed || belt.flow}/m)</strong>
+                <span>${raw.isFluid ? 'Tubería troncal requerida:' : 'Cinta troncal requerida:'}</span>
+                <strong style="color: ${belt.color}; font-size: 0.72rem;">${belt.name} (${belt.speed || belt.flow} ${raw.isFluid ? 'm³/m' : '/m'})</strong>
               </div>
 
               <!-- Button to adapt entire factory to this mineral's extraction rate -->
               <button type="button" class="btn-sync-factory-to-drill" data-raw="${raw.rawId}" data-capacity="${raw.totalCapacity}" data-nodes="${raw.userNodeCount}">
-                ⚡ Adaptar Fábrica a estos Taladros (${raw.totalCapacity}/m extraídos)
+                ⚡ Adaptar Fábrica a estos ${raw.isFluid ? 'Extractores' : 'Taladros'} (${raw.totalCapacity} ${raw.isFluid ? 'm³/m' : '/m'} extraídos)
               </button>
             </div>
           `;
@@ -1043,14 +1131,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // --- ETAPA 1: Nodos y Extracción en el Terreno ---
       if (plan.rawBreakdown.length > 0) {
+        const hasFluids = plan.rawBreakdown.some(r => r.isFluid);
+        const hasSolids = plan.rawBreakdown.some(r => !r.isFluid);
         let minersListHtml = '';
         plan.rawBreakdown.forEach(raw => {
-          const drillSubList = (raw.nodes || []).map(n => `
+          const drillSubList = (raw.nodes || []).map(n => {
+            const isOil = raw.rawId === 'crude_oil';
+            const nodeEmoji = raw.isFluid ? (isOil ? '🛢️' : '💧') : '⛏️';
+            const nodeLabel = raw.isFluid ? (isOil ? 'Pozo' : 'Extractor') : 'Taladro';
+            const unit = raw.isFluid ? 'm³/m' : '/m';
+            return `
             <div style="font-size: 0.72rem; color: #cbd5e1; display: flex; align-items: center; justify-content: space-between; padding: 3px 8px; background: rgba(0,0,0,0.25); border-radius: 4px; border-left: 2px solid ${n.purityColor};">
-              <span>⛏️ <strong>Taladro #${n.nodeIndex}:</strong> Mena ${n.purityName} (${n.minerName})</span>
-              <span style="color: #4ade80; font-weight: 700;">+${n.outputRate}/m <span style="color: ${n.belt.color}; font-size: 0.68rem;">(${n.belt.name})</span></span>
+              <span>${nodeEmoji} <strong>${nodeLabel} #${n.nodeIndex}:</strong> ${raw.isFluid ? 'Yacimiento' : 'Mena'} ${n.purityName} (${n.minerName})</span>
+              <span style="color: #4ade80; font-weight: 700;">+${n.outputRate} ${unit} <span style="color: ${n.belt.color}; font-size: 0.68rem;">(${n.belt.name})</span></span>
             </div>
-          `).join('');
+          `;
+          }).join('');
 
           minersListHtml += `
             <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.04);">
@@ -1058,9 +1154,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="display: flex; align-items: center; gap: 10px;">
                   ${getItemIcon(raw.rawId, 26)}
                   <div>
-                    <strong style="color: #f1f5f9; font-size: 0.9rem;">${raw.nodes ? raw.nodes.length : raw.userNodeCount}x Taladros &bull; ${raw.name}</strong>
+                    <strong style="color: #f1f5f9; font-size: 0.9rem;">${raw.nodes ? raw.nodes.length : raw.userNodeCount}x ${raw.isFluid ? 'Extractores' : 'Taladros'} &bull; ${raw.name}</strong>
                     <div style="font-size: 0.73rem; color: var(--text-muted);">
-                      Extracción total: <span style="color: #4ade80; font-weight: 800;">${raw.totalCapacity} ${raw.isFluid ? 'm³/m' : '/min'}</span> &bull; Necesario: ${raw.requiredRate}/m
+                      Extracción total: <span style="color: #4ade80; font-weight: 800;">${raw.totalCapacity} ${raw.isFluid ? 'm³/min' : '/min'}</span> &bull; Necesario: ${raw.requiredRate} ${raw.isFluid ? 'm³/min' : '/min'}
                     </div>
                   </div>
                 </div>
@@ -1077,14 +1173,21 @@ document.addEventListener('DOMContentLoaded', () => {
           `;
         });
 
+        const stage1Title = hasFluids && hasSolids 
+          ? 'ETAPA 1: Extracción en el Terreno (Mineros y Extractores de Petróleo)'
+          : (hasFluids ? 'ETAPA 1: Extracción en el Terreno (Extractores de Petróleo y Fluidos)' : 'ETAPA 1: Extracción en el Terreno (Nodos y Mineros)');
+        const stage1Subtitle = hasFluids
+          ? 'Coloca estos mineros y extractores sobre los yacimientos y conecta las cintas transportadoras y tuberías hacia tu fábrica'
+          : 'Coloca estos mineros sobre los yacimientos y lleva las cintas transportadoras a tu fábrica';
+
         pipeHtml += `
           <div class="phase-card">
             <div class="phase-header">
               <div style="display: flex; align-items: center; gap: 10px;">
                 <span class="phase-number" style="background: #0284c7; color: white;">1</span>
                 <div>
-                  <div class="phase-title" style="color: #38bdf8;">ETAPA 1: Extracción en el Terreno (Nodos y Mineros)</div>
-                  <div class="phase-subtitle">Coloca estos mineros sobre los yacimientos y lleva las cintas transportadoras a tu fábrica</div>
+                  <div class="phase-title" style="color: #38bdf8;">${stage1Title}</div>
+                  <div class="phase-subtitle">${stage1Subtitle}</div>
                 </div>
               </div>
               <span class="badge" style="background: rgba(250, 204, 21, 0.15); color: #facc15; border: 1px solid rgba(250, 204, 21, 0.3); font-weight: 800;">
@@ -1102,7 +1205,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="diagram-connector">
             <div class="connector-arrow">
               <span style="font-size: 1.1rem; line-height: 1;">⬇️</span>
-              <span class="connector-label">Transportar minerales crudos a las líneas de producción</span>
+              <span class="connector-label">Transportar minerales y fluidos crudos a las líneas de producción</span>
             </div>
           </div>
         `;
@@ -1114,18 +1217,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         stage.steps.forEach(step => {
           const outMeta = SATIS_DATA.items[step.itemId] || { name: step.itemId };
+          const isOutFluid = !!outMeta.isFluid;
+          const outUnit = isOutFluid ? 'm³/min' : '/min';
           const outRateTotal = Number((step.recipe.outputs[0].rate * step.machinesCount).toFixed(2));
 
           // Input Badges
           let inputsBadges = '';
           step.inputs.forEach(inp => {
             const inMeta = SATIS_DATA.items[inp.item] || SATIS_DATA.rawResources[inp.item] || { name: inp.item };
+            const isInFluid = !!inMeta.isFluid;
+            const inUnit = isInFluid ? 'm³/min' : '/min';
             const inRate = Number((inp.totalRate || inp.rateTotal || 0).toFixed(2));
-            const inBelt = inp.belt || (inMeta.isFluid ? SatisCalc.getPipeForRate(inRate) : SatisCalc.getBeltForRate(inRate));
+            const inBelt = inp.belt || (isInFluid ? SatisCalc.getPipeForRate(inRate) : SatisCalc.getBeltForRate(inRate));
             inputsBadges += `
               <div style="display: inline-flex; align-items: center; gap: 6px; background: #0b1120; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.74rem;">
                 ${getItemIcon(inp.item, 18)}
-                <span>${inRate}/min ${inMeta.name}</span>
+                <span>${inRate} ${inUnit} ${inMeta.name}</span>
                 <span style="color: ${inBelt.color}; font-weight: 700; font-size: 0.7rem;">(${inBelt.name})</span>
               </div>
             `;
@@ -1146,7 +1253,8 @@ document.addEventListener('DOMContentLoaded', () => {
               step.building.name,
               firstInpMeta.name,
               outMeta.name,
-              step.recipe.outputs[0].rate
+              step.recipe.outputs[0].rate,
+              !!firstInpMeta.isFluid
             );
           }
 
@@ -1174,7 +1282,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div style="display: flex; align-items: center; gap: 12px;">
                   <div style="display: flex; align-items: center; gap: 6px; background: rgba(74, 222, 128, 0.1); border: 1px solid rgba(74, 222, 128, 0.3); padding: 4px 10px; border-radius: 6px;">
                     ${getItemIcon(step.itemId, 20)}
-                    <span style="color: #4ade80; font-weight: 800; font-size: 0.9rem;">+${outRateTotal}/min ${outMeta.name}</span>
+                    <span style="color: #4ade80; font-weight: 800; font-size: 0.9rem;">+${outRateTotal} ${outUnit} ${outMeta.name}</span>
                   </div>
                   <span class="badge" style="background: rgba(250, 204, 21, 0.1); color: #facc15; border: 1px solid rgba(250, 204, 21, 0.2); font-weight: 700; font-size: 0.74rem;">
                     ⚡ ${step.totalPower} MW
@@ -1430,11 +1538,17 @@ document.addEventListener('DOMContentLoaded', () => {
         `);
       }
 
-      // Calculate total splitters
+      // Calculate total splitters and crucetas de tubería
       let totalSplitters = 0;
+      let totalCrosses = 0;
       plan.consolidatedSteps.forEach(s => {
         if (s.machinesCount > 1 && s.manifold) {
-          totalSplitters += (s.manifold.length - 1);
+          const firstInpMeta = SATIS_DATA.items[s.recipe.inputs[0]?.item] || SATIS_DATA.rawResources[s.recipe.inputs[0]?.item] || {};
+          if (firstInpMeta.isFluid) {
+            totalCrosses += (s.manifold.length - 1);
+          } else {
+            totalSplitters += (s.manifold.length - 1);
+          }
         }
       });
       if (totalSplitters > 0) {
@@ -1444,22 +1558,35 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         `);
       }
+      if (totalCrosses > 0) {
+        chipsArr.push(`
+          <div class="diagram-branch" style="border-left-color: #0284c7; padding: 6px 10px;">
+            <span>• <strong>${totalCrosses}x</strong> Crucetas de Tubería</span>
+          </div>
+        `);
+      }
 
       bChips.innerHTML = chipsArr.join('');
     }
 
-    // Belts summary in Right Column
+    // Belts & Pipes summary in Right Column
     const beltsBox = document.getElementById('builderBeltsLogistics');
     if (beltsBox) {
       let beltsSummary = '';
       if (plan.rawBreakdown.length > 0) {
         beltsSummary += `• <strong>Materias primas de entrada:</strong><br>`;
         plan.rawBreakdown.forEach(raw => {
-          beltsSummary += `&nbsp;&nbsp;- ${raw.name}: ${raw.userNodeCount}x ${raw.minerName} (${raw.purityName}) ➔ Troncal: ${raw.beltNeeded.name} (${raw.totalCapacity}/m extraídos)<br>`;
+          const unit = raw.isFluid ? 'm³/m' : '/m';
+          const transportType = raw.isFluid ? 'Tubería Troncal' : 'Cinta Troncal';
+          const extractorName = raw.isFluid 
+            ? (raw.rawId === 'crude_oil' ? 'Extractores de Petróleo' : 'Extractores de Agua')
+            : raw.minerName;
+          beltsSummary += `&nbsp;&nbsp;- ${raw.name}: ${raw.userNodeCount}x ${extractorName} (${raw.purityName}) ➔ ${transportType}: ${raw.beltNeeded.name} (${raw.totalCapacity} ${unit} extraídos)<br>`;
         });
       }
-      const finalBelt = SatisCalc.getBeltForRate(plan.targetRate);
-      beltsSummary += `• <strong>Línea final a almacenamiento:</strong> ${finalBelt.name} (${plan.targetRate}/m)<br>`;
+      const finalIsFluid = !!plan.targetMeta.isFluid;
+      const finalBelt = finalIsFluid ? SatisCalc.getPipeForRate(plan.targetRate) : SatisCalc.getBeltForRate(plan.targetRate);
+      beltsSummary += `• <strong>${finalIsFluid ? 'Tubería final a almacenamiento:' : 'Línea final a almacenamiento:'}</strong> ${finalBelt.name} (${plan.targetRate} ${finalIsFluid ? 'm³/m' : '/m'})<br>`;
       beltsSummary += `• <em>Balance FICSIT automático sin cuellos de botella.</em>`;
       beltsBox.innerHTML = beltsSummary;
     }
@@ -1745,11 +1872,14 @@ document.addEventListener('DOMContentLoaded', () => {
             machines.push(mObj);
             stepMachines.push(mObj);
 
-            // Splitters (si hay > 1 máquina en este paso)
+            // Splitters / Crucetas (si hay > 1 máquina en este paso)
+            const primaryInpMeta = SATIS_DATA.items[step.inputs[0]?.item] || SATIS_DATA.rawResources[step.inputs[0]?.item] || {};
+            const isInputFluid = !!primaryInpMeta.isFluid;
+
             if (count > 1) {
               const sX = mX - 24;
               const sY = mY + mHeight / 2 - 9;
-              const sObj = { id: `sp_${step.itemId}_${k}`, x: sX, y: sY, width: 18, height: 18, index: k + 1 };
+              const sObj = { id: `sp_${step.itemId}_${k}`, x: sX, y: sY, width: 18, height: 18, index: k + 1, isCross: isInputFluid };
               splitters.push(sObj);
               stepSplitters.push(sObj);
 
@@ -1759,7 +1889,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 toId: mObj.id,
                 itemId: step.inputs[0]?.item,
                 itemName: SATIS_DATA.items[step.inputs[0]?.item]?.name || step.inputs[0]?.item,
-                fromName: `Divisor #${k + 1}`,
+                fromName: isInputFluid ? `Cruceta #${k + 1}` : `Divisor #${k + 1}`,
                 toName: mObj.name,
                 x1: sX + 18, y1: sY + 9,
                 x2: mX, y2: mY + mHeight / 2,
@@ -1769,11 +1899,14 @@ document.addEventListener('DOMContentLoaded', () => {
               });
             }
 
-            // Mergers (si hay > 1 máquina en este paso)
+            // Mergers / Crucetas de Unión (si hay > 1 máquina en este paso)
+            const outItemMeta = SATIS_DATA.items[step.itemId] || {};
+            const isOutputFluid = !!outItemMeta.isFluid;
+
             if (count > 1) {
               const mgX = mX + mWidth + 6;
               const mgY = mY + mHeight / 2 - 9;
-              const mgObj = { id: `mg_${step.itemId}_${k}`, x: mgX, y: mgY, width: 18, height: 18, index: k + 1 };
+              const mgObj = { id: `mg_${step.itemId}_${k}`, x: mgX, y: mgY, width: 18, height: 18, index: k + 1, isCross: isOutputFluid };
               mergers.push(mgObj);
               stepMergers.push(mgObj);
 
@@ -2103,37 +2236,59 @@ document.addEventListener('DOMContentLoaded', () => {
     // Puntos de Entrada Exterior SVG
     let intakeSvg = '';
     intakePorts.forEach(inp => {
+      const headerTitle = inp.isFluid 
+        ? (inp.id === 'crude_oil' ? '🛢️ OLEODUCTO CRUDO' : '🚰 TUBERÍA EXTERIOR') 
+        : '📥 ENTRADA EXTERIOR';
+      const unit = inp.isFluid ? 'm³/min' : '/min';
       intakeSvg += `
         <g class="blueprint-intake" id="inp_${inp.id}" data-id="inp_${inp.id}" data-item="${inp.id}">
           <rect x="${inp.x}" y="${inp.y}" width="${inp.width}" height="${inp.height}" rx="5" fill="#0c1524" stroke="${inp.color}" stroke-width="1.6"/>
           <rect x="${inp.x + inp.width - 2}" y="${inp.y + inp.height/2 - 5}" width="4" height="10" fill="#4ade80" rx="2"/>
-          <text x="${inp.x + 8}" y="${inp.y + 14}" fill="#38bdf8" font-size="7.5" font-weight="800" letter-spacing="0.5">📥 ENTRADA EXTERIOR</text>
+          <text x="${inp.x + 8}" y="${inp.y + 14}" fill="#38bdf8" font-size="7.5" font-weight="800" letter-spacing="0.5">${headerTitle}</text>
           <text x="${inp.x + 8}" y="${inp.y + 27}" fill="#f8fafc" font-size="9.5" font-weight="800">${inp.name}</text>
-          <text x="${inp.x + 8}" y="${inp.y + 38}" fill="#94a3b8" font-size="8" font-weight="700">${inp.rate} /min &bull; <tspan fill="${inp.color}">${inp.belt.name}</tspan></text>
+          <text x="${inp.x + 8}" y="${inp.y + 38}" fill="#94a3b8" font-size="8" font-weight="700">${inp.rate} ${unit} &bull; <tspan fill="${inp.color}">${inp.belt.name}</tspan></text>
         </g>
       `;
     });
 
-    // Splitters SVG
+    // Splitters & Crucetas SVG
     let splittersSvg = '';
     splitters.forEach(s => {
-      splittersSvg += `
-        <g class="blueprint-splitter" id="${s.id}" data-id="${s.id}">
-          <rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" rx="3" fill="#78350f" stroke="#f59e0b" stroke-width="1.5"/>
-          <text x="${s.x + 9}" y="${s.y + 13}" fill="#fef08a" font-size="9.5" text-anchor="middle" font-weight="800">🔀</text>
-        </g>
-      `;
+      if (s.isCross) {
+        splittersSvg += `
+          <g class="blueprint-splitter" id="${s.id}" data-id="${s.id}">
+            <circle cx="${s.x + 9}" cy="${s.y + 9}" r="9" fill="#0369a1" stroke="#38bdf8" stroke-width="1.8"/>
+            <text x="${s.x + 9}" y="${s.y + 13}" fill="#e0f2fe" font-size="9.5" text-anchor="middle" font-weight="800">➕</text>
+          </g>
+        `;
+      } else {
+        splittersSvg += `
+          <g class="blueprint-splitter" id="${s.id}" data-id="${s.id}">
+            <rect x="${s.x}" y="${s.y}" width="${s.width}" height="${s.height}" rx="3" fill="#78350f" stroke="#f59e0b" stroke-width="1.5"/>
+            <text x="${s.x + 9}" y="${s.y + 13}" fill="#fef08a" font-size="9.5" text-anchor="middle" font-weight="800">🔀</text>
+          </g>
+        `;
+      }
     });
 
-    // Mergers SVG
+    // Mergers & Crucetas SVG
     let mergersSvg = '';
     mergers.forEach(mg => {
-      mergersSvg += `
-        <g class="blueprint-merger" id="${mg.id}" data-id="${mg.id}">
-          <rect x="${mg.x}" y="${mg.y}" width="${mg.width}" height="${mg.height}" rx="3" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.5"/>
-          <text x="${mg.x + 9}" y="${mg.y + 13}" fill="#e0f2fe" font-size="9.5" text-anchor="middle" font-weight="800">🔄</text>
-        </g>
-      `;
+      if (mg.isCross) {
+        mergersSvg += `
+          <g class="blueprint-merger" id="${mg.id}" data-id="${mg.id}">
+            <circle cx="${mg.x + 9}" cy="${mg.y + 9}" r="9" fill="#0284c7" stroke="#38bdf8" stroke-width="1.8"/>
+            <text x="${mg.x + 9}" y="${mg.y + 13}" fill="#e0f2fe" font-size="9.5" text-anchor="middle" font-weight="800">➕</text>
+          </g>
+        `;
+      } else {
+        mergersSvg += `
+          <g class="blueprint-merger" id="${mg.id}" data-id="${mg.id}">
+            <rect x="${mg.x}" y="${mg.y}" width="${mg.width}" height="${mg.height}" rx="3" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.5"/>
+            <text x="${mg.x + 9}" y="${mg.y + 13}" fill="#e0f2fe" font-size="9.5" text-anchor="middle" font-weight="800">🔄</text>
+          </g>
+        `;
+      }
     });
 
     // Máquinas SVG
@@ -2184,6 +2339,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Contenedor de Salida Final SVG
     const d = model.delivery;
+    const finalIsFluid = !!plan.targetMeta.isFluid;
     const finalIconImg = `images/items/${plan.targetGoal}.png`;
     const deliverySvg = `
       <g class="blueprint-delivery" id="delivery" data-id="delivery" data-item="${plan.targetGoal}" transform="translate(${d.x}, ${d.y})">
@@ -2193,12 +2349,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         <circle cx="${d.width - 11}" cy="13" r="3" fill="#4ade80" filter="url(#bpGlow)"/>
         
-        <image href="${finalIconImg}" x="8" y="8" width="26" height="26" onerror="this.outerHTML='<text x=8 y=26 font-size=18>📦</text>'"/>
+        <image href="${finalIconImg}" x="8" y="8" width="26" height="26" onerror="this.outerHTML='<text x=8 y=26 font-size=18>${finalIsFluid ? '🛢️' : '📦'}</text>'"/>
         
-        <text x="38" y="18" fill="#4ade80" font-size="8" font-weight="800" letter-spacing="0.5">📦 SALIDA FINAL</text>
-        <text x="38" y="31" fill="#ffffff" font-size="10.5" font-weight="900">+${plan.targetRate} /min</text>
+        <text x="38" y="18" fill="#4ade80" font-size="8" font-weight="800" letter-spacing="0.5">${finalIsFluid ? '🛢️ DEPÓSITO FINAL' : '📦 SALIDA FINAL'}</text>
+        <text x="38" y="31" fill="#ffffff" font-size="10.5" font-weight="900">+${plan.targetRate} ${finalIsFluid ? 'm³/min' : '/min'}</text>
         <text x="8" y="47" fill="#cbd5e1" font-size="8.5" font-weight="700">${plan.targetMeta.name}</text>
-        <text x="8" y="58" fill="${d.belt.color}" font-size="7.5" font-weight="700">➔ Cinta: ${d.belt.name}</text>
+        <text x="8" y="58" fill="${d.belt.color}" font-size="7.5" font-weight="700">➔ ${finalIsFluid ? 'Tubería' : 'Cinta'}: ${d.belt.name}</text>
       </g>
     `;
 
@@ -3148,6 +3304,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Miners Controls
     sbResourceSelect.addEventListener('change', (e) => {
       state.sandbox.resource = e.target.value;
+      const resMeta = SATIS_DATA.rawResources[state.sandbox.resource] || {};
+      if (resMeta.isFluid) {
+        state.sandbox.minerTier = state.sandbox.resource === 'crude_oil' ? 'oil_extractor' : 'water_extractor';
+        sbMinerTierSelect.value = state.sandbox.minerTier;
+        btnSbModeMiners.innerHTML = `<span>🛢️ Pozos / Extractores</span>`;
+        btnSbModeFree.innerHTML = `<span>🚰 Caudal Libre en Tubería</span>`;
+      } else {
+        if (state.sandbox.minerTier === 'oil_extractor' || state.sandbox.minerTier === 'water_extractor') {
+          state.sandbox.minerTier = 'miner_mk1';
+          sbMinerTierSelect.value = state.sandbox.minerTier;
+        }
+        btnSbModeMiners.innerHTML = `<span>⛏️ Desde Nodos y Mineros</span>`;
+        btnSbModeFree.innerHTML = `<span>📦 Flujo Libre en Cinta</span>`;
+      }
+      if (state.sandbox.minerNodes) {
+        state.sandbox.minerNodes.forEach(n => { n.minerTier = state.sandbox.minerTier; });
+      }
       checkAutoSmeltVisibility();
       if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
       updateSandbox();
@@ -3220,8 +3393,17 @@ document.addEventListener('DOMContentLoaded', () => {
         <option value="${r.id}">${r.name} (${r.category})</option>
       `).join('');
       sbSecondaryResourceSelect.value = state.sandbox.secondaryResource || 'coal';
+
       sbSecondaryResourceSelect.addEventListener('change', (e) => {
         state.sandbox.secondaryResource = e.target.value;
+        const secResMeta = SATIS_DATA.rawResources[state.sandbox.secondaryResource] || {};
+        if (secResMeta.isFluid) {
+          state.sandbox.secondaryMinerTier = state.sandbox.secondaryResource === 'crude_oil' ? 'oil_extractor' : 'water_extractor';
+          if (sbSecondaryMinerTierSelect) sbSecondaryMinerTierSelect.value = state.sandbox.secondaryMinerTier;
+        } else if (state.sandbox.secondaryMinerTier === 'oil_extractor' || state.sandbox.secondaryMinerTier === 'water_extractor') {
+          state.sandbox.secondaryMinerTier = 'miner_mk1';
+          if (sbSecondaryMinerTierSelect) sbSecondaryMinerTierSelect.value = state.sandbox.secondaryMinerTier;
+        }
         if (state.sandbox.autoBalance) applyAutoBalanceToBranches();
         updateSandbox();
       });
@@ -3543,11 +3725,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const secTotalRate = Number((secExt.rate * secCount).toFixed(2));
       const secPower = Number((secExt.powerMw * secCount).toFixed(1));
       const secMeta = SATIS_DATA.rawResources[secRes] || { name: secRes };
-      const secBelt = SatisCalc.getBeltForRate(secTotalRate);
+      const secIsFluid = !!secMeta.isFluid;
+      const secBelt = secIsFluid ? SatisCalc.getPipeForRate(secTotalRate) : SatisCalc.getBeltForRate(secTotalRate);
       secondarySupply = {
         item: secRes,
         itemName: secMeta.name,
         rate: secTotalRate,
+        isFluid: secIsFluid,
         purity: secPurity,
         minerTier: secTier,
         minerCount: secCount,
@@ -3579,6 +3763,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rawRate = Number(rawRate.toFixed(2));
       minerPower = Number(minerPower.toFixed(1));
       const rawMeta = SATIS_DATA.rawResources[state.sandbox.resource] || { name: state.sandbox.resource };
+      const isRawFluid = !!rawMeta.isFluid;
 
       const smeltRecipe = SATIS_DATA.recipes.find(r => 
         r.building === 'smelter' && !r.isAlt && r.inputs.some(inp => inp.item === state.sandbox.resource)
@@ -3599,6 +3784,7 @@ document.addEventListener('DOMContentLoaded', () => {
           rawRate: rawRate,
           rawItem: state.sandbox.resource,
           rawItemName: rawMeta.name,
+          isFluid: false,
           isSmelted: true,
           smeltRecipe: smeltRecipe,
           smeltersNeeded: smeltersNeeded,
@@ -3614,6 +3800,7 @@ document.addEventListener('DOMContentLoaded', () => {
           rawRate: rawRate,
           rawItem: state.sandbox.resource,
           rawItemName: rawMeta.name,
+          isFluid: isRawFluid,
           isSmelted: false,
           smeltRecipe: null,
           smeltersNeeded: 0,
@@ -3626,6 +3813,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const freeItem = state.sandbox.freeItem;
       const itemMeta = SATIS_DATA.items[freeItem] || SATIS_DATA.rawResources[freeItem] || { name: freeItem };
       const rate = Math.max(0, Number(state.sandbox.freeRate) || 0);
+      const isFreeFluid = !!itemMeta.isFluid;
       return {
         item: freeItem,
         itemName: itemMeta.name,
@@ -3633,6 +3821,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rawRate: rate,
         rawItem: freeItem,
         rawItemName: itemMeta.name,
+        isFluid: isFreeFluid,
         isSmelted: false,
         smeltRecipe: null,
         smeltersNeeded: 0,
@@ -3671,14 +3860,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const supply = getSandboxSupply();
-    const trunkBelt = SatisCalc.getBeltForRate(supply.rate);
+    const trunkBelt = supply.isFluid ? SatisCalc.getPipeForRate(supply.rate) : SatisCalc.getBeltForRate(supply.rate);
 
     // Update badges
     const sbAvailableBadge = document.getElementById('sbAvailableBadge');
     if (sbAvailableBadge) {
-      let badgeHtml = `<span>${trunkBelt.name}:</span> <strong>${supply.rate.toFixed(1)} /min ${supply.itemName}</strong>`;
+      let badgeHtml = `<span>${trunkBelt.name}:</span> <strong>${supply.rate.toFixed(1)} ${supply.isFluid ? 'm³/min' : '/min'} ${supply.itemName}</strong>`;
       if (supply.secondary) {
-        badgeHtml += ` <span style="margin-left: 8px; padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.25); color: #38bdf8;">⛏️ ${supply.secondary.rate.toFixed(1)} /min ${supply.secondary.itemName} (${supply.secondary.recommendedBelt.name})</span>`;
+        const secIcon = supply.secondary.isFluid ? '🛢️' : '⛏️';
+        const secUnit = supply.secondary.isFluid ? 'm³/min' : '/min';
+        badgeHtml += ` <span style="margin-left: 8px; padding-left: 8px; border-left: 1px solid rgba(255,255,255,0.25); color: #38bdf8;">${secIcon} ${supply.secondary.rate.toFixed(1)} ${secUnit} ${supply.secondary.itemName} (${supply.secondary.recommendedBelt.name})</span>`;
       }
       sbAvailableBadge.innerHTML = badgeHtml;
       sbAvailableBadge.style.color = trunkBelt.color;
@@ -3690,11 +3881,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (supply.isSmelted) {
         sbSmeltBadge.textContent = `🔥 ${supply.rate.toFixed(1)} Lingotes/min (${supply.smeltersNeeded} Hornos - ${supply.smelterPower.toFixed(1)} MW)`;
       } else {
-        sbSmeltBadge.textContent = `Mineral directo sin fundición previa`;
+        sbSmeltBadge.textContent = supply.isFluid ? `🚰 Flujo de fluido directo en tubería` : `Mineral directo sin fundición previa`;
       }
     }
 
-    // Render individual miners in sandbox if minerCount > 1
+    // Render individual miners / extractors in sandbox if minerCount > 1
     const sbIndivMinersContainer = document.getElementById('sbIndividualMinersContainer');
     const sbIndivMinersList = document.getElementById('sbIndividualMinersList');
     if (sbIndivMinersContainer && sbIndivMinersList) {
@@ -3702,12 +3893,17 @@ document.addEventListener('DOMContentLoaded', () => {
         sbIndivMinersContainer.style.display = 'block';
         sbIndivMinersList.innerHTML = (state.sandbox.minerNodes || []).map((n, idx) => {
           const calc = SatisCalc.calculateExtraction(n.purity, n.minerTier, 100);
+          const isOil = state.sandbox.resource === 'crude_oil';
+          const nodeTag = supply.isFluid 
+            ? (isOil ? `🛢️ Pozo #${idx + 1}` : `💧 Extractor #${idx + 1}`) 
+            : `⛏️ Taladro #${idx + 1}`;
+          const unit = supply.isFluid ? 'm³/m' : '/m';
           return `
             <div class="raw-drill-row">
               <div class="drill-row-header">
-                <span class="drill-tag">⛏️ Taladro #${idx + 1}</span>
+                <span class="drill-tag">${nodeTag}</span>
                 <span class="drill-output-badge" style="color: #4ade80;">
-                  <strong>+${calc.rate}/m</strong>
+                  <strong>+${calc.rate} ${unit}</strong>
                   <span style="color: ${calc.recommendedBelt.color}; font-size: 0.68rem; font-weight: 700;">(${calc.recommendedBelt.name})</span>
                 </span>
               </div>
@@ -3715,19 +3911,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="drill-control-group">
                   <span class="drill-sublabel">Pureza:</span>
                   <div class="raw-purity-group-sm">
-                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'impure' ? 'active' : ''}" data-index="${idx}" data-purity="impure">Impuro</button>
-                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'normal' ? 'active' : ''}" data-index="${idx}" data-purity="normal">Normal</button>
-                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'pure' ? 'active' : ''}" data-index="${idx}" data-purity="pure">Puro</button>
+                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'impure' ? 'active' : ''}" data-index="${idx}" data-purity="impure">${supply.isFluid ? 'Impuro (60)' : 'Impuro'}</button>
+                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'normal' ? 'active' : ''}" data-index="${idx}" data-purity="normal">${supply.isFluid ? 'Normal (120)' : 'Normal'}</button>
+                    <button type="button" class="btn-node-purity btn-sb-node-purity ${n.purity === 'pure' ? 'active' : ''}" data-index="${idx}" data-purity="pure">${supply.isFluid ? 'Puro (240)' : 'Puro'}</button>
                   </div>
                 </div>
-                <div class="drill-control-group">
-                  <span class="drill-sublabel">Nivel:</span>
-                  <div class="raw-miner-group-sm">
-                    <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk1' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk1">Mk.1</button>
-                    <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk2' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk2">Mk.2</button>
-                    <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk3' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk3">Mk.3</button>
+                ${!supply.isFluid ? `
+                  <div class="drill-control-group">
+                    <span class="drill-sublabel">Nivel:</span>
+                    <div class="raw-miner-group-sm">
+                      <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk1' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk1">Mk.1</button>
+                      <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk2' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk2">Mk.2</button>
+                      <button type="button" class="btn-node-miner btn-sb-node-miner ${n.minerTier === 'miner_mk3' ? 'active' : ''}" data-index="${idx}" data-miner="miner_mk3">Mk.3</button>
+                    </div>
                   </div>
-                </div>
+                ` : `
+                  <div class="drill-control-group">
+                    <span class="drill-sublabel">Edificio:</span>
+                    <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700;">${isOil ? 'Extractor de Petróleo (120 base)' : 'Extractor de Agua (120 base)'}</span>
+                  </div>
+                `}
               </div>
             </div>
           `;
@@ -4249,35 +4452,59 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         `);
       }
-      if (totalSplitters > 0) {
-        chips.push(`
-          <div class="diagram-branch" style="border-left-color: #f59e0b; padding: 6px 10px;">
-            <span>• <strong>${totalSplitters}x</strong> Divisores (Splitters)</span>
-          </div>
-        `);
-      }
-      if (internalMergers > 0) {
-        chips.push(`
-          <div class="diagram-branch" style="border-left-color: #38bdf8; padding: 6px 10px;">
-            <span>• <strong>${internalMergers}x</strong> Unidores (Mergers)</span>
-          </div>
-        `);
+      if (supply.isFluid) {
+        if (totalSplitters > 0 || internalMergers > 0) {
+          const totalCrucetas = totalSplitters + internalMergers;
+          chips.push(`
+            <div class="diagram-branch" style="border-left-color: #38bdf8; padding: 6px 10px;">
+              <span>• <strong>${totalCrucetas}x</strong> Crucetas de Tubería (Pipe Junctions)</span>
+            </div>
+          `);
+        }
+      } else {
+        if (totalSplitters > 0) {
+          chips.push(`
+            <div class="diagram-branch" style="border-left-color: #f59e0b; padding: 6px 10px;">
+              <span>• <strong>${totalSplitters}x</strong> Divisores (Splitters)</span>
+            </div>
+          `);
+        }
+        if (internalMergers > 0) {
+          chips.push(`
+            <div class="diagram-branch" style="border-left-color: #38bdf8; padding: 6px 10px;">
+              <span>• <strong>${internalMergers}x</strong> Unidores (Mergers)</span>
+            </div>
+          `);
+        }
       }
       bChipsContainer.innerHTML = chips.join('');
     }
 
-    // Belts Logistics Box
+    // Belts & Pipes Logistics Box
     const beltsBox = document.getElementById('sbBeltsLogistics');
+    const beltsTitle = document.getElementById('sbBeltsLogisticsTitle');
+    if (beltsTitle) {
+      beltsTitle.innerHTML = supply.isFluid ? '🚰 TUBERÍAS Y LOGÍSTICA RECOMENDADA:' : '📦 CINTAS RECOMENDADAS:';
+    }
     if (beltsBox) {
-      let bLines = [`• <strong>Troncal principal:</strong> ${trunkBelt.name} (${supply.rate.toFixed(1)}/m)`];
+      const trunkUnit = supply.isFluid ? ' m³/min' : '/m';
+      let bLines = [`• <strong>Troncal principal:</strong> ${trunkBelt.name} (${supply.rate.toFixed(1)}${trunkUnit})`];
       branchDetails.forEach((d, idx) => {
-        bLines.push(`• <strong>Entrada Rama #${idx + 1}:</strong> ${d.feederBelt.name} (${d.supplyIntakeRate}/m de ${supply.itemName})`);
+        const inFluid = !!supply.isFluid;
+        const inUnit = inFluid ? ' m³/min' : '/m';
+        bLines.push(`• <strong>Entrada Rama #${idx + 1}:</strong> ${d.feederBelt.name} (${d.supplyIntakeRate}${inUnit} de ${supply.itemName})`);
         if (!d.isDirect) {
           d.intermediateSteps.forEach(s => {
-            bLines.push(`  - Cinta interna [${s.itemName}]: ${s.outBelt.name} (${s.outputRate}/m)`);
+            const sItemMeta = SATIS_DATA.items[s.itemId] || SATIS_DATA.rawResources[s.itemId] || { isFluid: false };
+            const sFluid = !!sItemMeta.isFluid;
+            const sUnit = sFluid ? ' m³/min' : '/m';
+            const conduitLabel = sFluid ? 'Tubería interna' : 'Cinta interna';
+            bLines.push(`  - ${conduitLabel} [${s.itemName}]: ${s.outBelt.name} (${s.outputRate}${sUnit})`);
           });
         }
-        bLines.push(`• <strong>Salida Rama #${idx + 1}:</strong> ${d.outBelt.name} (${d.branchOutputTotal}/m ${d.outItemMeta.name})`);
+        const outFluid = !!d.outItemMeta.isFluid;
+        const outUnit = outFluid ? ' m³/min' : '/m';
+        bLines.push(`• <strong>Salida Rama #${idx + 1}:</strong> ${d.outBelt.name} (${d.branchOutputTotal}${outUnit} ${d.outItemMeta.name})`);
       });
       beltsBox.innerHTML = bLines.join('<br>');
     }
@@ -4780,25 +5007,35 @@ document.addEventListener('DOMContentLoaded', () => {
     svg += `
       <rect x="40" y="20" width="${totalW - 80}" height="48" rx="8" fill="#0d1728" stroke="#1e293b" stroke-width="1.5" />
       <text x="60" y="50" font-size="14" font-weight="900" fill="#f8fafc" letter-spacing="0.5">
-        📐 PLANO AÉREO 2D &bull; DISTRIBUCIÓN FICSIT Y DIVISIÓN POR SPLITTERS
+        📐 PLANO AÉREO 2D &bull; DISTRIBUCIÓN FICSIT Y DIVISIÓN POR ${supply.isFluid ? 'CRUCETAS DE TUBERÍA' : 'SPLITTERS'}
       </text>
       <text x="${totalW - 60}" y="50" text-anchor="end" font-size="12" font-weight="700" fill="#38bdf8">
-        Suministro: ${supply.rate.toFixed(1)} ${supply.itemName}/min &bull; ${branchDetails.length} Ramas
+        Suministro: ${supply.rate.toFixed(1)} ${supply.isFluid ? 'm³/min' : '/min'} ${supply.itemName} &bull; ${branchDetails.length} Ramas
       </text>
     `;
 
     // 1. EXTRACTION STATION (LEFT COLUMN)
     const minerH = 140;
     const isMultiMiner = (supply.minerNodes && supply.minerNodes.length > 1);
-    const minerTierName = SATIS_DATA.miners[supply.minerTier]?.name || 'Minero Mk.1';
+    const minerTierName = SATIS_DATA.miners[supply.minerTier]?.name || (supply.isFluid ? 'Extractor de Petróleo' : 'Minero Mk.1');
     const purityName = (supply.purity === 'pure') ? 'Pura' : (supply.purity === 'impure') ? 'Impura' : 'Normal';
+    const isOil = state.sandbox.resource === 'crude_oil';
+    const extractorTitle = supply.isFluid 
+      ? (isOil ? '🛢️ POZO / EXTRACTOR' : '💧 EXTRACTOR DE AGUA') 
+      : '⛏️ EXTRACCIÓN PRIMARIA';
+    const unit = supply.isFluid ? 'm³/min' : '/min';
+    const buildingSubDetail = isMultiMiner 
+      ? (supply.isFluid ? `${supply.minerNodes.length}x Extractores Combinados` : `${supply.minerNodes.length}x Taladros Combinados`) 
+      : `${minerTierName} (${purityName})`;
+    const minerStroke = supply.isFluid ? '#0284c7' : '#ea580c';
+    const minerGrad = supply.isFluid ? 'url(#sbSecMinerGrad)' : 'url(#sbMinerGrad)';
 
     svg += `
       <g class="blueprint-node-miner" data-name="${supply.rawItemName}" data-rate="${supply.rawRate}" data-power="${supply.minerPower}">
-        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="${minerH}" rx="10" fill="#0f172a" stroke="#ea580c" stroke-width="2" />
-        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="28" rx="8" fill="url(#sbMinerGrad)" />
+        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="${minerH}" rx="10" fill="#0f172a" stroke="${minerStroke}" stroke-width="2" />
+        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="28" rx="8" fill="${minerGrad}" />
         <text x="${X_MINERS + 12}" y="${startY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
-          ⛏️ EXTRACCIÓN PRIMARIA
+          ${extractorTitle}
         </text>
 
         <text x="${X_MINERS + 14}" y="${startY + 56}" font-size="13" font-weight="800" fill="#f8fafc">
@@ -4806,11 +5043,11 @@ document.addEventListener('DOMContentLoaded', () => {
         </text>
 
         <text x="${X_MINERS + 14}" y="${startY + 84}" font-size="18" font-weight="900" fill="#4ade80">
-          +${supply.rawRate.toFixed(1)} <tspan font-size="12" font-weight="700" fill="#94a3b8">/min</tspan>
+          +${supply.rawRate.toFixed(1)} <tspan font-size="12" font-weight="700" fill="#94a3b8">${unit}</tspan>
         </text>
 
         <text x="${X_MINERS + 14}" y="${startY + 110}" font-size="10.5" font-weight="700" fill="#cbd5e1">
-          ${isMultiMiner ? `${supply.minerNodes.length}x Taladros Combinados` : `${minerTierName} (${purityName})`}
+          ${buildingSubDetail}
         </text>
 
         <text x="${X_MINERS + 14}" y="${startY + 126}" font-size="9.5" font-weight="600" fill="#94a3b8">
@@ -4824,15 +5061,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const sec = supply.secondary;
       const secY = startY + 160;
       const secH = 125;
-      const secTierName = SATIS_DATA.miners[sec.minerTier]?.name || 'Minero Mk.1';
+      const secTierName = SATIS_DATA.miners[sec.minerTier]?.name || (sec.isFluid ? 'Extractor' : 'Minero Mk.1');
       const secPurityName = (sec.purity === 'pure') ? 'Pura' : (sec.purity === 'impure') ? 'Impura' : 'Normal';
+      const secIsOil = sec.item === 'crude_oil';
+      const secTitle = sec.isFluid ? (secIsOil ? '🛢️ POZO DE PETRÓLEO' : '💧 EXTRACTOR DE AGUA') : '⛏️ SEGUNDO MINERAL';
+      const secUnit = sec.isFluid ? 'm³/min' : '/min';
 
       svg += `
         <g class="blueprint-node-miner" data-name="${sec.itemName}" data-rate="${sec.rate}" data-power="${sec.powerMw}">
           <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="${secH}" rx="10" fill="#08182b" stroke="#0284c7" stroke-width="2" />
           <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="28" rx="8" fill="url(#sbSecMinerGrad)" />
           <text x="${X_MINERS + 12}" y="${secY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
-            ⛏️ SEGUNDO MINERAL
+            ${secTitle}
           </text>
 
           <text x="${X_MINERS + 14}" y="${secY + 52}" font-size="13" font-weight="800" fill="#f8fafc">
@@ -4840,7 +5080,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </text>
 
           <text x="${X_MINERS + 14}" y="${secY + 78}" font-size="17" font-weight="900" fill="#38bdf8">
-            +${sec.rate.toFixed(1)} <tspan font-size="11" font-weight="700" fill="#94a3b8">/min</tspan>
+            +${sec.rate.toFixed(1)} <tspan font-size="11" font-weight="700" fill="#94a3b8">${secUnit}</tspan>
           </text>
 
           <text x="${X_MINERS + 14}" y="${secY + 100}" font-size="10" font-weight="700" fill="#cbd5e1">
@@ -4902,17 +5142,19 @@ document.addEventListener('DOMContentLoaded', () => {
         </text>
       `;
     } else {
-      // No Smelter: Conveyor directly from Miner to Splitter #1
+      // Direct transport to Splitter / Cruceta #1
+      const trunkStroke = supply.isFluid ? '#0284c7' : '#f97316';
+      const trunkMarker = supply.isFluid ? 'url(#sbArrowCyan)' : 'url(#sbArrowOrange)';
       svg += `
-        <line x1="${X_MINERS + W_MINERS}" y1="${startY + 70}" x2="${X_SPLITTER}" y2="${startY + 70}" stroke="#f97316" stroke-width="6" stroke-dasharray="8 4" marker-end="url(#sbArrowOrange)" />
-        <rect x="${X_MINERS + W_MINERS + 10}" y="${startY + 48}" width="50" height="18" rx="4" fill="#0f172a" stroke="#f97316" stroke-width="1" />
-        <text x="${X_MINERS + W_MINERS + 35}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="#f97316">
-          ${supply.rate.toFixed(0)}/m
+        <line x1="${X_MINERS + W_MINERS}" y1="${startY + 70}" x2="${X_SPLITTER}" y2="${startY + 70}" stroke="${trunkStroke}" stroke-width="6" stroke-dasharray="8 4" marker-end="${trunkMarker}" />
+        <rect x="${X_MINERS + W_MINERS + 10}" y="${startY + 48}" width="65" height="18" rx="4" fill="#0f172a" stroke="${trunkStroke}" stroke-width="1" />
+        <text x="${X_MINERS + W_MINERS + 42}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="${trunkStroke}">
+          ${supply.rate.toFixed(0)} ${supply.isFluid ? 'm³/m' : '/m'}
         </text>
       `;
     }
 
-    // 3. TRUNK CONVEYOR & PHYSICAL SPLITTERS
+    // 3. TRUNK CONDUIT & PHYSICAL SPLITTERS / CRUCETAS
     let currentFlow = supply.rate;
     const splPositions = [];
 
@@ -4923,38 +5165,54 @@ document.addEventListener('DOMContentLoaded', () => {
       const passFlow = Math.max(0, Number((currentFlow - divertedFlow).toFixed(2)));
       splPositions.push({ splY, inFlow: currentFlow, divertedFlow, passFlow });
 
-      // Vertical connecting conveyor between splitters
+      // Vertical connecting conduit between splitters / crosses
       if (idx > 0) {
         const prevSplY = splPositions[idx - 1].splY;
+        const vertStroke = supply.isFluid ? '#0284c7' : '#facc15';
+        const vertMarker = supply.isFluid ? 'url(#sbArrowCyan)' : 'url(#sbArrowYellow)';
         svg += `
-          <line x1="${X_SPLITTER + 35}" y1="${prevSplY + 45}" x2="${X_SPLITTER + 35}" y2="${splY}" stroke="#facc15" stroke-width="5" stroke-dasharray="6 3" marker-end="url(#sbArrowYellow)" />
-          <rect x="${X_SPLITTER + 42}" y="${(prevSplY + 45 + splY) / 2 - 9}" width="46" height="16" rx="3" fill="#0f172a" stroke="#facc15" stroke-width="1" />
-          <text x="${X_SPLITTER + 65}" y="${(prevSplY + 45 + splY) / 2 + 3}" text-anchor="middle" font-size="8.5" font-weight="800" fill="#facc15">
-            ${currentFlow.toFixed(0)}/m
+          <line x1="${X_SPLITTER + 35}" y1="${prevSplY + 45}" x2="${X_SPLITTER + 35}" y2="${splY}" stroke="${vertStroke}" stroke-width="5" stroke-dasharray="6 3" marker-end="${vertMarker}" />
+          <rect x="${X_SPLITTER + 42}" y="${(prevSplY + 45 + splY) / 2 - 9}" width="55" height="16" rx="3" fill="#0f172a" stroke="${vertStroke}" stroke-width="1" />
+          <text x="${X_SPLITTER + 69}" y="${(prevSplY + 45 + splY) / 2 + 3}" text-anchor="middle" font-size="8.5" font-weight="800" fill="${vertStroke}">
+            ${currentFlow.toFixed(0)} ${supply.isFluid ? 'm³/m' : '/m'}
           </text>
         `;
       }
 
-      // Splitter Box
-      svg += `
-        <g class="blueprint-node-splitter" data-split-index="${idx}" data-in="${currentFlow}" data-divert="${divertedFlow}" data-pass="${passFlow}">
-          <rect x="${X_SPLITTER}" y="${splY}" width="${W_SPLITTER}" height="45" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2" />
-          <text x="${X_SPLITTER + 35}" y="${splY + 20}" text-anchor="middle" font-size="11" font-weight="900" fill="#f59e0b">
-            🔀 S#${idx + 1}
-          </text>
-          <text x="${X_SPLITTER + 35}" y="${splY + 35}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fed7aa">
-            -${divertedFlow.toFixed(0)}/m
-          </text>
-        </g>
-      `;
+      // Splitter / Cruceta Box
+      if (supply.isFluid) {
+        svg += `
+          <g class="blueprint-node-splitter" data-split-index="${idx}" data-in="${currentFlow}" data-divert="${divertedFlow}" data-pass="${passFlow}">
+            <rect x="${X_SPLITTER}" y="${splY}" width="${W_SPLITTER}" height="45" rx="6" fill="#0c2d48" stroke="#38bdf8" stroke-width="2" />
+            <text x="${X_SPLITTER + 35}" y="${splY + 20}" text-anchor="middle" font-size="11" font-weight="900" fill="#38bdf8">
+              ➕ C#${idx + 1}
+            </text>
+            <text x="${X_SPLITTER + 35}" y="${splY + 35}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#bae6fd">
+              -${divertedFlow.toFixed(0)} m³/m
+            </text>
+          </g>
+        `;
+      } else {
+        svg += `
+          <g class="blueprint-node-splitter" data-split-index="${idx}" data-in="${currentFlow}" data-divert="${divertedFlow}" data-pass="${passFlow}">
+            <rect x="${X_SPLITTER}" y="${splY}" width="${W_SPLITTER}" height="45" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2" />
+            <text x="${X_SPLITTER + 35}" y="${splY + 20}" text-anchor="middle" font-size="11" font-weight="900" fill="#f59e0b">
+              🔀 S#${idx + 1}
+            </text>
+            <text x="${X_SPLITTER + 35}" y="${splY + 35}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fed7aa">
+              -${divertedFlow.toFixed(0)}/m
+            </text>
+          </g>
+        `;
+      }
 
-      // Branch Infeed Conveyor (Splitter -> Branch Bay)
-      const feedBeltColor = d.color || '#38bdf8';
+      // Branch Infeed Conduit (Splitter/Cruceta -> Branch Bay)
+      const feedBeltColor = d.color || (supply.isFluid ? '#0284c7' : '#38bdf8');
       svg += `
         <line x1="${X_SPLITTER + W_SPLITTER}" y1="${splY + 22}" x2="${X_BRANCH_START}" y2="${splY + 22}" stroke="${feedBeltColor}" stroke-width="6" stroke-dasharray="6 3" marker-end="url(#sbArrowCyan)" />
-        <rect x="${X_SPLITTER + W_SPLITTER + 10}" y="${splY + 10}" width="58" height="18" rx="4" fill="#0f172a" stroke="${feedBeltColor}" stroke-width="1" />
-        <text x="${X_SPLITTER + W_SPLITTER + 39}" y="${splY + 23}" text-anchor="middle" font-size="9" font-weight="800" fill="${feedBeltColor}">
-          ➔ ${divertedFlow.toFixed(0)}/m
+        <rect x="${X_SPLITTER + W_SPLITTER + 10}" y="${splY + 10}" width="65" height="18" rx="4" fill="#0f172a" stroke="${feedBeltColor}" stroke-width="1" />
+        <text x="${X_SPLITTER + W_SPLITTER + 42}" y="${splY + 23}" text-anchor="middle" font-size="9" font-weight="800" fill="${feedBeltColor}">
+          ➔ ${divertedFlow.toFixed(0)} ${supply.isFluid ? 'm³/m' : '/m'}
         </text>
       `;
 
@@ -7354,6 +7612,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const inputField = document.getElementById('splitInputRate');
       inputField.value = calc.rate;
       state.splitter.inputRate = calc.rate;
+      state.splitter.isFluid = !!calc.isFluid;
+      if (typeof window.setSplitterMode === 'function') {
+        window.setSplitterMode(state.splitter.isFluid ? 'fluid' : 'solid');
+      }
       updateSplitterCalc();
       setActiveTab('tab-splitters');
     });
@@ -7370,29 +7632,61 @@ document.addEventListener('DOMContentLoaded', () => {
     const beltBadge = document.getElementById('minerBeltBadge');
     const warningBox = document.getElementById('minerWarningBox');
     const equivalences = document.getElementById('minerEquivalences');
+    const btnSendToSplitter = document.getElementById('btnSendToSplitter');
 
     outputRate.textContent = calc.rate;
     unitLabel.textContent = calc.isFluid ? 'm³/min' : 'items/min';
     powerVal.textContent = calc.powerMw;
     shardsVal.textContent = `🔋 ${calc.powerShards} Fragmentos`;
 
+    if (btnSendToSplitter) {
+      btnSendToSplitter.innerHTML = calc.isFluid 
+        ? `<span>🚰 Dividir este Flujo de Tubería</span>` 
+        : `<span>🔀 Enviar este flujo al Asistente de Splitters</span>`;
+    }
+
     // Belt / Pipe Badge
     if (calc.recommendedBelt) {
+      const icon = calc.isFluid ? '🚰' : '📦';
+      const unit = calc.isFluid ? 'm³/m' : 'items/m';
       beltBadge.innerHTML = `
         <span class="belt-badge" style="color: ${calc.recommendedBelt.color}; border-color: ${calc.recommendedBelt.color}; background: rgba(0,0,0,0.3);">
-          📦 ${calc.recommendedBelt.name} (${calc.recommendedBelt.speed || calc.recommendedBelt.flow} ${calc.isFluid ? 'm³/m' : 'items/m'})
+          ${icon} ${calc.recommendedBelt.name} (${calc.recommendedBelt.flow || calc.recommendedBelt.speed} ${unit})
         </span>
       `;
     }
 
     // Overflow check (> 1200 belt or > 600 pipe)
-    warningBox.style.display = calc.beltOverflow ? 'block' : 'none';
+    if (calc.beltOverflow) {
+      warningBox.style.display = 'block';
+      warningBox.innerHTML = calc.isFluid
+        ? `⚠️ <strong>Límite de Tubería Superado:</strong> La tasa (${calc.rate} m³/min) supera los 600 m³/min máximos de una Tubería Mk.2. Necesitarás dividir la salida del extractor en 2 o más tuberías independientes.`
+        : `⚠️ <strong>Límite de Cinta Superado:</strong> La tasa (${calc.rate} items/min) supera los 1200 items/min de una Cinta Mk.6.`;
+    } else {
+      warningBox.style.display = 'none';
+    }
 
     // Equivalences
-    const resourceName = (SATIS_DATA.rawResources[state.miner.resource] || {}).name || 'Mineral';
+    const resourceName = (SATIS_DATA.rawResources[state.miner.resource] || {}).name || 'Material';
     let eqHtml = `Con esta tasa de <strong>${calc.rate} ${unitLabel.textContent}</strong> puedes abastecer exactamente:<ul>`;
     
-    if (state.miner.resource === 'iron_ore') {
+    if (state.miner.resource === 'crude_oil') {
+      const refFuel = (calc.rate / 60).toFixed(2);
+      const refPlastic = (calc.rate / 30).toFixed(2);
+      const refRubber = (calc.rate / 30).toFixed(2);
+      eqHtml += `
+        <li>🧪 <strong>${refFuel} Refinerías de Combustible</strong> (60 m³/min crudo c/u) produciendo Fuel para Generadores.</li>
+        <li>🧪 <strong>${refPlastic} Refinerías de Plástico</strong> (30 m³/min crudo c/u) produciendo Plástico para Circuitos y Ordenadores.</li>
+        <li>🧪 <strong>${refRubber} Refinerías de Goma</strong> (30 m³/min crudo c/u) produciendo Goma para Motores y Modulares.</li>
+      `;
+    } else if (state.miner.resource === 'water') {
+      const coalGens = (calc.rate / 45).toFixed(2);
+      const packagers = (calc.rate / 60).toFixed(2);
+      eqHtml += `
+        <li>⚡ <strong>${coalGens} Generadores de Carbón</strong> (45 m³/min c/u) abastecidos continuamente con agua.</li>
+        <li>📦 <strong>${packagers} Empaquetadoras</strong> (60 m³/min c/u) envasando Agua en Bidones.</li>
+      `;
+    } else if (state.miner.resource === 'iron_ore') {
       const smelters = (calc.rate / 30).toFixed(2);
       const platesConstructors = (calc.rate / 30).toFixed(2);
       eqHtml += `
@@ -7410,7 +7704,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const concrete = (calc.rate / 45).toFixed(2);
       eqHtml += `<li>⚙️ <strong>${concrete} Constructoras de Hormigón</strong> (45/min c/u) produciendo ${(calc.rate / 3).toFixed(1)} Hormigón/min.</li>`;
     } else {
-      eqHtml += `<li>📦 Flujo continuo de <strong>${calc.rate} ${unitLabel.textContent}</strong> para tus cadenas de montaje.</li>`;
+      eqHtml += `<li>${calc.isFluid ? '🚰' : '📦'} Flujo continuo de <strong>${calc.rate} ${unitLabel.textContent}</strong> para tus cadenas de producción.</li>`;
     }
     eqHtml += `</ul>`;
     equivalences.innerHTML = eqHtml;
@@ -7423,9 +7717,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemSelect = document.getElementById('factoryItemSelect');
     const rateInput = document.getElementById('factoryTargetRate');
     const btnCalc = document.getElementById('btnCalculateFactory');
-    const chkCastScrew = document.getElementById('chkCastScrew');
-    const chkSolidSteel = document.getElementById('chkSolidSteel');
-    const chkStitchedPlate = document.getElementById('chkStitchedPlate');
+    const chkCastScrew = document.getElementById('chkUseCastScrew') || document.getElementById('chkCastScrew');
+    const chkSolidSteel = document.getElementById('chkUseSolidSteel') || document.getElementById('chkSolidSteel');
+    const chkStitchedPlate = document.getElementById('chkUseStitchedPlate') || document.getElementById('chkStitchedPlate');
 
     // Populate Items that have recipes
     const craftableItems = new Set();
@@ -7439,14 +7733,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
     itemSelect.value = state.factory.targetItem;
 
-    btnCalc.addEventListener('click', () => {
+    function applyFactorySettings() {
       state.factory.targetItem = itemSelect.value;
       state.factory.targetRate = Math.max(0.01, parseFloat(rateInput.value) || 10);
-      state.factory.altPreferences.screw = chkCastScrew.checked ? 'screw_cast' : 'screw_std';
-      state.factory.altPreferences.steel_ingot = chkSolidSteel.checked ? 'steel_ingot_solid' : 'steel_ingot_std';
-      state.factory.altPreferences.reinforced_iron_plate = chkStitchedPlate.checked ? 'reinforced_iron_plate_stitched' : 'reinforced_iron_plate_std';
+      state.factory.altPreferences.screw = chkCastScrew?.checked ? 'screw_cast' : 'screw_std';
+      state.factory.altPreferences.steel_ingot = chkSolidSteel?.checked ? 'steel_ingot_solid' : 'steel_ingot_std';
+      state.factory.altPreferences.reinforced_iron_plate = chkStitchedPlate?.checked ? 'reinforced_iron_plate_stitched' : 'reinforced_iron_plate_std';
       runFactoryPlanner();
-    });
+    }
+
+    itemSelect.addEventListener('change', applyFactorySettings);
+    rateInput.addEventListener('input', applyFactorySettings);
+    if (chkCastScrew) chkCastScrew.addEventListener('change', applyFactorySettings);
+    if (chkSolidSteel) chkSolidSteel.addEventListener('change', applyFactorySettings);
+    if (chkStitchedPlate) chkStitchedPlate.addEventListener('change', applyFactorySettings);
+
+    if (btnCalc) {
+      btnCalc.addEventListener('click', applyFactorySettings);
+    }
 
     runFactoryPlanner();
   }
@@ -7457,6 +7761,14 @@ document.addEventListener('DOMContentLoaded', () => {
       state.factory.targetRate, 
       state.factory.altPreferences
     );
+
+    // Target rate label (fluid vs solid)
+    const targetRateLabel = document.getElementById('factoryTargetRateLabel');
+    if (targetRateLabel) {
+      targetRateLabel.textContent = (plan.targetMeta && plan.targetMeta.isFluid)
+        ? 'Caudal a Producir (m³/minuto)'
+        : 'Cantidad a Producir (piezas/minuto)';
+    }
 
     // Totals
     const totalMachines = plan.machineSteps.reduce((acc, s) => acc + s.machinesCount, 0);
@@ -7472,14 +7784,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <strong style="color: var(--text-main); font-size: 0.95rem; display: flex; align-items: center; gap: 6px;">
             ${getItemIcon(raw.itemId || raw.id || raw.item, 22)} <span>${raw.name}</span>
           </strong>
-          <span style="font-family: var(--font-mono); font-weight: 800; color: var(--ficsit-orange);">${raw.requiredRate} ${raw.isFluid ? 'm³/m' : '/min'}</span>
+          <span style="font-family: var(--font-mono); font-weight: 800; color: var(--ficsit-orange);">${raw.requiredRate} ${raw.isFluid ? 'm³/min' : '/min'}</span>
         </div>
         <div style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
-          Cinta necesaria: <span style="color: ${raw.beltNeeded.color}; font-weight: 700;">${raw.beltNeeded.name}</span><br>
-          Equivalente Minero Mk.2:<br>
-          • Nodo Puro: <strong>${raw.nodeEquivalents.pureMk2}</strong> nodos (240/m)<br>
-          • Nodo Normal: <strong>${raw.nodeEquivalents.normalMk2}</strong> nodos (120/m)<br>
-          • Nodo Impuro: <strong>${raw.nodeEquivalents.impureMk2}</strong> nodos (60/m)
+          ${raw.isFluid ? 'Tubería necesaria:' : 'Cinta necesaria:'} <span style="color: ${raw.beltNeeded.color}; font-weight: 700;">${raw.beltNeeded.name}</span><br>
+          ${raw.isFluid ? 'Equivalente Extractor de Petróleo (120 m³/m base):' : 'Equivalente Minero Mk.2 (120 base):'}<br>
+          • ${raw.isFluid ? 'Pozo' : 'Nodo'} Puro: <strong>${raw.nodeEquivalents.pureMk2}</strong> ${raw.isFluid ? 'pozos' : 'nodos'} (${raw.isFluid ? '240 m³/m' : '240/m'})<br>
+          • ${raw.isFluid ? 'Pozo' : 'Nodo'} Normal: <strong>${raw.nodeEquivalents.normalMk2}</strong> ${raw.isFluid ? 'pozos' : 'nodos'} (${raw.isFluid ? '120 m³/m' : '120/m'})<br>
+          • ${raw.isFluid ? 'Pozo' : 'Nodo'} Impuro: <strong>${raw.nodeEquivalents.impureMk2}</strong> ${raw.isFluid ? 'pozos' : 'nodos'} (${raw.isFluid ? '60 m³/m' : '60/m'})
         </div>
       </div>
     `).join('');
@@ -7494,9 +7806,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `${whole} al 100% + 1 al ${remainder}%`
         : (whole === 0 ? `1 al ${remainder}%` : `${whole} exactas`);
 
+      const isStepFluid = !!(SATIS_DATA.items[step.itemId] || {}).isFluid;
+      const outUnit = isStepFluid ? 'm³/min' : '/min';
+
       const inputsList = step.inputs.map(inp => {
         const itemObj = SATIS_DATA.items[inp.item] || SATIS_DATA.rawResources[inp.item] || { name: inp.item };
-        return `<span style="display: inline-flex; align-items: center; gap: 4px;">• ${getItemIcon(inp.item, 16)} ${itemObj.name}: <strong>${inp.rateTotal}/m</strong></span>`;
+        const isInputFluid = !!itemObj.isFluid;
+        const inUnit = isInputFluid ? 'm³/m' : '/m';
+        return `<span style="display: inline-flex; align-items: center; gap: 4px;">• ${getItemIcon(inp.item, 16)} ${itemObj.name}: <strong>${inp.rateTotal} ${inUnit}</strong></span>`;
       }).join(' &nbsp;|&nbsp; ');
 
       return `
@@ -7510,7 +7827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${isAlt ? '<span class="badge-alt">ALT</span>' : ''}
               </h4>
               <p style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
-                Produciendo: <strong>${step.neededRate}/min</strong> de ${getItemIcon(step.itemId, 18)} ${(SATIS_DATA.items[step.itemId] || {}).name || step.itemId}
+                Produciendo: <strong>${step.neededRate} ${outUnit}</strong> de ${getItemIcon(step.itemId, 18)} ${(SATIS_DATA.items[step.itemId] || {}).name || step.itemId}
               </p>
               <div style="font-size: 0.75rem; color: var(--text-sub); margin-top: 4px;">
                 Insumos: ${inputsList}
@@ -7533,6 +7850,50 @@ document.addEventListener('DOMContentLoaded', () => {
   function initSplitterTab() {
     const inputRateField = document.getElementById('splitInputRate');
     const machineIntakeField = document.getElementById('splitMachineIntake');
+    const btnSolid = document.getElementById('btnSplitModeSolid');
+    const btnFluid = document.getElementById('btnSplitModeFluid');
+    const inputLabel = document.getElementById('splitInputLabel');
+    const inputHint = document.getElementById('splitInputHint');
+    const machineLabel = document.getElementById('splitMachineLabel');
+    const machineHint = document.getElementById('splitMachineHint');
+    const presetsContainer = document.getElementById('splitPresetsContainer');
+
+    function setSplitterMode(mode) {
+      const isFluid = (mode === 'fluid');
+      state.splitter.isFluid = isFluid;
+      if (btnSolid) btnSolid.classList.toggle('active', !isFluid);
+      if (btnFluid) btnFluid.classList.toggle('active', isFluid);
+
+      if (inputLabel) inputLabel.textContent = isFluid ? 'Flujo de fluido que entra por la Tubería (m³/min)' : 'Material que entra por la Cinta (piezas/min)';
+      if (inputHint) inputHint.textContent = isFluid ? 'Ej: 120, 240, 300, 600... (Tuberías Mk.1 y Mk.2)' : 'Ej: 60, 120, 240, 270, 480... (Cintas Mk.1 a Mk.6)';
+      if (machineLabel) machineLabel.textContent = isFluid ? 'Consumo de CADA máquina (m³/min)' : 'Consumo de CADA máquina (piezas/min)';
+      if (machineHint) machineHint.textContent = isFluid ? 'Ej: Refinería de Fuel consume 60 m³/m, Generador de Fuel 20 m³/m, Refinería de Plástico 30 m³/m...' : 'Ej: Fundición de Hierro consume 30/min, Constructora de Placas 30/min, etc.';
+
+      if (presetsContainer) {
+        if (isFluid) {
+          presetsContainer.innerHTML = `
+            <button type="button" class="quick-btn" onclick="setSplitPreset(60)">Refinería Fuel (60)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(30)">Refinería Plástico/Goma (30)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(20)">Generador Fuel (20)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(12)">Generador Carbón Agua (12)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(50)">Empaquetadora (50)</button>
+          `;
+        } else {
+          presetsContainer.innerHTML = `
+            <button type="button" class="quick-btn" onclick="setSplitPreset(30)">Fundición (30)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(45)">Acero Base (45)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(15)">Varillas (15)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(60)">Tornillos (60)</button>
+            <button type="button" class="quick-btn" onclick="setSplitPreset(120)">Ensamblador Rápido (120)</button>
+          `;
+        }
+      }
+      updateSplitterCalc();
+    }
+    window.setSplitterMode = setSplitterMode;
+
+    if (btnSolid) btnSolid.addEventListener('click', () => setSplitterMode('solid'));
+    if (btnFluid) btnFluid.addEventListener('click', () => setSplitterMode('fluid'));
 
     inputRateField.addEventListener('input', () => {
       state.splitter.inputRate = parseFloat(inputRateField.value) || 0;
@@ -7554,7 +7915,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateSplitterCalc() {
-    const split = SatisCalc.calculateSplitting(state.splitter.inputRate, state.splitter.machineIntake);
+    const isFluid = !!state.splitter.isFluid;
+    const split = SatisCalc.calculateSplitting(state.splitter.inputRate, state.splitter.machineIntake, isFluid);
     if (!split) return;
 
     const countNumber = document.getElementById('splitMachinesCount');
@@ -7565,19 +7927,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const balancerHeader = document.getElementById('splitBalancerHeader');
     const balancerDesc = document.getElementById('splitBalancerDesc');
     const manifoldSteps = document.getElementById('splitManifoldSteps');
+    const unit = isFluid ? 'm³/m' : '/m';
+    const conduitLabel = isFluid ? 'Tubería' : 'Cinta';
+
+    const mainConduitLabel = document.getElementById('splitMainConduitLabel');
+    const feederConduitLabel = document.getElementById('splitFeederConduitLabel');
+    const stepsTitle = document.getElementById('splitManifoldStepsTitle');
+    if (mainConduitLabel) mainConduitLabel.textContent = isFluid ? 'Tubería Principal' : 'Cinta Principal';
+    if (feederConduitLabel) feederConduitLabel.textContent = isFluid ? 'Tuberías Secundarias' : 'Cintas Secundarias';
+    if (stepsTitle) stepsTitle.textContent = isFluid
+      ? 'Cascada Manifold Detallada (Tubería recomendada tramo por tramo):'
+      : 'Cascada Manifold Detallada (Cinta recomendada tramo por tramo):';
 
     countNumber.textContent = split.totalMachinesFloat;
     exactRatioTag.textContent = split.fractionalRemainder === 0 ? 'exactas (100%)' : `(${split.ceilMachines} máq. con ajuste)`;
 
-    // Main and Feeder Belts
+    // Main and Feeder Belts / Pipes
     mainBeltBadge.innerHTML = `
       <span class="belt-badge" style="color: ${split.mainBelt.color}; border-color: ${split.mainBelt.color};">
-        ${split.mainBelt.name} (${split.mainBelt.speed}/m)
+        ${split.mainBelt.name} (${split.mainBelt.flow || split.mainBelt.speed} ${unit})
       </span>
     `;
     feederBeltBadge.innerHTML = `
       <span class="belt-badge" style="color: ${split.feederBelt.color}; border-color: ${split.feederBelt.color};">
-        ${split.feederBelt.name} (${split.feederBelt.speed}/m)
+        ${split.feederBelt.name} (${split.feederBelt.flow || split.feederBelt.speed} ${unit})
       </span>
     `;
 
@@ -7606,12 +7979,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="step-num">#${step.machineIndex}</div>
           <div class="step-desc">
             <span class="machine-tag">Máquina ${step.machineIndex} ${step.isFractional ? '(Ajustada)' : ''}</span><br>
-            <span class="intake-tag">Entrada consumida: <strong>${step.machineConsumes} /min</strong> &nbsp;|&nbsp; Flujo restante: ${step.flowBefore} /min</span>
+            <span class="intake-tag">Entrada consumida: <strong>${step.machineConsumes} ${unit}</strong> &nbsp;|&nbsp; Flujo restante: ${step.flowBefore} ${unit}</span>
           </div>
         </div>
         <div class="step-belts">
           <span class="belt-badge" style="color: ${step.recommendedBelt.color}; border-color: ${step.recommendedBelt.color}; font-size: 0.75rem;">
-            Cinta de espina: ${step.recommendedBelt.name}
+            ${conduitLabel} de espina: ${step.recommendedBelt.name}
           </span>
         </div>
       </div>
@@ -7689,14 +8062,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // In / Out lists
     const inList = document.getElementById('quickInputsList');
     inList.innerHTML = recipe.inputs.map(inp => {
-      const item = SATIS_DATA.items[inp.item] || SATIS_DATA.rawResources[inp.item] || { name: inp.item };
+      const item = SATIS_DATA.items[inp.item] || SATIS_DATA.rawResources[inp.item] || { name: inp.item, isFluid: false };
+      const isFluid = !!item.isFluid;
       const totalRate = (inp.rate * clockRatio * count).toFixed(2);
-      const belt = SatisCalc.getBeltForRate(totalRate);
+      const transport = isFluid ? SatisCalc.getPipeForRate(totalRate) : SatisCalc.getBeltForRate(totalRate);
+      const unit = isFluid ? 'm³/min' : '/min';
       return `
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #263345; padding-bottom: 4px;">
           <span>${item.name}</span>
           <span style="font-family: var(--font-mono); font-weight: 700; color: #f87171;">
-            ${totalRate}/m <small style="color: ${belt.color}">(${belt.name})</small>
+            ${totalRate} ${unit} <small style="color: ${transport.color}">(${transport.name})</small>
           </span>
         </div>
       `;
@@ -7704,14 +8079,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const outList = document.getElementById('quickOutputsList');
     outList.innerHTML = recipe.outputs.map(out => {
-      const item = SATIS_DATA.items[out.item] || { name: out.item };
+      const item = SATIS_DATA.items[out.item] || SATIS_DATA.rawResources[out.item] || { name: out.item, isFluid: false };
+      const isFluid = !!item.isFluid;
       const totalRate = (out.rate * clockRatio * count).toFixed(2);
-      const belt = SatisCalc.getBeltForRate(totalRate);
+      const transport = isFluid ? SatisCalc.getPipeForRate(totalRate) : SatisCalc.getBeltForRate(totalRate);
+      const unit = isFluid ? 'm³/min' : '/min';
       return `
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #263345; padding-bottom: 4px;">
           <span>${item.name}</span>
           <span style="font-family: var(--font-mono); font-weight: 700; color: #4ade80;">
-            ${totalRate}/m <small style="color: ${belt.color}">(${belt.name})</small>
+            ${totalRate} ${unit} <small style="color: ${transport.color}">(${transport.name})</small>
           </span>
         </div>
       `;
@@ -7731,20 +8108,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!q) return true;
         const b = SATIS_DATA.buildings[r.building] || {};
         const inMatch = r.inputs.some(i => (SATIS_DATA.items[i.item] || SATIS_DATA.rawResources[i.item] || {}).name?.toLowerCase().includes(q));
-        const outMatch = r.outputs.some(o => (SATIS_DATA.items[o.item] || {}).name?.toLowerCase().includes(q));
+        const outMatch = r.outputs.some(o => (SATIS_DATA.items[o.item] || SATIS_DATA.rawResources[o.item] || {}).name?.toLowerCase().includes(q));
         return r.name.toLowerCase().includes(q) || b.name?.toLowerCase().includes(q) || inMatch || outMatch;
       });
 
       tableBody.innerHTML = filtered.map(r => {
         const building = SATIS_DATA.buildings[r.building] || { name: r.building, icon: '🏭' };
         const inText = r.inputs.map(i => {
-          const item = SATIS_DATA.items[i.item] || SATIS_DATA.rawResources[i.item] || { name: i.item };
-          return `<span style="display: inline-flex; align-items: center; gap: 4px; margin-right: 6px;">${getItemIcon(i.item, 16)} ${i.rate}/m ${item.name}</span>`;
+          const item = SATIS_DATA.items[i.item] || SATIS_DATA.rawResources[i.item] || { name: i.item, isFluid: false };
+          const unit = item.isFluid ? 'm³/min' : '/min';
+          return `<span style="display: inline-flex; align-items: center; gap: 4px; margin-right: 6px;">${getItemIcon(i.item, 16)} ${i.rate} ${unit} ${item.name}</span>`;
         }).join(' ');
 
         const outText = r.outputs.map(o => {
-          const item = SATIS_DATA.items[o.item] || { name: o.item };
-          return `<span style="display: inline-flex; align-items: center; gap: 4px; margin-right: 6px;">${getItemIcon(o.item, 16)} ${o.rate}/m ${item.name}</span>`;
+          const item = SATIS_DATA.items[o.item] || SATIS_DATA.rawResources[o.item] || { name: o.item, isFluid: false };
+          const unit = item.isFluid ? 'm³/min' : '/min';
+          return `<span style="display: inline-flex; align-items: center; gap: 4px; margin-right: 6px;">${getItemIcon(o.item, 16)} ${o.rate} ${unit} ${item.name}</span>`;
         }).join(' ');
 
         return `
@@ -7785,23 +8164,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('btnCopyReport');
     btn.addEventListener('click', () => {
       const plan = SatisCalc.planFactory(state.factory.targetItem, state.factory.targetRate, state.factory.altPreferences);
+      const targetIsFluid = !!plan.targetMeta?.isFluid;
+      const targetUnit = targetIsFluid ? 'm³/min' : '/min';
       const lines = [
         `=== REPORTE DE PRODUCCIÓN FICSIT (Satisfactory 1.0/1.2) ===`,
-        `OBJETIVO: ${plan.targetRate} /min de ${plan.targetName}`,
+        `OBJETIVO: ${plan.targetRate} ${targetUnit} de ${plan.targetName}`,
         `ENERGÍA TOTAL: ${plan.totalEnergyMw} MW`,
         ``,
         `--- MATERIAS PRIMAS REQUERIDAS ---`
       ];
 
       plan.rawBreakdown.forEach(raw => {
-        lines.push(`• ${raw.name}: ${raw.requiredRate} /min (${raw.beltNeeded.name})`);
-        lines.push(`  - Nodos Mk.2 req: ${raw.nodeEquivalents.pureMk2} Puros | ${raw.nodeEquivalents.normalMk2} Normales | ${raw.nodeEquivalents.impureMk2} Impuros`);
+        const unit = raw.isFluid ? 'm³/min' : '/min';
+        const extractorLabel = raw.isFluid ? 'Pozos/Extractores' : 'Nodos Mk.2';
+        lines.push(`• ${raw.name}: ${raw.requiredRate} ${unit} (${raw.beltNeeded.name})`);
+        lines.push(`  - ${extractorLabel} req: ${raw.nodeEquivalents.pureMk2} Puros | ${raw.nodeEquivalents.normalMk2} Normales | ${raw.nodeEquivalents.impureMk2} Impuros`);
       });
 
       lines.push(``);
       lines.push(`--- MAQUINARIA DE LA LÍNEA ---`);
       plan.machineSteps.forEach(s => {
-        lines.push(`• ${s.building.name} [${s.recipe.name}]: ${s.machinesCount} máquinas (${s.totalPower} MW) -> Produce ${s.neededRate}/m`);
+        const isFluid = !!(SATIS_DATA.items[s.itemId] || SATIS_DATA.rawResources[s.itemId] || {}).isFluid;
+        const unit = isFluid ? 'm³/min' : '/min';
+        lines.push(`• ${s.building.name} [${s.recipe.name}]: ${s.machinesCount} máquinas (${s.totalPower} MW) -> Produce ${s.neededRate} ${unit}`);
       });
 
       navigator.clipboard.writeText(lines.join('\n')).then(() => {

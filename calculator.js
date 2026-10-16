@@ -95,7 +95,7 @@ const SatisCalc = {
    * @param {number} inputRate - available materials/min
    * @param {number} machineIntake - material consumed by 1 machine at 100%
    */
-  calculateSplitting(inputRate, machineIntake) {
+  calculateSplitting(inputRate, machineIntake, isFluid = false) {
     if (inputRate <= 0 || machineIntake <= 0) return null;
 
     const totalMachinesFloat = inputRate / machineIntake;
@@ -111,12 +111,14 @@ const SatisCalc = {
     const ceilMachines = Math.ceil(totalMachinesFloat);
     const syncClock = Number(((totalMachinesFloat / ceilMachines) * 100).toFixed(2));
 
-    // Belts needed for the main trunk in a manifold
+    const getTransport = (rate) => isFluid ? this.getPipeForRate(rate) : this.getBeltForRate(rate);
+
+    // Belts/Pipes needed for the main trunk in a manifold
     // At each machine, input decreases by machineIntake
     const manifoldSteps = [];
     let remainingFlow = inputRate;
     for (let i = 0; i < ceilMachines; i++) {
-      const belt = this.getBeltForRate(remainingFlow);
+      const belt = getTransport(remainingFlow);
       const isLast = (i === ceilMachines - 1);
       const machineConsumption = isLast && fractionalRemainder > 0 
         ? Number((fractionalRemainder * machineIntake).toFixed(2)) 
@@ -135,24 +137,26 @@ const SatisCalc = {
     }
 
     // Balancer topology suggestion
-    let balancerType = 'Manifold (Recomendado FICSIT)';
-    let balancerDetail = 'Un manifold con splitters en cascada es compacto y se auto-satura al 100% en pocos minutos.';
+    let balancerType = isFluid ? 'Manifold de Tuberías (Recomendado FICSIT)' : 'Manifold (Recomendado FICSIT)';
+    let balancerDetail = isFluid 
+      ? 'Un manifold lineal con Crucetas de Tubería (Pipe Junction Crosses) auto-satura todas las máquinas sin pérdida de carga.' 
+      : 'Un manifold con splitters en cascada es compacto y se auto-satura al 100% en pocos minutos.';
 
     if (ceilMachines === 2) {
-      balancerType = 'División 1:2 (1 Splitter)';
-      balancerDetail = '1 divisor divide 50% / 50% perfecto.';
+      balancerType = isFluid ? 'División 1:2 (1 Cruceta de Tubería)' : 'División 1:2 (1 Splitter)';
+      balancerDetail = isFluid ? '1 cruceta divide 50% / 50% el caudal de fluido.' : '1 divisor divide 50% / 50% perfecto.';
     } else if (ceilMachines === 4) {
-      balancerType = 'División 1:4 (3 Splitters)';
-      balancerDetail = '1 divisor primario alimenta 2 divisores secundarios.';
+      balancerType = isFluid ? 'División 1:4 (3 Crucetas)' : 'División 1:4 (3 Splitters)';
+      balancerDetail = isFluid ? '1 cruceta primaria alimenta 2 secundarias con balance simétrico.' : '1 divisor primario alimenta 2 divisores secundarios.';
     } else if (ceilMachines === 8) {
-      balancerType = 'División 1:8 (7 Splitters)';
-      balancerDetail = 'Árbol binario simétrico de 3 niveles de divisores.';
+      balancerType = isFluid ? 'División 1:8 (7 Crucetas)' : 'División 1:8 (7 Splitters)';
+      balancerDetail = isFluid ? 'Árbol simétrico de 3 niveles de crucetas de tubería.' : 'Árbol binario simétrico de 3 niveles de divisores.';
     } else if (ceilMachines === 3) {
-      balancerType = 'División 1:3 (1 Splitter)';
-      balancerDetail = '1 divisor estándar con sus 3 salidas activas (33.33% cada una).';
+      balancerType = isFluid ? 'División 1:3 (1 Cruceta)' : 'División 1:3 (1 Splitter)';
+      balancerDetail = isFluid ? '1 cruceta de tubería estándar con sus 3 salidas activadas (33.33% c/u).' : '1 divisor estándar con sus 3 salidas activas (33.33% cada una).';
     } else if (ceilMachines === 6) {
-      balancerType = 'División 1:6 (4 Splitters)';
-      balancerDetail = '1 divisor inicial de 3 vías -> cada salida a 1 divisor de 2 vías.';
+      balancerType = isFluid ? 'División 1:6 (4 Crucetas)' : 'División 1:6 (4 Splitters)';
+      balancerDetail = isFluid ? '1 cruceta inicial de 3 vías ➔ cada salida a 1 cruceta de 2 vías.' : '1 divisor inicial de 3 vías -> cada salida a 1 divisor de 2 vías.';
     }
 
     return {
@@ -164,21 +168,23 @@ const SatisCalc = {
       ceilMachines,
       lastMachineClock,
       syncClock,
-      feederBelt: this.getBeltForRate(machineIntake),
-      mainBelt: this.getBeltForRate(inputRate),
+      feederBelt: getTransport(machineIntake),
+      mainBelt: getTransport(inputRate),
       manifoldSteps,
       balancerType,
-      balancerDetail
+      balancerDetail,
+      isFluid: !!isFluid
     };
   },
 
   /**
    * Generates step-by-step schematic for splitting input into N machines
    */
-  calculateManifoldFlow(inputRate, machineIntake, machineCount) {
+  calculateManifoldFlow(inputRate, machineIntake, machineCount, isFluid = false) {
     const ceilMachines = Math.max(1, Math.ceil(machineCount));
     const steps = [];
     let remainingFlow = inputRate;
+    const getTransport = (rate) => isFluid ? this.getPipeForRate(rate) : this.getBeltForRate(rate);
 
     for (let i = 0; i < ceilMachines; i++) {
       const machineIndex = i + 1;
@@ -188,10 +194,10 @@ const SatisCalc = {
         ? Number(((machineCount % 1) * machineIntake).toFixed(2))
         : machineIntake;
 
-      const beltIn = this.getBeltForRate(remainingFlow);
+      const beltIn = getTransport(remainingFlow);
       const remainingAfter = Math.max(0, Number((remainingFlow - consumes).toFixed(2)));
-      const beltContinue = isLast ? null : this.getBeltForRate(remainingAfter);
-      const feederBelt = this.getBeltForRate(consumes);
+      const beltContinue = isLast ? null : getTransport(remainingAfter);
+      const feederBelt = getTransport(consumes);
 
       steps.push({
         machineIndex,
@@ -211,6 +217,7 @@ const SatisCalc = {
     return {
       totalMachines: ceilMachines,
       splittersNeeded: Math.max(0, ceilMachines - 1),
+      isFluid: !!isFluid,
       steps
     };
   },
@@ -386,7 +393,7 @@ const SatisCalc = {
         name: rawMeta.name,
         isFluid: rawMeta.isFluid,
         requiredRate: rate,
-        beltNeeded: SatisCalc.getBeltForRate(rate),
+        beltNeeded: rawMeta.isFluid ? SatisCalc.getPipeForRate(rate) : SatisCalc.getBeltForRate(rate),
         nodeEquivalents: {
           impureMk2: Number(impureMk2.toFixed(2)),
           normalMk2: Number(normalMk2.toFixed(2)),
@@ -395,10 +402,12 @@ const SatisCalc = {
       };
     });
 
+    const targetMeta = SATIS_DATA.items[targetItemId] || SATIS_DATA.rawResources[targetItemId] || { name: targetItemId, isFluid: false };
     return {
       targetItemId,
       targetRate,
-      targetName: (SATIS_DATA.items[targetItemId] || {}).name || targetItemId,
+      targetName: targetMeta.name || targetItemId,
+      targetMeta,
       machineSteps,
       rawBreakdown,
       totalEnergyMw: Number(totalEnergyMw.toFixed(2))
@@ -506,12 +515,18 @@ const SatisCalc = {
         ...inp,
         rateTotal: Number(inp.rateTotal.toFixed(2))
       }));
-      const outBelt = SatisCalc.getBeltForRate(step.neededRate);
+      const outItemMeta = SATIS_DATA.items[step.itemId] || SATIS_DATA.rawResources[step.itemId] || { isFluid: false };
+      const isOutFluid = !!outItemMeta.isFluid;
+      const outBelt = isOutFluid ? SatisCalc.getPipeForRate(step.neededRate) : SatisCalc.getBeltForRate(step.neededRate);
+
+      const primaryInItem = inputs[0] ? inputs[0].item : null;
+      const primaryInMeta = primaryInItem ? (SATIS_DATA.items[primaryInItem] || SATIS_DATA.rawResources[primaryInItem] || { isFluid: false }) : { isFluid: false };
+      const isInFluid = !!primaryInMeta.isFluid;
       const primaryInRate = inputs[0] ? inputs[0].rateTotal : step.neededRate;
-      const inBelt = SatisCalc.getBeltForRate(primaryInRate);
+      const inBelt = isInFluid ? SatisCalc.getPipeForRate(primaryInRate) : SatisCalc.getBeltForRate(primaryInRate);
 
       const intakePerMachine = step.recipe.inputs[0]?.rate || 30;
-      const manifold = SatisCalc.calculateManifoldFlow(primaryInRate, intakePerMachine, step.machinesCount);
+      const manifold = SatisCalc.calculateManifoldFlow(primaryInRate, intakePerMachine, step.machinesCount, isInFluid);
 
       return {
         key: step.key,
@@ -1065,6 +1080,9 @@ const SatisCalc = {
       const inEntry = recipe.inputs.find(inp => self.canDeriveItem(inp.item, supplyItemId)) || recipe.inputs[0];
       const mainInputRate = inEntry.rate * machinesNeeded;
 
+      const inIsFluid = !!(SATIS_DATA.items[inEntry.item] || SATIS_DATA.rawResources[inEntry.item] || {}).isFluid;
+      const outIsFluid = !!(SATIS_DATA.items[itemId] || SATIS_DATA.rawResources[itemId] || {}).isFluid;
+
       intermediateSteps.push({
         itemId,
         itemName: (SATIS_DATA.items[itemId] || SATIS_DATA.rawResources[itemId] || {}).name || itemId,
@@ -1075,8 +1093,8 @@ const SatisCalc = {
         mainInputItem: inEntry.item,
         mainInputRate: Number(mainInputRate.toFixed(2)),
         power: stepPower,
-        feederBelt: self.getBeltForRate(mainInputRate),
-        outBelt: self.getBeltForRate(neededRate)
+        feederBelt: inIsFluid ? self.getPipeForRate(mainInputRate) : self.getBeltForRate(mainInputRate),
+        outBelt: outIsFluid ? self.getPipeForRate(neededRate) : self.getBeltForRate(neededRate)
       });
 
       for (const inp of recipe.inputs) {
@@ -1104,8 +1122,10 @@ const SatisCalc = {
         existing.outputRate = Number((existing.outputRate + step.outputRate).toFixed(2));
         existing.mainInputRate = Number((existing.mainInputRate + step.mainInputRate).toFixed(2));
         existing.power = Number((existing.power + step.power).toFixed(1));
-        existing.feederBelt = self.getBeltForRate(existing.mainInputRate);
-        existing.outBelt = self.getBeltForRate(existing.outputRate);
+        const exInFluid = !!(SATIS_DATA.items[existing.mainInputItem] || SATIS_DATA.rawResources[existing.mainInputItem] || {}).isFluid;
+        const exOutFluid = !!(SATIS_DATA.items[existing.itemId] || SATIS_DATA.rawResources[existing.itemId] || {}).isFluid;
+        existing.feederBelt = exInFluid ? self.getPipeForRate(existing.mainInputRate) : self.getBeltForRate(existing.mainInputRate);
+        existing.outBelt = exOutFluid ? self.getPipeForRate(existing.outputRate) : self.getBeltForRate(existing.outputRate);
       }
     }
 
@@ -1122,6 +1142,11 @@ const SatisCalc = {
       };
     });
 
+    const isSupplyFluid = Array.isArray(supplyItemId)
+      ? supplyItemId.some(id => (SATIS_DATA.items[id] || SATIS_DATA.rawResources[id] || {}).isFluid)
+      : !!(SATIS_DATA.items[supplyItemId] || SATIS_DATA.rawResources[supplyItemId] || {}).isFluid;
+    const isTargetOutFluid = !!(SATIS_DATA.items[primaryOut.item] || SATIS_DATA.rawResources[primaryOut.item] || {}).isFluid;
+
     return {
       recipe: targetRecipe,
       building: targetBuilding,
@@ -1137,8 +1162,8 @@ const SatisCalc = {
       totalPower,
       secondaryInputs: secondaryInputsList,
       buildingCounts,
-      feederBelt: self.getBeltForRate(supplyIntakeRate),
-      outBelt: self.getBeltForRate(targetOutputTotal)
+      feederBelt: isSupplyFluid ? self.getPipeForRate(supplyIntakeRate) : self.getBeltForRate(supplyIntakeRate),
+      outBelt: isTargetOutFluid ? self.getPipeForRate(targetOutputTotal) : self.getBeltForRate(targetOutputTotal)
     };
   },
 
