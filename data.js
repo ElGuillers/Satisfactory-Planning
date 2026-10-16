@@ -156,6 +156,9 @@ const SATIS_DATA = {
     plastic: { id: 'plastic', name: 'Plástico', category: 'Petroquímica' },
     rubber: { id: 'rubber', name: 'Goma', category: 'Petroquímica' },
     fuel: { id: 'fuel', name: 'Combustible', isFluid: true, category: 'Petroquímica' },
+    turbofuel: { id: 'turbofuel', name: 'Turbocombustible', isFluid: true, category: 'Petroquímica' },
+    heavy_oil_residue: { id: 'heavy_oil_residue', name: 'Residuo de Petróleo Pesado', isFluid: true, category: 'Petroquímica' },
+    polymer_resin: { id: 'polymer_resin', name: 'Resina de Polímero', category: 'Petroquímica' },
     petroleum_coke: { id: 'petroleum_coke', name: 'Coque de Petróleo', category: 'Petroquímica' },
     circuit_board: { id: 'circuit_board', name: 'Circuito Impreso', category: 'Electrónica' },
     quickwire: { id: 'quickwire', name: 'Alambre Rápido (Caterio)', category: 'Electrónica' },
@@ -804,11 +807,33 @@ const SATIS_DATA = {
     },
     {
       id: 'fuel_std',
-      name: 'Combustible (+ Coque)',
+      name: 'Combustible (+ Resina de Polímero)',
       building: 'refinery',
       isAlt: false,
       inputs: [{ item: 'crude_oil', rate: 60 }],
-      outputs: [{ item: 'fuel', rate: 40 }]
+      outputs: [
+        { item: 'fuel', rate: 40 },
+        { item: 'polymer_resin', rate: 30 }
+      ]
+    },
+    {
+      id: 'turbofuel_std',
+      name: 'Turbocombustible',
+      building: 'refinery',
+      isAlt: false,
+      inputs: [
+        { item: 'fuel', rate: 22.5 },
+        { item: 'compacted_coal', rate: 15 }
+      ],
+      outputs: [{ item: 'turbofuel', rate: 18.75 }]
+    },
+    {
+      id: 'petroleum_coke_std',
+      name: 'Coque de Petróleo',
+      building: 'refinery',
+      isAlt: false,
+      inputs: [{ item: 'heavy_oil_residue', rate: 40 }],
+      outputs: [{ item: 'petroleum_coke', rate: 120 }]
     },
     {
       id: 'alumina_solution_std',

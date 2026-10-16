@@ -5230,6 +5230,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const fuel = btn.getAttribute('data-fuel');
         state.power.fuelId = fuel;
         document.querySelectorAll('.btn-power-fuel').forEach(b => b.classList.toggle('active', b === btn));
+
+        const isOil = fuel === 'fuel' || fuel === 'turbofuel' || fuel === 'petroleum_coke';
+        if (Array.isArray(state.power.drills)) {
+          state.power.drills.forEach(d => {
+            if (isOil && d.minerTier !== 'oil_extractor') {
+              d.minerTier = 'oil_extractor';
+            } else if (!isOil && d.minerTier === 'oil_extractor') {
+              d.minerTier = 'miner_mk2';
+            }
+          });
+        }
         renderPowerPlantSection();
       });
     });
@@ -5284,14 +5295,15 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Añadir Taladro de Carbón
+    // Añadir Taladro / Extractor de Petróleo
     if (btnAddDrill) {
       btnAddDrill.addEventListener('click', () => {
         if (!state.power.drills) state.power.drills = [];
+        const isOil = state.power.fuelId === 'fuel' || state.power.fuelId === 'turbofuel' || state.power.fuelId === 'petroleum_coke';
         const nextIdx = state.power.drills.length + 1;
         state.power.drills.push({
           id: `drill_${Date.now()}_${nextIdx}`,
-          minerTier: 'miner_mk2',
+          minerTier: isOil ? 'oil_extractor' : 'miner_mk2',
           purity: 'normal',
           clock: 100
         });
@@ -5420,15 +5432,99 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const plant = SatisCalc.calculateDedicatedPowerPlant(state.power);
     const isSolidFuel = !plant.fuel.isFluid;
+    const isOilFuel = !!(plant.petrochem && plant.petrochem.isOil);
+    const canShowDrills = isSolidFuel || isOilFuel;
 
-    // 1. Mostrar/Ocultar y Renderizar Taladros Individuales
+    // 1. Mostrar/Ocultar y Adaptar Textos de Taladros / Pozos
     if (drillsBox) {
-      drillsBox.style.display = isSolidFuel ? 'block' : 'none';
+      drillsBox.style.display = canShowDrills ? 'block' : 'none';
     }
 
-    if (isSolidFuel && drillsList && plant.fuel.userDrills) {
+    const drillsHeaderTitle = document.getElementById('powerDrillsHeaderTitle');
+    const drillsHeaderSubtitle = document.getElementById('powerDrillsHeaderSubtitle');
+    const drillsHeaderIcon = document.getElementById('powerDrillsHeaderIcon');
+    const addDrillBtn = document.getElementById('btnAddPowerDrill');
+    const syncDrillBtn = document.getElementById('btnSyncPowerToDrills');
+
+    if (isOilFuel) {
+      if (drillsHeaderIcon) drillsHeaderIcon.textContent = '🛢️';
+      if (drillsHeaderTitle) drillsHeaderTitle.textContent = 'Configuración de Pozos de Petróleo Crudo (Extractores)';
+      if (drillsHeaderSubtitle) drillsHeaderSubtitle.textContent = 'Indica cuántos pozos de petróleo tienes y de qué pureza es cada pozo. La app calculará cuántas refinerías y cuántos Generadores de Combustible (250 MW) puedes alimentar sin apagones.';
+      if (addDrillBtn) addDrillBtn.innerHTML = '<span>➕ Añadir Pozo / Extractor de Petróleo</span>';
+      if (syncDrillBtn && plant.fuel.balance) {
+        syncDrillBtn.innerHTML = `<span>⚡ Sincronizar Central con estos Pozos (${plant.fuel.balance.maxMWWithSupply.toLocaleString()} MW)</span>`;
+      }
+    } else {
+      if (drillsHeaderIcon) drillsHeaderIcon.textContent = '⛏️';
+      if (drillsHeaderTitle) drillsHeaderTitle.textContent = 'Configuración de Taladros por Veta (Menas Puras, Normales e Impuras)';
+      if (drillsHeaderSubtitle) drillsHeaderSubtitle.textContent = 'Indica cuántos taladros tienes y de qué pureza es cada veta. La app calculará la extracción total exacta y cuántos MW puedes alimentar.';
+      if (addDrillBtn) addDrillBtn.innerHTML = '<span>➕ Añadir Taladro de Carbón</span>';
+      if (syncDrillBtn && plant.fuel.balance) {
+        syncDrillBtn.innerHTML = `<span>⚡ Sincronizar Central con estos Taladros (${plant.fuel.balance.maxMWWithSupply.toLocaleString()} MW)</span>`;
+      }
+    }
+
+    if (canShowDrills && drillsList && plant.fuel.userDrills) {
       drillsList.innerHTML = plant.fuel.userDrills.map((d, idx) => {
         const canDelete = plant.fuel.userDrills.length > 1;
+
+        if (isOilFuel) {
+          return `
+            <div class="power-drill-row">
+              <div class="power-drill-header">
+                <div class="power-drill-tag" style="background: rgba(2, 132, 199, 0.15); border-color: #38bdf8; color: #7dd3fc;">
+                  <span>🛢️</span>
+                  <span>Extractor #${idx + 1} (Petróleo Crudo)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="power-drill-output">+${d.rate} m³/min &bull; ${d.clock}% (${d.belt.name})</span>
+                  <span style="font-size: 0.72rem; color: #facc15; font-weight: 700; background: rgba(250, 204, 21, 0.1); border: 1px solid rgba(250, 204, 21, 0.25); padding: 2px 6px; border-radius: 4px;">⚡ ${d.mw} MW</span>
+                  ${canDelete ? `<button type="button" class="btn-remove-drill btn-remove-power-drill" data-drill-id="${d.id}" title="Eliminar este pozo">✕</button>` : ''}
+                </div>
+              </div>
+
+              <div class="power-drill-controls">
+                <!-- Selector de Pureza -->
+                <div class="drill-control-group">
+                  <span class="drill-sublabel">Pureza del Pozo:</span>
+                  <div class="raw-purity-group-sm">
+                    <button type="button" class="btn-node-purity btn-power-node-purity ${d.purity === 'impure' ? 'active' : ''}" data-drill-id="${d.id}" data-purity="impure">Impura (60 m³/m)</button>
+                    <button type="button" class="btn-node-purity btn-power-node-purity ${d.purity === 'normal' ? 'active' : ''}" data-drill-id="${d.id}" data-purity="normal">Normal (120 m³/m)</button>
+                    <button type="button" class="btn-node-purity btn-power-node-purity ${d.purity === 'pure' ? 'active' : ''}" data-drill-id="${d.id}" data-purity="pure">Pura (240 m³/m)</button>
+                  </div>
+                </div>
+
+                <!-- Edificio Extractor -->
+                <div class="drill-control-group">
+                  <span class="drill-sublabel">Edificio:</span>
+                  <div style="font-size: 0.76rem; color: #38bdf8; font-weight: 700; background: rgba(2, 132, 199, 0.12); border: 1px solid rgba(56, 189, 248, 0.25); padding: 5px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;">
+                    <span>🛢️</span> Extractor de Petróleo (120 m³/m base)
+                  </div>
+                </div>
+
+                <!-- Selector de Overclocking (1% a 250%) -->
+                <div class="drill-control-group" style="flex: 1; min-width: 250px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 2px;">
+                    <span class="drill-sublabel">Overclock del Pozo:</span>
+                    <span style="font-size: 0.74rem; font-weight: 800; color: ${d.clock > 100 ? '#f59e0b' : '#38bdf8'}; font-family: var(--font-mono);">
+                      ${d.clock}% ${d.shards > 0 ? `<small style="color: #38bdf8; font-weight: 700;">(💎 ${d.shards} ${d.shards === 1 ? 'Shard' : 'Shards'})</small>` : ''}
+                    </span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 8px; width: 100%;">
+                    <input type="range" class="range-slider range-power-drill-clock" data-drill-id="${d.id}" min="1" max="250" value="${d.clock}" step="1" style="flex: 1;">
+                    <div class="raw-clock-group-sm">
+                      <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 100 ? 'active' : ''}" data-drill-id="${d.id}" data-clock="100">100%</button>
+                      <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 150 ? 'active overclock' : ''}" data-drill-id="${d.id}" data-clock="150">150%</button>
+                      <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 200 ? 'active overclock' : ''}" data-drill-id="${d.id}" data-clock="200">200%</button>
+                      <button type="button" class="btn-node-clock btn-power-drill-clock ${d.clock === 250 ? 'active overclock' : ''}" data-drill-id="${d.id}" data-clock="250">250%</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
         return `
           <div class="power-drill-row">
             <div class="power-drill-header">
@@ -5487,83 +5583,211 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }).join('');
 
-      // Badge de Balance de Carbón
+      // Badge de Balance de Combustible / Petróleo
       if (balanceBadge && plant.fuel.balance) {
         const bal = plant.fuel.balance;
-        if (bal.isCovered) {
-          balanceBadge.innerHTML = `
-            <span class="raw-balance-pill covered" style="display: inline-flex; align-items: center; gap: 6px;">
-              <span>✅</span>
-              <span><strong>Cubierto:</strong> Extraes ${bal.suppliedRate}/m &bull; Necesitas ${bal.requiredRate}/m (${bal.difference >= 0 ? `+${bal.difference}/m libre` : 'Exacto'})</span>
-            </span>
-          `;
+        if (isOilFuel) {
+          if (bal.isCovered) {
+            balanceBadge.innerHTML = `
+              <span class="raw-balance-pill covered" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span>✅</span>
+                <span><strong>Petróleo Satisfecho:</strong> Extraes ${bal.suppliedRate} m³/m para ${plant.petrochem.refineriesCount} Refinerías (${bal.difference >= 0 ? `+${bal.difference} m³/m libre` : 'Exacto'})</span>
+              </span>
+            `;
+          } else {
+            balanceBadge.innerHTML = `
+              <span class="raw-balance-pill deficit" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span>⚠️</span>
+                <span><strong>Falta Petróleo Crudo:</strong> Extraes ${bal.suppliedRate} m³/m pero requieres ${bal.requiredRate} m³/m (Déficit de ${Math.abs(bal.difference)} m³/m)</span>
+              </span>
+            `;
+          }
         } else {
-          balanceBadge.innerHTML = `
-            <span class="raw-balance-pill deficit" style="display: inline-flex; align-items: center; gap: 6px;">
-              <span>⚠️</span>
-              <span><strong>Falta Carbón:</strong> Extraes ${bal.suppliedRate}/m pero requieres ${bal.requiredRate}/m (Déficit de ${Math.abs(bal.difference)}/m)</span>
-            </span>
-          `;
+          if (bal.isCovered) {
+            balanceBadge.innerHTML = `
+              <span class="raw-balance-pill covered" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span>✅</span>
+                <span><strong>Cubierto:</strong> Extraes ${bal.suppliedRate}/m &bull; Necesitas ${bal.requiredRate}/m (${bal.difference >= 0 ? `+${bal.difference}/m libre` : 'Exacto'})</span>
+              </span>
+            `;
+          } else {
+            balanceBadge.innerHTML = `
+              <span class="raw-balance-pill deficit" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span>⚠️</span>
+                <span><strong>Falta Carbón:</strong> Extraes ${bal.suppliedRate}/m pero requieres ${bal.requiredRate}/m (Déficit de ${Math.abs(bal.difference)}/m)</span>
+              </span>
+            `;
+          }
         }
       }
     }
 
     // 2. Renderizar Cuadrícula de Métricas
-    statsGrid.innerHTML = `
-      <div class="power-stat-card stat-gross">
-        <span class="power-stat-label">⚡ Potencia Bruta Total</span>
-        <span class="power-stat-value" style="color: #38bdf8;">${plant.powerBalance.grossMW.toLocaleString()} MW</span>
-        <span class="power-stat-sub">Generación nominal total</span>
-      </div>
+    if (isOilFuel) {
+      statsGrid.innerHTML = `
+        <div class="power-stat-card stat-gross">
+          <span class="power-stat-label">⚡ Potencia Bruta Total</span>
+          <span class="power-stat-value" style="color: #38bdf8;">${plant.powerBalance.grossMW.toLocaleString()} MW</span>
+          <span class="power-stat-sub">Generación nominal total</span>
+        </div>
 
-      <div class="power-stat-card stat-net">
-        <span class="power-stat-label">🔌 Potencia Neta Suministrada</span>
-        <span class="power-stat-value" style="color: #4ade80;">${plant.powerBalance.netMW.toLocaleString()} MW</span>
-        <span class="power-stat-sub">
-          <strong style="color: #4ade80;">⚡ ${plant.powerBalance.netEfficiency}%</strong> limpia para tu fábrica
-        </span>
-      </div>
+        <div class="power-stat-card stat-net">
+          <span class="power-stat-label">🔌 Potencia Neta Suministrada</span>
+          <span class="power-stat-value" style="color: #4ade80;">${plant.powerBalance.netMW.toLocaleString()} MW</span>
+          <span class="power-stat-sub">
+            <strong style="color: #4ade80;">⚡ ${plant.powerBalance.netEfficiency}%</strong> limpia para tu fábrica
+          </span>
+        </div>
 
-      <div class="power-stat-card stat-generators">
-        <span class="power-stat-label">🏭 Generadores Requeridos</span>
-        <span class="power-stat-value" style="color: #c084fc;">${plant.totalGeneratorsCount} <small style="font-size: 0.85rem;">Edificios</small></span>
-        <span class="power-stat-sub">
-          ${plant.fullGenerators} al 100%${plant.hasFractional ? ` + 1 ajustado al <strong>${plant.lastClock}%</strong>` : ''}
-        </span>
-      </div>
+        <div class="power-stat-card stat-generators">
+          <span class="power-stat-label">🏭 Generadores de Combustible</span>
+          <span class="power-stat-value" style="color: #c084fc;">${plant.totalGeneratorsCount} <small style="font-size: 0.85rem;">Edificios</small></span>
+          <span class="power-stat-sub">
+            Generador 1.0 (250 MW c/u)${plant.hasFractional ? ` &bull; 1 al <strong>${plant.lastClock}%</strong>` : ''}
+          </span>
+        </div>
 
-      <div class="power-stat-card stat-fuel">
-        <span class="power-stat-label">🪨 Combustible Requerido</span>
-        <span class="power-stat-value" style="color: #f59e0b;">${plant.fuel.totalRate.toLocaleString()} <small style="font-size: 0.85rem;">/min</small></span>
-        <span class="power-stat-sub">
-          ${plant.fuel.name} &bull; ${plant.fuel.beltsNeededCount ? `${plant.fuel.beltsNeededCount}x ${plant.fuel.belt.name}` : `${plant.fuel.pipesNeededCount}x ${plant.water.pipeName}`}
-          ${plant.fuel.balance ? ` (Extraes ${plant.fuel.balance.suppliedRate}/m)` : ''}
-        </span>
-      </div>
+        <div class="power-stat-card stat-fuel">
+          <span class="power-stat-label">🛢️ Combustible Requerido</span>
+          <span class="power-stat-value" style="color: #f59e0b;">${plant.fuel.totalRate.toLocaleString()} <small style="font-size: 0.85rem;">m³/min</small></span>
+          <span class="power-stat-sub">
+            ${plant.fuel.pipesNeededCount}x ${plant.water.pipeName} de Fuel
+          </span>
+        </div>
 
-      <div class="power-stat-card stat-water">
-        <span class="power-stat-label">💧 Consumo de Agua</span>
-        <span class="power-stat-value" style="color: #06b6d4;">${plant.water.requiresWater ? `${plant.water.totalRate.toLocaleString()} m³/min` : '0 m³/min'}</span>
-        <span class="power-stat-sub">
-          ${plant.water.requiresWater 
-            ? `<strong>${plant.water.extractorsCount} Extractores</strong> al 100% en <strong>${plant.water.pipesNeededCount}x</strong> ${plant.water.pipeName}` 
-            : 'Esta central no utiliza agua'
-          }
-        </span>
-      </div>
+        <div class="power-stat-card" style="border-top: 3px solid #0284c7; background: #08111e;">
+          <span class="power-stat-label">⚗️ Refinerías & Petróleo Crudo</span>
+          <span class="power-stat-value" style="color: #38bdf8;">${plant.petrochem.refineriesCount} <small style="font-size: 0.85rem;">Refinerías</small></span>
+          <span class="power-stat-sub">
+            Consumen <strong>${plant.petrochem.crudeOilRate.toLocaleString()} m³/min</strong> de Crudo (${plant.petrochem.crudePipesCount}x ${plant.water.pipeName})
+          </span>
+        </div>
 
-      <div class="power-stat-card stat-gross" style="border-top-color: #ef4444;">
-        <span class="power-stat-label">🔄 Autoconsumo de la Central</span>
-        <span class="power-stat-value" style="color: #f87171;">-${plant.powerBalance.totalInternalMW.toLocaleString()} MW</span>
-        <span class="power-stat-sub">
-          ${plant.water.extractorPower} MW bombas + ${plant.fuel.minersPower} MW minería
-        </span>
-      </div>
-    `;
+        <div class="power-stat-card" style="border-top: 3px solid #c084fc; background: #130a1c;">
+          <span class="power-stat-label">💜 Subproducto: Resina</span>
+          <span class="power-stat-value" style="color: #e879f9;">${plant.petrochem.polymerResinRate.toLocaleString()} <small style="font-size: 0.85rem;">/min</small></span>
+          <span class="power-stat-sub" style="color: #f472b6;">
+            ⚠️ Enviar a <strong>Trituradora Awesome Sink</strong> (${plant.petrochem.resinBelt.name}) para evitar apagones
+          </span>
+        </div>
+
+        <div class="power-stat-card stat-gross" style="border-top-color: #ef4444;">
+          <span class="power-stat-label">🔄 Autoconsumo de la Central</span>
+          <span class="power-stat-value" style="color: #f87171;">-${plant.powerBalance.totalInternalMW.toLocaleString()} MW</span>
+          <span class="power-stat-sub">
+            ${plant.petrochem.refineryPower} MW Refinerías + ${plant.fuel.minersPower} MW Extractores + ${plant.petrochem.sinkPower} MW Sink
+          </span>
+        </div>
+      `;
+    } else {
+      statsGrid.innerHTML = `
+        <div class="power-stat-card stat-gross">
+          <span class="power-stat-label">⚡ Potencia Bruta Total</span>
+          <span class="power-stat-value" style="color: #38bdf8;">${plant.powerBalance.grossMW.toLocaleString()} MW</span>
+          <span class="power-stat-sub">Generación nominal total</span>
+        </div>
+
+        <div class="power-stat-card stat-net">
+          <span class="power-stat-label">🔌 Potencia Neta Suministrada</span>
+          <span class="power-stat-value" style="color: #4ade80;">${plant.powerBalance.netMW.toLocaleString()} MW</span>
+          <span class="power-stat-sub">
+            <strong style="color: #4ade80;">⚡ ${plant.powerBalance.netEfficiency}%</strong> limpia para tu fábrica
+          </span>
+        </div>
+
+        <div class="power-stat-card stat-generators">
+          <span class="power-stat-label">🏭 Generadores Requeridos</span>
+          <span class="power-stat-value" style="color: #c084fc;">${plant.totalGeneratorsCount} <small style="font-size: 0.85rem;">Edificios</small></span>
+          <span class="power-stat-sub">
+            ${plant.fullGenerators} al 100%${plant.hasFractional ? ` + 1 ajustado al <strong>${plant.lastClock}%</strong>` : ''}
+          </span>
+        </div>
+
+        <div class="power-stat-card stat-fuel">
+          <span class="power-stat-label">🪨 Combustible Requerido</span>
+          <span class="power-stat-value" style="color: #f59e0b;">${plant.fuel.totalRate.toLocaleString()} <small style="font-size: 0.85rem;">/min</small></span>
+          <span class="power-stat-sub">
+            ${plant.fuel.name} &bull; ${plant.fuel.beltsNeededCount ? `${plant.fuel.beltsNeededCount}x ${plant.fuel.belt.name}` : `${plant.fuel.pipesNeededCount}x ${plant.water.pipeName}`}
+            ${plant.fuel.balance ? ` (Extraes ${plant.fuel.balance.suppliedRate}/m)` : ''}
+          </span>
+        </div>
+
+        <div class="power-stat-card stat-water">
+          <span class="power-stat-label">💧 Consumo de Agua</span>
+          <span class="power-stat-value" style="color: #06b6d4;">${plant.water.requiresWater ? `${plant.water.totalRate.toLocaleString()} m³/min` : '0 m³/min'}</span>
+          <span class="power-stat-sub">
+            ${plant.water.requiresWater 
+              ? `<strong>${plant.water.extractorsCount} Extractores</strong> al 100% en <strong>${plant.water.pipesNeededCount}x</strong> ${plant.water.pipeName}` 
+              : 'Esta central no utiliza agua'
+            }
+          </span>
+        </div>
+
+        <div class="power-stat-card stat-gross" style="border-top-color: #ef4444;">
+          <span class="power-stat-label">🔄 Autoconsumo de la Central</span>
+          <span class="power-stat-value" style="color: #f87171;">-${plant.powerBalance.totalInternalMW.toLocaleString()} MW</span>
+          <span class="power-stat-sub">
+            ${plant.water.extractorPower} MW bombas + ${plant.fuel.minersPower} MW minería
+          </span>
+        </div>
+      `;
+    }
 
     // 3. Renderizar Explicación Clara y Didáctica de la Arquitectura
     if (archCard) {
-      if (plant.modularArchitecture) {
+      if (plant.generator.id === 'fuel_generator') {
+        archCard.style.display = 'block';
+        archCard.innerHTML = `
+          <div class="power-architecture-header">
+            <div>
+              <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Guía Práctica de Construcción FICSIT &bull; Petróleo y Combustible 1.0</span>
+              <h3 style="margin: 2px 0 0; font-size: 1.05rem; color: #f1f5f9; display: flex; align-items: center; gap: 8px;">
+                <span>📐 La Regla de Oro 1:2 (1 Refinería = 2 Generadores = 500 MW)</span>
+              </h3>
+            </div>
+            <span class="blueprint-badge" style="background: rgba(74, 222, 128, 0.15); border-color: #4ade80; color: #4ade80;">
+              Cero Atascos con Trituradora FICSIT (Awesome Sink)
+            </span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px;">
+            <div style="background: #090e18; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 12px;">
+              <strong style="color: #fbbf24; font-size: 0.8rem; display: block; margin-bottom: 4px;">1. ¿Por qué el módulo perfecto es 1:2 (500 MW)?</strong>
+              <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                En Satisfactory 1.0, 1 Refinería toma <strong>60 m³/min de Petróleo Crudo</strong> y produce <strong>40 m³/min de Fuel</strong>. Cada Generador de Combustible toma exactamente <strong>20 m³/min de Fuel</strong> y entrega <strong>250 MW</strong>.
+                ¡1 Refinería alimenta con precisión milimétrica a <strong>2 Generadores (500 MW)</strong> sin decimales ni sobrantes de combustible!
+              </p>
+            </div>
+
+            <div style="background: #15091a; border: 1px solid rgba(192, 132, 252, 0.4); border-radius: 6px; padding: 10px 12px;">
+              <strong style="color: #e879f9; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                <span>⚠️</span> 2. ¡EL PELIGRO DEL APAGÓN! (Atasco de Resina)
+              </strong>
+              <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                La refinería produce <strong>30 Resina de Polímero/min</strong> como subproducto. Si no la sacas, el almacén de la refinería se llena (100 u.), <strong>la producción de Fuel se detiene al 100%</strong>, los generadores se vacían y tu red eléctrica colapsa en un apagón general.
+                <br><strong style="color: #4ade80;">Solución FICSIT:</strong> Conecta la salida de sólidos con una cinta hacia una <strong>Trituradora FICSIT (Awesome Sink)</strong>. ¡Triturar la resina te da cupones y asegura que la central jamás se apague!
+              </p>
+            </div>
+
+            <div style="background: #090e18; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 12px;">
+              <strong style="color: #38bdf8; font-size: 0.8rem; display: block; margin-bottom: 4px;">3. Tuberías de Petróleo y Fuel (300 vs 600 m³/min)</strong>
+              <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                Tu central consume <strong>${plant.fuel.totalRate} m³/min de Fuel</strong> provenientes de <strong>${plant.petrochem.crudeOilRate} m³/min de Petróleo Crudo</strong>.
+                Una Tubería Mk.1 aguanta 300 m³/min (suficiente para 5 refinerías = 10 generadores = 2,500 MW). Para tu meta necesitas <strong>${plant.fuel.pipesNeededCount} Tubería(s)</strong>.
+                Alimenta los manifolds desde ambos extremos en bucle para evitar pérdida de carga hidráulica.
+              </p>
+            </div>
+
+            <div style="background: #090e18; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 12px;">
+              <strong style="color: #4ade80; font-size: 0.8rem; display: block; margin-bottom: 4px;">4. Cómo construir tus ${plant.powerBalance.grossMW.toLocaleString()} MW</strong>
+              <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; margin: 0;">
+                Construye <strong>${plant.modularArchitecture.standardModulesCount} bloques de 500 MW</strong> (cada uno con 1 Refinería + 2 Generadores de Combustible 1.0) ${plant.modularArchitecture.hasRemainder ? `+ 1 bloque de ajuste de ${plant.modularArchitecture.remainderGenerators} generadores (${plant.modularArchitecture.remainderMW} MW)` : ''}.
+                En total son <strong>${plant.petrochem.refineriesCount} Refinerías</strong> y <strong>${plant.totalGeneratorsCount} Generadores de Combustible</strong>.
+              </p>
+            </div>
+          </div>
+        `;
+      } else if (plant.modularArchitecture) {
         archCard.style.display = 'block';
         archCard.innerHTML = `
           <div class="power-architecture-header">
@@ -5650,13 +5874,77 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderPowerPlantBlueprint(plant) {
     const canvas = document.getElementById('powerBlueprintCanvas');
     const subtitle = document.getElementById('powerBpSubtitle');
+    const viewBlockLabel = document.getElementById('powerViewBlockLabel');
+    const coalDistSwitcher = document.getElementById('powerBpCoalDistSwitcher');
+    const legend = document.getElementById('powerBlueprintLegend');
     if (!canvas) return;
 
+    const isOil = !!(plant.petrochem && plant.petrochem.isOil);
     const isBlockMode = state.power.blueprintMode === 'block';
+
+    if (viewBlockLabel) {
+      viewBlockLabel.textContent = isOil 
+        ? '📐 Plano de Montaje (1 Refinería : 2 Generadores • 500 MW)' 
+        : '📐 Plano de Montaje (8 Generadores : 3 Extractores • 600 MW)';
+    }
+
+    if (coalDistSwitcher) {
+      coalDistSwitcher.style.display = isOil ? 'none' : 'inline-flex';
+    }
+
+    if (legend) {
+      if (isOil) {
+        legend.innerHTML = `
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #0284c7;"></span>
+            <span>🛢️ Petróleo Crudo y Tuberías</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #f59e0b;"></span>
+            <span>🟧 Fuel / Combustible Líquido</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #c084fc;"></span>
+            <span>🟪 Resina de Polímero ➔ Trituradora</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #38bdf8;"></span>
+            <span>🟦 Refinería FICSIT (Receta: Fuel)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #22c55e;"></span>
+            <span>🟩 Red Eléctrica Aérea (+500 MW)</span>
+          </div>
+        `;
+      } else {
+        legend.innerHTML = `
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #ea580c;"></span>
+            <span>🟧 Carbón y Divisores (Splitters)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #00e5ff;"></span>
+            <span>🟦 Agua y Manifold Colector</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #8b5cf6;"></span>
+            <span>🟪 Generadores de Carbón (75 MW)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color-box" style="background: #22c55e;"></span>
+            <span>🟩 Red Eléctrica Aérea y Subestación (+600 MW)</span>
+          </div>
+        `;
+      }
+    }
 
     if (subtitle) {
       if (isBlockMode) {
-        subtitle.innerHTML = `Mostrando plano de montaje de 1 Bloque Maestro (8 Generadores &bull; 600 MW) &bull; Clona este bloque ${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} veces`;
+        if (isOil) {
+          subtitle.innerHTML = `Mostrando plano de montaje de 1 Bloque Maestro de Petróleo (1 Refinería : 2 Generadores &bull; 500 MW) &bull; Clona este bloque ${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} veces`;
+        } else {
+          subtitle.innerHTML = `Mostrando plano de montaje de 1 Bloque Maestro (8 Generadores &bull; 600 MW) &bull; Clona este bloque ${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} veces`;
+        }
       } else {
         subtitle.innerHTML = `Mostrando plano panorámico de toda la central (${plant.powerBalance.grossMW.toLocaleString()} MW &bull; ${plant.totalGeneratorsCount} Generadores totales)`;
       }
@@ -5675,10 +5963,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function generatePowerPlantBlueprintSvg(plant) {
     const mode = state.power.blueprintMode || 'block';
+    const isOil = !!(plant.petrochem && plant.petrochem.isOil);
 
     if (mode === 'overview') {
+      if (isOil) {
+        return generatePowerOilOverviewBlueprintSvg(plant);
+      }
       return generatePowerOverviewBlueprintSvg(plant);
     } else {
+      if (isOil) {
+        return generatePowerOilBlockBlueprintSvg(plant);
+      }
       return generatePowerBlockBlueprintSvg(plant);
     }
   }
@@ -6017,6 +6312,537 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // --- MODO 1B: PLANO DETALLADO DE MONTAJE DEL BLOQUE DE PETRÓLEO (1 REFINERÍA : 2 GENERADORES 500 MW) ---
+  function generatePowerOilBlockBlueprintSvg(plant) {
+    const totalW = 1520;
+    const totalH = 760;
+
+    const extX = 55;
+    const extY = 190;
+    const refX = 390;
+    const refY = 160;
+    const crossX = 720;
+    const crossY = 220;
+    const gen1X = 840;
+    const gen1Y = 80;
+    const gen2X = 840;
+    const gen2Y = 320;
+    const sinkX = 750;
+    const sinkY = 510;
+    const subX = 1200;
+    const subY = 140;
+
+    let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #040812; font-family: var(--font-main);">
+      <defs>
+        <pattern id="oilBlockGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.035)" stroke-width="1"/>
+          <path d="M 30 0 L 30 60 M 0 30 L 60 30" fill="none" stroke="rgba(255,255,255,0.015)" stroke-width="0.5"/>
+        </pattern>
+
+        <linearGradient id="oilExtGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0e3a53"/>
+          <stop offset="100%" stop-color="#081420"/>
+        </linearGradient>
+
+        <linearGradient id="refineryGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1e1b4b"/>
+          <stop offset="100%" stop-color="#0c1222"/>
+        </linearGradient>
+
+        <linearGradient id="fuelGenGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#2a1205"/>
+          <stop offset="50%" stop-color="#1c1917"/>
+          <stop offset="100%" stop-color="#0c0a09"/>
+        </linearGradient>
+
+        <linearGradient id="sinkGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3b0764"/>
+          <stop offset="100%" stop-color="#150524"/>
+        </linearGradient>
+
+        <filter id="glowOrangeOil" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <filter id="glowPurpleOil" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <filter id="glowCyanOil" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <filter id="glowGreenOil" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3.5" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      <!-- Fondo Cuadrícula -->
+      <rect width="${totalW}" height="${totalH}" fill="url(#oilBlockGridPat)" />
+
+      <!-- =========================================================================
+           1. BARRA SUPERIOR: ENCABEZADO Y LEYENDA TÉCNICA
+           ========================================================================= -->
+      <rect x="35" y="14" width="${totalW - 70}" height="54" rx="8" fill="#090f19" stroke="rgba(245, 158, 11, 0.35)" stroke-width="1.5"/>
+      <text x="50" y="34" fill="#f8fafc" font-size="13" font-weight="900" letter-spacing="0.5">
+        📐 ESQUEMA DE MONTAJE PETROQUÍMICO: MÓDULO 500 MW (1 REFINERÍA : 2 GENERADORES DE COMBUSTIBLE 1.0)
+      </text>
+      <text x="50" y="52" fill="#94a3b8" font-size="10.5">
+        Ratio Áureo FICSIT: <tspan fill="#4ade80" font-weight="900">60 Crudo ➔ 40 Fuel + 30 Resina ➔ 2 Generadores (500 MW)</tspan> • Clona este bloque <tspan fill="#f59e0b" font-weight="900">${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} veces</tspan> para tus ${plant.powerBalance.grossMW.toLocaleString()} MW.
+      </text>
+
+      <!-- Leyenda Rápida Superior -->
+      <g transform="translate(${totalW - 680}, 24)">
+        <rect x="0" y="0" width="14" height="14" rx="3" fill="#0284c7" stroke="#38bdf8" stroke-width="1.5"/>
+        <text x="18" y="11" fill="#7dd3fc" font-size="9.5" font-weight="800">Crudo (60/m)</text>
+
+        <rect x="120" y="0" width="14" height="14" rx="3" fill="#f59e0b" stroke="#fbbf24" stroke-width="1.5"/>
+        <text x="138" y="11" fill="#fde68a" font-size="9.5" font-weight="800">Fuel (40/m)</text>
+
+        <rect x="235" y="0" width="14" height="14" rx="3" fill="#9333ea" stroke="#c084fc" stroke-width="1.5"/>
+        <text x="253" y="11" fill="#e9d5ff" font-size="9.5" font-weight="800">Resina ➔ Sink</text>
+
+        <rect x="380" y="0" width="14" height="14" rx="3" fill="#16a34a" stroke="#4ade80" stroke-width="1.5"/>
+        <text x="398" y="11" fill="#bbf7d0" font-size="9.5" font-weight="800">Red (+500 MW)</text>
+      </g>
+
+      <!-- =========================================================================
+           2. CABLEADO AÉREO DE ALTA TENSIÓN (VERDE)
+           ========================================================================= -->
+      <path d="M ${gen1X + 115} 95 L ${subX} 180" stroke="#15803d" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M ${gen1X + 115} 95 L ${subX} 180" stroke="#22c55e" stroke-width="2.5" stroke-dasharray="8 6" fill="none" filter="url(#glowGreenOil)"/>
+
+      <path d="M ${gen2X + 115} 335 L ${subX} 240" stroke="#15803d" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M ${gen2X + 115} 335 L ${subX} 240" stroke="#22c55e" stroke-width="2.5" stroke-dasharray="8 6" fill="none" filter="url(#glowGreenOil)"/>
+
+      <!-- =========================================================================
+           3. ZONA 1: EXTRACTOR DE PETRÓLEO CRUDO
+           ========================================================================= -->
+      <g class="power-extractor-node" data-name="Extractor de Petróleo Crudo" data-flow="60 m³/min" data-mw="40 MW" style="cursor: pointer;">
+        <rect x="${extX}" y="${extY}" width="160" height="170" rx="10" fill="url(#oilExtGrad)" stroke="#38bdf8" stroke-width="2.5" />
+        
+        <!-- Header del Extractor -->
+        <rect x="${extX + 8}" y="${extY + 8}" width="144" height="24" rx="4" fill="#082f49" />
+        <text x="${extX + 80}" y="${extY + 24}" fill="#38bdf8" font-size="11" font-weight="900" text-anchor="middle">
+          🛢️ POZO PETROLÍFERO
+        </text>
+
+        <!-- Silueta de Bomba de Petróleo -->
+        <circle cx="${extX + 80}" cy="${extY + 75}" r="28" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.8" />
+        <text x="${extX + 80}" y="${extY + 82}" fill="#ffffff" font-size="24" text-anchor="middle">🛢️</text>
+
+        <!-- Métricas del Pozo -->
+        <text x="${extX + 80}" y="${extY + 120}" fill="#f8fafc" font-size="11.5" font-weight="900" text-anchor="middle">
+          Extractor de Petróleo
+        </text>
+        <text x="${extX + 80}" y="${extY + 138}" fill="#38bdf8" font-size="12" font-weight="900" text-anchor="middle">
+          +60 m³/min (Crudo)
+        </text>
+        <text x="${extX + 80}" y="${extY + 154}" fill="#f87171" font-size="9" font-weight="700" text-anchor="middle">
+          Consumo: 40 MW
+        </text>
+      </g>
+
+      <!-- =========================================================================
+           4. TUBERÍA DE PETRÓLEO CRUDO (EXTRACTOR ➔ REFINERÍA)
+           ========================================================================= -->
+      <path d="M ${extX + 160} 265 L ${refX} 265" stroke="#082f49" stroke-width="14" fill="none" stroke-linecap="round" />
+      <path d="M ${extX + 160} 265 L ${refX} 265" stroke="#0284c7" stroke-width="7" fill="none" />
+      <path d="M ${extX + 160} 265 L ${refX} 265" class="blueprint-belt-flow" stroke="#38bdf8" stroke-width="3" stroke-dasharray="14 10" fill="none" />
+
+      <!-- Cartel sobre la tubería de Crudo -->
+      <rect x="225" y="235" width="150" height="24" rx="4" fill="#041b2d" stroke="#38bdf8" stroke-width="1.2" />
+      <text x="300" y="251" fill="#7dd3fc" font-size="9.5" font-weight="800" text-anchor="middle">
+        Tubería: 60 m³/min Crudo
+      </text>
+
+      <!-- =========================================================================
+           5. ZONA 2: REFINERÍA FICSIT (COMBUSTIBLE + RESINA DE POLÍMERO)
+           ========================================================================= -->
+      <g class="power-refinery-node" data-name="Refinería de Combustible" data-input="60 m³/min Petróleo Crudo" data-fuel="40 m³/min Fuel" data-resin="30 Resina/min" data-mw="30 MW" style="cursor: pointer;">
+        <rect x="${refX}" y="${refY}" width="220" height="230" rx="10" fill="url(#refineryGrad)" stroke="#818cf8" stroke-width="2.5" />
+
+        <!-- Header Refinería -->
+        <rect x="${refX + 8}" y="${refY + 8}" width="204" height="26" rx="4" fill="#1e1b4b" />
+        <text x="${refX + 110}" y="${refY + 25}" fill="#c084fc" font-size="11.5" font-weight="900" text-anchor="middle">
+          ⚗️ REFINERÍA FICSIT
+        </text>
+
+        <!-- Chimeneas gemelas de condensación -->
+        <rect x="${refX + 35}" y="${refY - 18}" width="24" height="22" rx="3" fill="#312e81" stroke="#818cf8" stroke-width="1.5" />
+        <rect x="${refX + 75}" y="${refY - 24}" width="24" height="28" rx="3" fill="#312e81" stroke="#818cf8" stroke-width="1.5" />
+
+        <!-- Columna de Destilación Fraccionada (Gráfica interna) -->
+        <rect x="${refX + 25}" y="${refY + 45}" width="75" height="110" rx="6" fill="#0f172a" stroke="#4338ca" stroke-width="1.5" />
+        <line x1="${refX + 25}" y1="${refY + 75}" x2="${refX + 100}" y2="${refY + 75}" stroke="#4338ca" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <line x1="${refX + 25}" y1="${refY + 105}" x2="${refX + 100}" y2="${refY + 105}" stroke="#4338ca" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <line x1="${refX + 25}" y1="${refY + 130}" x2="${refX + 100}" y2="${refY + 130}" stroke="#4338ca" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <text x="${refX + 62}" y="${refY + 70}" fill="#f59e0b" font-size="8.5" font-weight="800" text-anchor="middle">Fuel 40/m</text>
+        <text x="${refX + 62}" y="${refY + 100}" fill="#c084fc" font-size="8.5" font-weight="800" text-anchor="middle">Resina 30/m</text>
+        <text x="${refX + 62}" y="${refY + 145}" fill="#38bdf8" font-size="8.5" font-weight="800" text-anchor="middle">Crudo 60/m</text>
+
+        <!-- Panel de Estado Digital -->
+        <rect x="${refX + 115}" y="${refY + 45}" width="95" height="110" rx="6" fill="#050a14" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+        <text x="${refX + 162}" y="${refY + 65}" fill="#4ade80" font-size="9" font-weight="900" text-anchor="middle">● ACTIVA 100%</text>
+        <text x="${refX + 162}" y="${refY + 84}" fill="#94a3b8" font-size="8.5" text-anchor="middle">Receta Oficial:</text>
+        <text x="${refX + 162}" y="${refY + 98}" fill="#f8fafc" font-size="9.5" font-weight="800" text-anchor="middle">Fuel Estándar</text>
+        <text x="${refX + 162}" y="${refY + 120}" fill="#f87171" font-size="9" font-weight="700" text-anchor="middle">Consumo: 30 MW</text>
+        <text x="${refX + 162}" y="${refY + 142}" fill="#38bdf8" font-size="8.5" font-weight="800" text-anchor="middle">Ciclo: 6s</text>
+
+        <!-- Puertos de Salida Identificados -->
+        <!-- Puerto Superior: Fluidos (Combustible) -->
+        <circle cx="${refX + 220}" cy="${refY + 60}" r="9" fill="#f59e0b" stroke="#ffffff" stroke-width="2" filter="url(#glowOrangeOil)"/>
+        <text x="${refX + 190}" y="${refY + 42}" fill="#f59e0b" font-size="9" font-weight="900">Salida Fuel ➔</text>
+
+        <!-- Puerto Inferior: Sólidos (Resina) -->
+        <rect x="${refX + 212}" y="${refY + 175}" width="14" height="14" rx="3" fill="#9333ea" stroke="#ffffff" stroke-width="2" filter="url(#glowPurpleOil)"/>
+        <text x="${refX + 145}" y="${refY + 205}" fill="#c084fc" font-size="9" font-weight="900">Salida Resina ➔</text>
+      </g>
+
+      <!-- =========================================================================
+           6. TUBERÍA DE FUEL Y DIVISOR EN CRUCETA (50% / 50%)
+           ========================================================================= -->
+      <!-- Tramo común de Fuel desde Refinería a Cruceta -->
+      <path d="M ${refX + 220} ${refY + 60} L ${crossX} ${refY + 60}" stroke="#451a03" stroke-width="12" fill="none" stroke-linecap="round"/>
+      <path d="M ${refX + 220} ${refY + 60} L ${crossX} ${refY + 60}" stroke="#f59e0b" stroke-width="6" fill="none"/>
+      <path d="M ${refX + 220} ${refY + 60} L ${crossX} ${refY + 60}" class="blueprint-belt-flow" stroke="#fbbf24" stroke-width="2.5" stroke-dasharray="10 8" fill="none"/>
+
+      <!-- Cruceta de Tubería (Pipe Junction Cross) -->
+      <g class="power-splitter-node" data-name="Divisor de Combustible (Cruceta)" data-flow="20 m³/min a cada Generador" style="cursor: pointer;">
+        <circle cx="${crossX}" cy="${refY + 60}" r="16" fill="#1c1917" stroke="#f59e0b" stroke-width="2.5" filter="url(#glowOrangeOil)"/>
+        <circle cx="${crossX}" cy="${refY + 60}" r="7" fill="#f59e0b"/>
+
+        <!-- Tubería hacia Generador #1 (Superior) -->
+        <path d="M ${crossX} ${refY + 60} L ${crossX} ${gen1Y + 55} L ${gen1X} ${gen1Y + 55}" stroke="#451a03" stroke-width="10" fill="none" stroke-linejoin="round"/>
+        <path d="M ${crossX} ${refY + 60} L ${crossX} ${gen1Y + 55} L ${gen1X} ${gen1Y + 55}" stroke="#f59e0b" stroke-width="5" fill="none" stroke-linejoin="round"/>
+        <path d="M ${crossX} ${refY + 60} L ${crossX} ${gen1Y + 55} L ${gen1X} ${gen1Y + 55}" class="blueprint-belt-flow" stroke="#fbbf24" stroke-width="2" stroke-dasharray="8 6" fill="none" stroke-linejoin="round"/>
+
+        <!-- Tubería hacia Generador #2 (Inferior) -->
+        <path d="M ${crossX} ${refY + 60} L ${crossX} ${gen2Y + 55} L ${gen2X} ${gen2Y + 55}" stroke="#451a03" stroke-width="10" fill="none" stroke-linejoin="round"/>
+        <path d="M ${crossX} ${refY + 60} L ${crossX} ${gen2Y + 55} L ${gen2X} ${gen2Y + 55}" stroke="#f59e0b" stroke-width="5" fill="none" stroke-linejoin="round"/>
+        <path d="M ${crossX} ${refY + 60} L ${crossX} ${gen2Y + 55} L ${gen2X} ${gen2Y + 55}" class="blueprint-belt-flow" stroke="#fbbf24" stroke-width="2" stroke-dasharray="8 6" fill="none" stroke-linejoin="round"/>
+
+        <!-- Cartel de la Cruceta -->
+        <rect x="${crossX - 70}" y="${refY + 85}" width="140" height="22" rx="4" fill="#1c0b05" stroke="#f59e0b" stroke-width="1.2" />
+        <text x="${crossX}" y="${refY + 100}" fill="#fde68a" font-size="9" font-weight="900" text-anchor="middle">
+          Cruceta: 20 m³/m a c/u
+        </text>
+      </g>
+
+      <!-- =========================================================================
+           7. GENERADORES DE COMBUSTIBLE 1.0 (250 MW CADA UNO = 500 MW)
+           ========================================================================= -->
+      <!-- Generador #1 -->
+      <g class="power-generator-node" data-id="fuel_gen_1" data-name="Generador de Combustible #1" data-mw="250 MW" data-clock="100%" data-fuel="20 m³/min Fuel" data-water="0 m³/min" style="cursor: pointer;">
+        <rect x="${gen1X}" y="${gen1Y}" width="240" height="145" rx="10" fill="url(#fuelGenGrad)" stroke="#f59e0b" stroke-width="2.5" />
+        
+        <!-- Header Generador 1 -->
+        <rect x="${gen1X + 8}" y="${gen1Y + 8}" width="224" height="26" rx="4" fill="#180702" />
+        <text x="${gen1X + 16}" y="${gen1Y + 25}" fill="#fbbf24" font-size="11" font-weight="900">
+          ⚡ GENERADOR #1 (FUEL 1.0)
+        </text>
+        <text x="${gen1X + 224}" y="${gen1Y + 25}" fill="#4ade80" font-size="12" font-weight="900" text-anchor="end">
+          +250 MW
+        </text>
+
+        <!-- Chimeneas y Turbina Térmica -->
+        <circle cx="${gen1X + 45}" cy="${gen1Y + 70}" r="22" fill="#0f172a" stroke="#f59e0b" stroke-width="2" />
+        <text x="${gen1X + 45}" y="${gen1Y + 76}" fill="#f59e0b" font-size="20" text-anchor="middle">⚙️</text>
+        
+        <rect x="${gen1X + 80}" y="${gen1Y + 45}" width="145" height="48" rx="5" fill="#050a14" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <text x="${gen1X + 90}" y="${gen1Y + 63}" fill="#38bdf8" font-size="9.5" font-weight="800">Insumo: 20 m³/min Fuel</text>
+        <text x="${gen1X + 90}" y="${gen1Y + 80}" fill="#94a3b8" font-size="8.5">Agua: No requerida</text>
+
+        <!-- Barra de Estado 100% -->
+        <rect x="${gen1X + 12}" y="${gen1Y + 105}" width="216" height="26" rx="4" fill="rgba(74, 222, 128, 0.12)" stroke="#22c55e" stroke-width="1.2" />
+        <text x="${gen1X + 120}" y="${gen1Y + 122}" fill="#86efac" font-size="10.5" font-weight="900" text-anchor="middle">
+          ● 100% OPERATIVO (250 MW LIMPIOS)
+        </text>
+      </g>
+
+      <!-- Generador #2 -->
+      <g class="power-generator-node" data-id="fuel_gen_2" data-name="Generador de Combustible #2" data-mw="250 MW" data-clock="100%" data-fuel="20 m³/min Fuel" data-water="0 m³/min" style="cursor: pointer;">
+        <rect x="${gen2X}" y="${gen2Y}" width="240" height="145" rx="10" fill="url(#fuelGenGrad)" stroke="#f59e0b" stroke-width="2.5" />
+        
+        <!-- Header Generador 2 -->
+        <rect x="${gen2X + 8}" y="${gen2Y + 8}" width="224" height="26" rx="4" fill="#180702" />
+        <text x="${gen2X + 16}" y="${gen2Y + 25}" fill="#fbbf24" font-size="11" font-weight="900">
+          ⚡ GENERADOR #2 (FUEL 1.0)
+        </text>
+        <text x="${gen2X + 224}" y="${gen2Y + 25}" fill="#4ade80" font-size="12" font-weight="900" text-anchor="end">
+          +250 MW
+        </text>
+
+        <!-- Chimeneas y Turbina Térmica -->
+        <circle cx="${gen2X + 45}" cy="${gen2Y + 70}" r="22" fill="#0f172a" stroke="#f59e0b" stroke-width="2" />
+        <text x="${gen2X + 45}" y="${gen2Y + 76}" fill="#f59e0b" font-size="20" text-anchor="middle">⚙️</text>
+        
+        <rect x="${gen2X + 80}" y="${gen2Y + 45}" width="145" height="48" rx="5" fill="#050a14" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <text x="${gen2X + 90}" y="${gen2Y + 63}" fill="#38bdf8" font-size="9.5" font-weight="800">Insumo: 20 m³/min Fuel</text>
+        <text x="${gen2X + 90}" y="${gen2Y + 80}" fill="#94a3b8" font-size="8.5">Agua: No requerida</text>
+
+        <!-- Barra de Estado 100% -->
+        <rect x="${gen2X + 12}" y="${gen2Y + 105}" width="216" height="26" rx="4" fill="rgba(74, 222, 128, 0.12)" stroke="#22c55e" stroke-width="1.2" />
+        <text x="${gen2X + 120}" y="${gen2Y + 122}" fill="#86efac" font-size="10.5" font-weight="900" text-anchor="middle">
+          ● 100% OPERATIVO (250 MW LIMPIOS)
+        </text>
+      </g>
+
+      <!-- =========================================================================
+           8. CINTA DE RESINA DE POLÍMERO Y TRITURADORA FICSIT (AWESOME SINK)
+           ========================================================================= -->
+      <!-- Cinta Transportadora Violeta bajando al Sink -->
+      <path d="M ${refX + 220} ${refY + 182} L 670 ${refY + 182} L 670 ${sinkY + 60} L ${sinkX} ${sinkY + 60}" stroke="#1e102e" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M ${refX + 220} ${refY + 182} L 670 ${refY + 182} L 670 ${sinkY + 60} L ${sinkX} ${sinkY + 60}" stroke="#7e22ce" stroke-width="7" fill="none" stroke-linejoin="round"/>
+      <path d="M ${refX + 220} ${refY + 182} L 670 ${refY + 182} L 670 ${sinkY + 60} L ${sinkX} ${sinkY + 60}" class="blueprint-belt-flow" stroke="#c084fc" stroke-width="3" stroke-dasharray="12 8" fill="none" stroke-linejoin="round"/>
+
+      <!-- Cartel de la Cinta de Resina -->
+      <rect x="580" y="440" width="160" height="22" rx="4" fill="#13031f" stroke="#c084fc" stroke-width="1.2" />
+      <text x="660" y="455" fill="#e9d5ff" font-size="9" font-weight="800" text-anchor="middle">
+        Cinta: 30 Resina/min
+      </text>
+
+      <!-- Trituradora FICSIT (Awesome Sink) -->
+      <g class="power-sink-node" data-name="Trituradora FICSIT (Awesome Sink)" data-shred="30 Resina de Polímero/min" data-mw="30 MW" style="cursor: pointer;">
+        <rect x="${sinkX}" y="${sinkY}" width="340" height="145" rx="10" fill="url(#sinkGrad)" stroke="#c084fc" stroke-width="2.5" filter="url(#glowPurpleOil)"/>
+
+        <!-- Header Sink -->
+        <rect x="${sinkX + 8}" y="${sinkY + 8}" width="324" height="26" rx="4" fill="#2e1065" />
+        <text x="${sinkX + 170}" y="${sinkY + 25}" fill="#f0abfc" font-size="11.5" font-weight="900" text-anchor="middle">
+          🎟️ TRITURADORA FICSIT (AWESOME SINK)
+        </text>
+
+        <!-- Engranajes Trituradores Silueta -->
+        <circle cx="${sinkX + 45}" cy="${sinkY + 75}" r="22" fill="#170326" stroke="#c084fc" stroke-width="2" />
+        <text x="${sinkX + 45}" y="${sinkY + 81}" fill="#c084fc" font-size="20" text-anchor="middle">⚙️</text>
+
+        <!-- Texto Explicativo Crítico -->
+        <text x="${sinkX + 80}" y="${sinkY + 62}" fill="#ffffff" font-size="11" font-weight="900">
+          DRENAJE CONTINUO ANTI-ATASCOS
+        </text>
+        <text x="${sinkX + 80}" y="${sinkY + 78}" fill="#e879f9" font-size="10" font-weight="800">
+          Tritura 30 Resina/m • Generando Cupones ++
+        </text>
+        <text x="${sinkX + 80}" y="${sinkY + 93}" fill="#f87171" font-size="9" font-weight="700">
+          Consumo: 30 MW
+        </text>
+
+        <!-- Alerta de Seguridad FICSIT -->
+        <rect x="${sinkX + 10}" y="${sinkY + 105}" width="320" height="28" rx="4" fill="rgba(192, 132, 252, 0.15)" stroke="#c084fc" stroke-width="1.2" />
+        <text x="${sinkX + 170}" y="${sinkY + 123}" fill="#f5d0fe" font-size="9.5" font-weight="800" text-anchor="middle">
+          ⭐ ¡GARANTIZA 0 APAGONES! La refinería nunca se llena de subproducto.
+        </text>
+      </g>
+
+      <!-- =========================================================================
+           9. SUBESTACIÓN ELÉCTRICA FICSIT (BALANCE NETO DEL MÓDULO)
+           ========================================================================= -->
+      <g class="power-substation-node" style="cursor: pointer;">
+        <rect x="${subX}" y="${subY}" width="270" height="250" rx="12" fill="#042014" stroke="#22c55e" stroke-width="3" filter="url(#glowGreenOil)"/>
+
+        <!-- Header Subestación -->
+        <rect x="${subX + 8}" y="${subY + 8}" width="254" height="28" rx="6" fill="#064e3b" />
+        <text x="${subX + 135}" y="${subY + 27}" fill="#4ade80" font-size="12" font-weight="900" text-anchor="middle">
+          ⚡ SUBESTACIÓN DE ENTREGA
+        </text>
+
+        <!-- Potencia Neta Destacada -->
+        <text x="${subX + 135}" y="${subY + 75}" fill="#ffffff" font-size="28" font-weight="900" text-anchor="middle">
+          +400 MW
+        </text>
+        <text x="${subX + 135}" y="${subY + 95}" fill="#86efac" font-size="11" font-weight="800" text-anchor="middle">
+          POTENCIA NETA LIMPIA DEL MÓDULO
+        </text>
+
+        <!-- Desglose de Energía -->
+        <rect x="${subX + 16}" y="${subY + 115}" width="238" height="85" rx="6" fill="#02150d" stroke="rgba(74, 222, 128, 0.25)" stroke-width="1"/>
+        <text x="${subX + 26}" y="${subY + 135}" fill="#4ade80" font-size="10" font-weight="800">
+          • Generación Bruta: <tspan fill="#ffffff">+500 MW</tspan> (2x 250 MW)
+        </text>
+        <text x="${subX + 26}" y="${subY + 153}" fill="#f87171" font-size="10" font-weight="800">
+          • Autoconsumo: <tspan fill="#ffffff">-100 MW</tspan>
+        </text>
+        <text x="${subX + 36}" y="${subY + 170}" fill="#94a3b8" font-size="9">
+          (Refinería 30 MW + Extractor 40 MW + Sink 30 MW)
+        </text>
+        <text x="${subX + 26}" y="${subY + 188}" fill="#38bdf8" font-size="9.5" font-weight="800">
+          • Eficiencia Neta: 80.0% limpia
+        </text>
+
+        <!-- Estado de Red -->
+        <rect x="${subX + 16}" y="${subY + 210}" width="238" height="26" rx="4" fill="rgba(74, 222, 128, 0.2)" />
+        <text x="${subX + 135}" y="${subY + 227}" fill="#bbf7d0" font-size="9.5" font-weight="900" text-anchor="middle">
+          ESTABILIDAD: 100% CONTINUA
+        </text>
+      </g>
+
+      <!-- =========================================================================
+           10. BARRA INFERIOR: PLAN MAESTRO DE ESCALADO TOTAL
+           ========================================================================= -->
+      <rect x="35" y="680" width="${totalW - 70}" height="56" rx="8" fill="#090f19" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
+      <text x="50" y="702" fill="#38bdf8" font-size="11.5" font-weight="900">
+        🏭 PLAN DE ESCALADO A ${plant.powerBalance.grossMW.toLocaleString()} MW:
+      </text>
+      <text x="50" y="722" fill="#cbd5e1" font-size="10.5">
+        Para tu objetivo necesitas construir <tspan fill="#f59e0b" font-weight="900">${plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : 1} bloques idénticos como este</tspan> (Total: <tspan fill="#c084fc" font-weight="900">${plant.totalGeneratorsCount} Generadores</tspan> + <tspan fill="#38bdf8" font-weight="900">${plant.petrochem.refineriesCount} Refinerías</tspan>). Suministro: <tspan fill="#38bdf8" font-weight="900">${plant.petrochem.crudeOilRate.toLocaleString()} m³/min de Petróleo Crudo</tspan> • Subproducto: <tspan fill="#e879f9" font-weight="900">${plant.petrochem.polymerResinRate.toLocaleString()} Resina/min</tspan> al Awesome Sink.
+      </text>
+
+    </svg>`;
+
+    return {
+      svg,
+      model: { totalW, totalH }
+    };
+  }
+
+  // --- MODO 2 (PETRÓLEO): PLANO PANORÁMICO DE TODA LA CENTRAL DE FUEL ---
+  function generatePowerOilOverviewBlueprintSvg(plant) {
+    const totalGens = plant.totalGeneratorsCount;
+    const standardModules = plant.modularArchitecture ? plant.modularArchitecture.standardModulesCount : Math.floor(totalGens / 2);
+    const hasRemainder = plant.modularArchitecture ? plant.modularArchitecture.hasRemainder : (totalGens % 2 > 0);
+    const totalBlocks = standardModules + (hasRemainder ? 1 : 0);
+
+    const cols = Math.min(6, Math.max(2, Math.ceil(totalBlocks / 2)));
+    const rows = Math.ceil(totalBlocks / cols);
+
+    const blockW = 188;
+    const blockH = 135;
+    const gapX = 32;
+    const gapY = 40;
+    const startX = 60;
+    const startY = 130;
+
+    const totalW = Math.max(1280, startX + cols * (blockW + gapX) + 260);
+    const totalH = Math.max(600, startY + rows * (blockH + gapY) + 90);
+
+    let svg = `<svg viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg" style="background: #040812; font-family: var(--font-main);">
+      <defs>
+        <pattern id="overviewOilGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
+          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(255,255,255,0.035)" stroke-width="1"/>
+        </pattern>
+        <linearGradient id="overviewOilBlockGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0a192f"/>
+          <stop offset="100%" stop-color="#08101e"/>
+        </linearGradient>
+      </defs>
+
+      <rect width="${totalW}" height="${totalH}" fill="url(#overviewOilGridPat)" />
+
+      <!-- Encabezado Panorámico con Leyenda -->
+      <rect x="40" y="18" width="${totalW - 80}" height="56" rx="8" fill="#090f19" stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5"/>
+      <text x="56" y="42" fill="#38bdf8" font-size="13" font-weight="900">
+        🏭 VISTA PANORÁMICA DE LA CENTRAL DE PETRÓLEO: ${totalBlocks} Bloques FICSIT (1:2) • ${plant.totalGeneratorsCount} Generadores • ${plant.petrochem.refineriesCount} Refinerías
+      </text>
+      <text x="56" y="60" fill="#94a3b8" font-size="10.5">
+        Potencia Total de la Central: <tspan fill="#4ade80" font-weight="900">+${plant.powerBalance.grossMW.toLocaleString()} MW Brutos</tspan> (<tspan fill="#86efac" font-weight="800">+${plant.powerBalance.netMW.toLocaleString()} MW Netos</tspan>) • Crudo Requerido: <tspan fill="#38bdf8" font-weight="900">${plant.petrochem.crudeOilRate.toLocaleString()} m³/min</tspan> • Resina Total al Sink: <tspan fill="#c084fc" font-weight="900">${plant.petrochem.polymerResinRate.toLocaleString()}/min</tspan>
+      </text>
+
+      <!-- Leyenda de Colores en Vista Panorámica -->
+      <g transform="translate(${totalW - 600}, 30)">
+        <rect x="0" y="0" width="12" height="12" rx="2" fill="#0284c7"/>
+        <text x="16" y="10" fill="#7dd3fc" font-size="9" font-weight="800">Petróleo Crudo</text>
+
+        <rect x="110" y="0" width="12" height="12" rx="2" fill="#f59e0b"/>
+        <text x="126" y="10" fill="#fde68a" font-size="9" font-weight="800">Fuel (40/m)</text>
+
+        <rect x="200" y="0" width="12" height="12" rx="2" fill="#9333ea"/>
+        <text x="216" y="10" fill="#e9d5ff" font-size="9" font-weight="800">Resina ➔ Sink</text>
+
+        <rect x="315" y="0" width="12" height="12" rx="2" fill="#0284c7"/>
+        <text x="331" y="10" fill="#38bdf8" font-size="9" font-weight="800">Módulos (500 MW)</text>
+
+        <rect x="450" y="0" width="12" height="12" rx="2" fill="#22c55e"/>
+        <text x="466" y="10" fill="#86efac" font-size="9" font-weight="800">Red Eléctrica</text>
+      </g>
+
+      <!-- Línea troncal principal de Petróleo Crudo (Azul Cyan) -->
+      <path d="M 30 100 L ${totalW - 270} 100" stroke="#082f49" stroke-width="10" fill="none" stroke-linecap="round" />
+      <path d="M 30 100 L ${totalW - 270} 100" class="blueprint-belt-flow" stroke="#38bdf8" stroke-width="3" stroke-dasharray="14 10" fill="none" />
+      <rect x="30" y="82" width="700" height="24" rx="4" fill="#041b2d" stroke="#38bdf8" stroke-width="1.2" />
+      <text x="40" y="98" fill="#7dd3fc" font-size="9.5" font-weight="900">
+        🛢️ COLECTOR PRINCIPAL DE CRUDO: Distribuye 60 m³/min a cada refinería de bloque (Tuberías Mk.1 de 300 o Mk.2 de 600 m³/min).
+      </text>
+    `;
+
+    // Renderizar cada bloque modular de 500 MW
+    for (let b = 0; b < totalBlocks; b++) {
+      const col = b % cols;
+      const row = Math.floor(b / cols);
+      const bx = startX + col * (blockW + gapX);
+      const by = startY + row * (blockH + gapY);
+
+      const isRem = b === totalBlocks - 1 && hasRemainder;
+      const bGens = isRem ? plant.modularArchitecture.remainderGenerators : 2;
+      const bMW = isRem ? plant.modularArchitecture.remainderMW : 500;
+      const bCrude = isRem ? Math.round(bGens * 30) : 60;
+      const bFuel = isRem ? Math.round(bGens * 20) : 40;
+      const bResin = isRem ? Math.round(bGens * 15) : 30;
+
+      svg += `
+        <!-- Bajada de Crudo desde colector principal al bloque -->
+        <path d="M ${bx + blockW / 2} 100 L ${bx + blockW / 2} ${by}" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="4 2" fill="none" />
+        
+        <!-- Bloque Modular de Petróleo #${b + 1} -->
+        <g class="power-generator-node" data-id="oil_block_${b}" data-name="Módulo Fuel #${b + 1} (${bMW} MW)" data-mw="${bMW} MW" data-clock="100%" data-fuel="${bFuel} m³/min Fuel" data-water="0 m³/min" style="cursor: pointer;">
+          <rect x="${bx}" y="${by}" width="${blockW}" height="${blockH}" rx="8" fill="url(#overviewOilBlockGrad)" stroke="${isRem ? '#f59e0b' : '#38bdf8'}" stroke-width="2" />
+          
+          <rect x="${bx + 8}" y="${by + 8}" width="${blockW - 16}" height="22" rx="4" fill="#082f49" />
+          <text x="${bx + 14}" y="${by + 23}" fill="${isRem ? '#fbbf24' : '#7dd3fc'}" font-size="10.5" font-weight="900">
+            ${isRem ? `Módulo #${b + 1} (Ajuste)` : `Módulo #${b + 1} (1:2)`}
+          </text>
+          <text x="${bx + blockW - 14}" y="${by + 23}" fill="#4ade80" font-size="11" font-weight="900" text-anchor="end">
+            +${bMW} MW
+          </text>
+
+          <text x="${bx + 14}" y="${by + 48}" fill="#f1f5f9" font-size="9.5" font-weight="700">⚗️ 1 Refinería (${bCrude} Crudo ➔ ${bFuel} Fuel)</text>
+          <text x="${bx + 14}" y="${by + 65}" fill="#f59e0b" font-size="9.5" font-weight="700">⚡ ${bGens}x Generadores (250 MW c/u)</text>
+          <text x="${bx + 14}" y="${by + 82}" fill="#c084fc" font-size="9.5" font-weight="700">🎟️ Sink: ${bResin} Resina/min</text>
+          <text x="${bx + 14}" y="${by + 98}" fill="#94a3b8" font-size="8.5">💧 Agua requerida: 0 m³/min</text>
+          
+          <rect x="${bx + 8}" y="${by + blockH - 24}" width="${blockW - 16}" height="17" rx="3" fill="rgba(74, 222, 128, 0.12)" stroke="rgba(74, 222, 128, 0.25)" stroke-width="0.8"/>
+          <text x="${bx + blockW / 2}" y="${by + blockH - 12}" fill="#86efac" font-size="9" font-weight="800" text-anchor="middle">
+            ● Net: +${bMW - (bGens * 50)} MW Limpios
+          </text>
+        </g>
+
+        <!-- Cable de salida a la subestación central (Verde) -->
+        <path d="M ${bx + blockW} ${by + blockH / 2} Q ${totalW - 220} ${by + blockH / 2} ${totalW - 200} 250" stroke="#22c55e" stroke-width="1.8" stroke-dasharray="4 3" fill="none" opacity="0.6"/>
+      `;
+    }
+
+    // Subestación Central de Petróleo (Verde Esmeralda)
+    const subX = totalW - 210;
+    const subY = 180;
+    svg += `
+      <g class="power-substation-node" style="cursor: pointer;">
+        <rect x="${subX}" y="${subY}" width="180" height="155" rx="10" fill="#042014" stroke="#22c55e" stroke-width="3" />
+        <circle cx="${subX + 90}" cy="${subY + 30}" r="15" fill="#22c55e" />
+        <text x="${subX + 90}" y="${subY + 36}" fill="#022c22" font-size="16" font-weight="900" text-anchor="middle">⚡</text>
+        <text x="${subX + 90}" y="${subY + 68}" fill="#ffffff" font-size="17" font-weight="900" text-anchor="middle">
+          +${plant.powerBalance.netMW.toLocaleString()} MW
+        </text>
+        <text x="${subX + 90}" y="${subY + 86}" fill="#86efac" font-size="10.5" font-weight="800" text-anchor="middle">
+          POTENCIA NETA TOTAL
+        </text>
+        <text x="${subX + 90}" y="${subY + 104}" fill="#94a3b8" font-size="9" text-anchor="middle">
+          ${plant.totalGeneratorsCount} Generadores • ${plant.petrochem.refineriesCount} Refinerías
+        </text>
+        <rect x="${subX + 10}" y="${subY + 116}" width="160" height="26" rx="4" fill="rgba(74, 222, 128, 0.15)"/>
+        <text x="${subX + 90}" y="${subY + 133}" fill="#4ade80" font-size="8.5" font-weight="800" text-anchor="middle">
+          Eficiencia: ${plant.powerBalance.netEfficiency}%
+        </text>
+      </g>
+    `;
+
+    svg += `</svg>`;
+
+    return {
+      svg,
+      model: { totalW, totalH }
+    };
+  }
+
   // --- MODO 2: PLANO PANORÁMICO DE TODA LA CENTRAL ELÉCTRICA ---
   function generatePowerOverviewBlueprintSvg(plant) {
     const totalGens = plant.totalGeneratorsCount;
@@ -6322,15 +7148,80 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas.querySelectorAll('.power-extractor-node').forEach(node => {
       node.addEventListener('mouseenter', () => {
         if (powerBpState.isZooming || powerBpState.isDragging || !powerBpState.focusModeEnabled) return;
-        const name = node.getAttribute('data-name');
-        const flow = node.getAttribute('data-flow');
-        const mw = node.getAttribute('data-mw');
+        const name = node.getAttribute('data-name') || 'Extractor';
+        const flow = node.getAttribute('data-flow') || '';
+        const mw = node.getAttribute('data-mw') || '40 MW';
+        const isOil = name.toLowerCase().includes('petróleo') || name.toLowerCase().includes('crudo');
+        const icon = isOil ? '🛢️' : '💧';
+        const fluidTitle = isOil ? 'Suministro de Petróleo Crudo:' : 'Suministro de Agua:';
+        const connDesc = isOil ? 'Conectado a la red de tuberías hacia las Refinerías FICSIT' : 'Conectado al manifold colector de agua';
 
         tooltip.innerHTML = `
-          <div style="font-weight: 800; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">💧 ${name}</div>
-          <div><strong>Suministro de Agua:</strong> <span style="color: #38bdf8; font-weight: 800;">+${flow}</span></div>
+          <div style="font-weight: 800; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">${icon} ${name}</div>
+          <div><strong>${fluidTitle}</strong> <span style="color: #38bdf8; font-weight: 800;">+${flow}</span></div>
           <div><strong>Consumo Eléctrico:</strong> <span style="color: #f87171;">-${mw}</span></div>
-          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Conectado al manifold colector de agua</div>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">${connDesc}</div>
+        `;
+        tooltip.style.display = 'block';
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        const rect = viewport.getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    });
+
+    canvas.querySelectorAll('.power-refinery-node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        if (powerBpState.isZooming || powerBpState.isDragging || !powerBpState.focusModeEnabled) return;
+        const name = node.getAttribute('data-name') || 'Refinería FICSIT';
+        const input = node.getAttribute('data-input') || '60 m³/min Petróleo Crudo';
+        const fuel = node.getAttribute('data-fuel') || '40 m³/min Fuel';
+        const resin = node.getAttribute('data-resin') || '30 Resina/min';
+        const mw = node.getAttribute('data-mw') || '30 MW';
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #c084fc; font-size: 0.88rem; margin-bottom: 4px;">⚗️ ${name}</div>
+          <div style="color: #cbd5e1; font-size: 0.76rem; margin-bottom: 4px;">Convierte Crudo en Combustible + Resina de Polímero</div>
+          <div><strong>Insumo:</strong> <span style="color: #38bdf8; font-weight: 800;">${input}</span></div>
+          <div><strong>Producción:</strong> <span style="color: #f59e0b; font-weight: 800;">${fuel}</span></div>
+          <div><strong>Subproducto:</strong> <span style="color: #e879f9; font-weight: 800;">${resin}</span></div>
+          <div><strong>Consumo Eléctrico:</strong> <span style="color: #f87171;">-${mw}</span></div>
+          <div style="font-size: 0.72rem; color: #4ade80; margin-top: 4px;">Relación áurea FICSIT 1:2 (Alimenta 2 Generadores de 250 MW)</div>
+        `;
+        tooltip.style.display = 'block';
+      });
+
+      node.addEventListener('mousemove', (e) => {
+        const rect = viewport.getBoundingClientRect();
+        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+        tooltip.style.top = `${e.clientY - rect.top + 15}px`;
+      });
+
+      node.addEventListener('mouseleave', () => {
+        tooltip.style.display = 'none';
+      });
+    });
+
+    canvas.querySelectorAll('.power-sink-node').forEach(node => {
+      node.addEventListener('mouseenter', () => {
+        if (powerBpState.isZooming || powerBpState.isDragging || !powerBpState.focusModeEnabled) return;
+        const name = node.getAttribute('data-name') || 'Trituradora FICSIT (Awesome Sink)';
+        const shred = node.getAttribute('data-shred') || '30 Resina de Polímero/min';
+        const mw = node.getAttribute('data-mw') || '30 MW';
+
+        tooltip.innerHTML = `
+          <div style="font-weight: 800; color: #f0abfc; font-size: 0.88rem; margin-bottom: 4px;">🎟️ ${name}</div>
+          <div style="color: #e9d5ff; font-size: 0.76rem; margin-bottom: 4px;">Drenaje de subproductos para evitar paradas de fábrica</div>
+          <div><strong>Destruye:</strong> <span style="color: #c084fc; font-weight: 800;">${shred}</span></div>
+          <div><strong>Consumo Eléctrico:</strong> <span style="color: #f87171;">-${mw}</span></div>
+          <div><strong>Recompensa:</strong> <span style="color: #fbbf24; font-weight: 800;">Cupones FICSIT ++</span></div>
+          <div style="font-size: 0.72rem; color: #4ade80; margin-top: 4px;">⭐ SALVAGUARDA VITAL: Garantiza que el combustible nunca deje de fluir.</div>
         `;
         tooltip.style.display = 'block';
       });
@@ -6354,9 +7245,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tooltip.innerHTML = `
           <div style="font-weight: 800; color: #ea580c; font-size: 0.88rem; margin-bottom: 4px;">🔀 ${name}</div>
-          <div style="color: #ffedd5; font-size: 0.76rem; margin-bottom: 4px;">Divisor de cinta transportadora en manifold lineal</div>
+          <div style="color: #ffedd5; font-size: 0.76rem; margin-bottom: 4px;">Divisor / Cruceta de tubería o cinta</div>
           <div><strong>Derivación:</strong> <span style="color: #fed7aa; font-weight: 800;">${flow}</span></div>
-          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">El carbón restante sigue adelante al próximo generador.</div>
+          <div style="font-size: 0.72rem; color: #94a3b8; margin-top: 4px;">Distribución equilibrada continua hacia los generadores.</div>
         `;
         tooltip.style.display = 'block';
       });

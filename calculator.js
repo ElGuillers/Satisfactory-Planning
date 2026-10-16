@@ -1527,52 +1527,131 @@ const SatisCalc = {
     const fuelBeltsCount = !isFuelFluid ? Math.max(1, Math.ceil(totalFuelRate / beltObj.speed)) : 0;
     const fuelPipesCount = isFuelFluid ? Math.max(1, Math.ceil(totalFuelRate / (pipeTier === 2 ? 600 : 300))) : 0;
 
-    // Cálculo y Desglose de Taladros Individuales (Menas Heterogéneas: Impura, Normal, Pura)
+    // Cálculo y Desglose de Taladros / Extractores (Carbón o Petróleo Crudo)
+    const isOilFuel = fuelId === 'fuel' || fuelId === 'turbofuel' || fuelId === 'petroleum_coke';
     let userDrillsCalculated = [];
     let userExtractionRate = 0;
     let userMinersPower = 0;
 
-    if (!isFuelFluid && Array.isArray(drills) && drills.length > 0) {
-      userDrillsCalculated = drills.map((d, idx) => {
-        const clock = (d.clock !== undefined && d.clock !== null) ? Math.min(250, Math.max(1, Number(d.clock))) : 100;
-        const clockRatio = clock / 100;
-        const pFactor = SATIS_DATA.purities[d.purity]?.factor || 1.0;
-        const mBase = SATIS_DATA.miners[d.minerTier]?.baseRate || 60;
-        const basePower = SATIS_DATA.miners[d.minerTier]?.power || 5;
-        const rate = Number((mBase * pFactor * clockRatio).toFixed(2));
-        const mw = Number((basePower * Math.pow(clockRatio, 1.321928)).toFixed(1));
-        const shards = clock > 100 ? Math.ceil((clock - 100) / 50) : 0;
-        const belt = SatisCalc.getBeltForRate(rate);
-        userExtractionRate += rate;
-        userMinersPower += mw;
-        return {
-          id: d.id || `drill_${idx + 1}`,
-          index: idx + 1,
-          minerTier: d.minerTier || 'miner_mk1',
-          purity: d.purity || 'normal',
-          clock,
-          shards,
-          rate,
-          mw,
-          belt
-        };
-      });
-    } else if (!isFuelFluid) {
-      const purityFactor = SATIS_DATA.purities[purity]?.factor || 1.0;
-      const minerBase = SATIS_DATA.miners[minerTier]?.baseRate || 120;
-      const nodeRate = minerBase * purityFactor;
-      const minersNeeded = Number((totalFuelRate / Math.max(1, nodeRate)).toFixed(2));
-      userMinersPower = Math.ceil(minersNeeded) * (SATIS_DATA.miners[minerTier]?.power || 12);
-      userExtractionRate = totalFuelRate;
+    // Cálculo Petroquímico (Satisfactory 1.0)
+    let crudeOilNeeded = 0;
+    let refineriesExact = 0;
+    let refineriesCount = 0;
+    let polymerResinRate = 0;
+    let refineriesPower = 0;
+    let sinkPower = 0;
+
+    if (fuelId === 'fuel') {
+      // Receta Estándar: 60 Petróleo Crudo ➔ 40 Fuel + 30 Resina de Polímero
+      refineriesExact = totalFuelRate / 40;
+      refineriesCount = Math.ceil(refineriesExact);
+      crudeOilNeeded = Number((refineriesExact * 60).toFixed(2));
+      polymerResinRate = Number((refineriesExact * 30).toFixed(2));
+      refineriesPower = Math.ceil(refineriesExact) * 30; // 30 MW por refinería
+      sinkPower = polymerResinRate > 0 ? 30 : 0; // 30 MW Trituradora FICSIT Awesome Sink
+    } else if (fuelId === 'turbofuel') {
+      // Receta Estándar Turbofuel: 22.5 Fuel + 15 Carbón Compactado ➔ 18.75 Turbofuel
+      const turboRefineries = totalFuelRate / 18.75;
+      const fuelNeeded = turboRefineries * 22.5;
+      refineriesExact = fuelNeeded / 40;
+      refineriesCount = Math.ceil(refineriesExact + turboRefineries);
+      crudeOilNeeded = Number((refineriesExact * 60).toFixed(2));
+      polymerResinRate = Number((refineriesExact * 30).toFixed(2));
+      refineriesPower = Math.ceil(refineriesExact + turboRefineries) * 30;
+      sinkPower = polymerResinRate > 0 ? 30 : 0;
+    } else if (fuelId === 'petroleum_coke') {
+      // Receta Coque: 30 Petróleo Crudo ➔ 40 Residuo ➔ 120 Coque
+      refineriesExact = totalFuelRate / 120;
+      refineriesCount = Math.ceil(refineriesExact);
+      crudeOilNeeded = Number((refineriesExact * 30).toFixed(2));
+      polymerResinRate = Number((refineriesExact * 20).toFixed(2));
+      refineriesPower = Math.ceil(refineriesExact) * 30;
+      sinkPower = polymerResinRate > 0 ? 30 : 0;
     }
 
+    if (isOilFuel) {
+      // Manejo de Extractores de Petróleo Crudo
+      if (Array.isArray(drills) && drills.length > 0) {
+        userDrillsCalculated = drills.map((d, idx) => {
+          const clock = (d.clock !== undefined && d.clock !== null) ? Math.min(250, Math.max(1, Number(d.clock))) : 100;
+          const clockRatio = clock / 100;
+          const pFactor = SATIS_DATA.purities[d.purity]?.factor || 1.0;
+          const mBase = 120; // 120 m³/min base para pozo normal
+          const basePower = 40; // 40 MW base por extractor de petróleo
+          const rate = Number((mBase * pFactor * clockRatio).toFixed(2));
+          const mw = Number((basePower * Math.pow(clockRatio, 1.321928)).toFixed(1));
+          const shards = clock > 100 ? Math.ceil((clock - 100) / 50) : 0;
+          userExtractionRate += rate;
+          userMinersPower += mw;
+          return {
+            id: d.id || `oil_well_${idx + 1}`,
+            index: idx + 1,
+            minerTier: 'oil_extractor',
+            purity: d.purity || 'normal',
+            clock,
+            shards,
+            rate,
+            mw,
+            belt: { name: rate > 300 ? 'Tubería Mk.2 (600 m³/min)' : 'Tubería Mk.1 (300 m³/min)', speed: rate > 300 ? 600 : 300 }
+          };
+        });
+      } else {
+        const purityFactor = SATIS_DATA.purities[purity]?.factor || 1.0;
+        const nodeRate = 120 * purityFactor;
+        const extractorsNeeded = Number((crudeOilNeeded / Math.max(1, nodeRate)).toFixed(2));
+        userMinersPower = Math.ceil(extractorsNeeded) * 40;
+        userExtractionRate = crudeOilNeeded;
+      }
+    } else {
+      // Manejo de Taladros de Carbón / Biomasa / Mineral
+      if (Array.isArray(drills) && drills.length > 0) {
+        userDrillsCalculated = drills.map((d, idx) => {
+          const clock = (d.clock !== undefined && d.clock !== null) ? Math.min(250, Math.max(1, Number(d.clock))) : 100;
+          const clockRatio = clock / 100;
+          const pFactor = SATIS_DATA.purities[d.purity]?.factor || 1.0;
+          const mBase = SATIS_DATA.miners[d.minerTier]?.baseRate || 60;
+          const basePower = SATIS_DATA.miners[d.minerTier]?.power || 5;
+          const rate = Number((mBase * pFactor * clockRatio).toFixed(2));
+          const mw = Number((basePower * Math.pow(clockRatio, 1.321928)).toFixed(1));
+          const shards = clock > 100 ? Math.ceil((clock - 100) / 50) : 0;
+          const belt = SatisCalc.getBeltForRate(rate);
+          userExtractionRate += rate;
+          userMinersPower += mw;
+          return {
+            id: d.id || `drill_${idx + 1}`,
+            index: idx + 1,
+            minerTier: d.minerTier || 'miner_mk1',
+            purity: d.purity || 'normal',
+            clock,
+            shards,
+            rate,
+            mw,
+            belt
+          };
+        });
+      } else {
+        const purityFactor = SATIS_DATA.purities[purity]?.factor || 1.0;
+        const minerBase = SATIS_DATA.miners[minerTier]?.baseRate || 120;
+        const nodeRate = minerBase * purityFactor;
+        const minersNeeded = Number((totalFuelRate / Math.max(1, nodeRate)).toFixed(2));
+        userMinersPower = Math.ceil(minersNeeded) * (SATIS_DATA.miners[minerTier]?.power || 12);
+        userExtractionRate = totalFuelRate;
+      }
+    }
+
+    // Balance de Combustible o Petróleo Crudo
+    const requiredInputRate = isOilFuel ? crudeOilNeeded : totalFuelRate;
+    const maxGensWithSupply = isOilFuel
+      ? (fuelId === 'fuel' ? (userExtractionRate / 1.5) / 20 : (userExtractionRate / 1.8) / 7.5)
+      : userExtractionRate / Math.max(0.1, unitFuelRate);
+
     const fuelBalance = {
-      requiredRate: totalFuelRate,
+      requiredRate: requiredInputRate,
       suppliedRate: Number(userExtractionRate.toFixed(2)),
-      difference: Number((userExtractionRate - totalFuelRate).toFixed(2)),
-      isCovered: userExtractionRate >= (totalFuelRate - 0.05),
-      maxGeneratorsWithSupply: Number((userExtractionRate / Math.max(0.1, unitFuelRate)).toFixed(2)),
-      maxMWWithSupply: Number(((userExtractionRate / Math.max(0.1, unitFuelRate)) * unitMW).toFixed(1))
+      difference: Number((userExtractionRate - requiredInputRate).toFixed(2)),
+      isCovered: userExtractionRate >= (requiredInputRate - 0.05),
+      maxGeneratorsWithSupply: Number(maxGensWithSupply.toFixed(2)),
+      maxMWWithSupply: Number((maxGensWithSupply * unitMW).toFixed(1))
     };
 
     // Consumo de Agua y Extractores
@@ -1611,18 +1690,25 @@ const SatisCalc = {
         remainderCoal: Number((remGens * 15).toFixed(1))
       };
     } else if (genData.id === 'fuel_generator') {
-      // Bloques de 4 Generadores = 1000 MW (80 m3/min Fuel) o 12 Generadores = 3000 MW (240 m3/min Fuel)
-      const modules4 = Math.floor(fullGenerators / 4);
-      const remGens = (fullGenerators % 4) + (hasFractional ? fractionalPart : 0);
+      // Ratio de oro FICSIT 1:2: 1 Refinería (40 Fuel) ➔ 2 Generadores de Combustible (500 MW)
+      const modules500 = Math.floor(fullGenerators / 2);
+      const remGens = (fullGenerators % 2) + (hasFractional ? fractionalPart : 0);
       modularArchitecture = {
-        type: 'Módulos de 1,000 MW (4 Generadores)',
-        description: 'Cada bloque de 4 Generadores produce 1,000 MW con 80 m³/min de Combustible, ideal para manifolds simétricos.',
-        standardModulesCount: modules4,
-        standardModuleMW: 1000,
-        standardModuleFuel: 80,
+        type: 'Ratio Áureo FICSIT 1:2 (Módulos de 500 MW)',
+        description: 'Cada módulo une 1 Refinería (60 Crudo ➔ 40 Fuel + 30 Resina) con 2 Generadores de Combustible 1.0 (500 MW). Cero desperdicio, simetría perfecta y la resina se tritura en un Awesome Sink.',
+        standardModulesCount: modules500,
+        standardModuleMW: 500,
+        standardModuleCrude: 60,
+        standardModuleFuel: 40,
+        standardModuleResin: 30,
+        standardModuleRefineries: 1,
+        standardModuleGenerators: 2,
         hasRemainder: remGens > 0,
         remainderGenerators: Number(remGens.toFixed(2)),
-        remainderMW: Number((remGens * 250).toFixed(1))
+        remainderMW: Number((remGens * 250).toFixed(1)),
+        remainderCrude: Number(((remGens * 20 / 40) * 60).toFixed(1)),
+        remainderFuel: Number((remGens * 20).toFixed(1)),
+        remainderResin: Number(((remGens * 20 / 40) * 30).toFixed(1))
       };
     } else if (genData.id === 'nuclear_power_plant') {
       modularArchitecture = {
@@ -1642,7 +1728,9 @@ const SatisCalc = {
     const grossMW = target;
     const internalPumpsMW = waterExtractorsPower;
     const internalMinersMW = userMinersPower;
-    const totalInternalMW = internalPumpsMW + internalMinersMW;
+    const internalRefineryMW = refineriesPower;
+    const internalSinkMW = sinkPower;
+    const totalInternalMW = internalPumpsMW + internalMinersMW + internalRefineryMW + internalSinkMW;
     const netMW = Math.max(0, Number((grossMW - totalInternalMW).toFixed(1)));
     const netEfficiency = Number(((netMW / grossMW) * 100).toFixed(1));
 
@@ -1669,6 +1757,18 @@ const SatisCalc = {
         userDrills: userDrillsCalculated,
         balance: fuelBalance
       },
+      petrochem: isOilFuel ? {
+        isOil: true,
+        crudeOilRate: crudeOilNeeded,
+        refineriesExact: Number(refineriesExact.toFixed(2)),
+        refineriesCount,
+        refineryPower: refineriesPower,
+        polymerResinRate,
+        resinBelt: SatisCalc.getBeltForRate(polymerResinRate),
+        sinkPower,
+        crudePipesCount: Math.max(1, Math.ceil(crudeOilNeeded / pipeCapacity)),
+        crudeBalance: fuelBalance
+      } : null,
       water: {
         requiresWater,
         unitRate: unitWaterRate,
@@ -1686,6 +1786,8 @@ const SatisCalc = {
         grossMW,
         internalPumpsMW,
         internalMinersMW,
+        internalRefineryMW,
+        internalSinkMW,
         totalInternalMW,
         netMW,
         netEfficiency

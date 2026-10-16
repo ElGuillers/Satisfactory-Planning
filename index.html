@@ -874,18 +874,18 @@
         <div id="powerDrillsConfigContainer" style="margin-top: 16px; background: #080f1a; border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-sm); padding: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 1.15rem;">⛏️</span>
+              <span id="powerDrillsHeaderIcon" style="font-size: 1.15rem;">⛏️</span>
               <div>
-                <h3 style="margin: 0; font-size: 0.88rem; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">
+                <h3 id="powerDrillsHeaderTitle" style="margin: 0; font-size: 0.88rem; font-weight: 800; color: #fbbf24; text-transform: uppercase; letter-spacing: 0.5px;">
                   Configuración de Taladros por Veta (Menas Puras, Normales e Impuras)
                 </h3>
-                <span style="font-size: 0.72rem; color: #94a3b8;">
+                <span id="powerDrillsHeaderSubtitle" style="font-size: 0.72rem; color: #94a3b8;">
                   Indica cuántos taladros tienes y de qué pureza es cada veta. La app calculará la extracción total exacta y cuántos MW puedes alimentar.
                 </span>
               </div>
             </div>
             <div id="powerDrillsBalanceBadge">
-              <!-- Badge de balance dinámico de carbón -->
+              <!-- Badge de balance dinámico de carbón / petróleo -->
             </div>
           </div>
 
@@ -912,7 +912,7 @@
 
       <!-- Arquitectura Modular Áurea FICSIT -->
       <div class="power-architecture-card" id="powerArchitectureCard">
-        <!-- Renderizado dinámico de la arquitectura modular (ej. Módulos 8:3) -->
+        <!-- Renderizado dinámico de la arquitectura modular (ej. Módulos 8:3 o 1:2 de Petróleo) -->
       </div>
 
       <!-- VISOR DEL PLANO 2D AÉREO DE LA CENTRAL ELÉCTRICA -->
@@ -920,14 +920,14 @@
         <!-- Barra de Herramientas del Plano -->
         <div class="blueprint-toolbar" style="border-bottom-color: rgba(245, 158, 11, 0.25);">
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <span class="blueprint-badge" style="background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; color: #fbbf24;">
+            <span class="blueprint-badge" style="background: rgba(245, 158, 11, 0.2); border-color: #f59e0b; color: #fbbf24;" id="powerBpMainBadge">
               ⚡ PLANO AÉREO 2D DE LA CENTRAL ELÉCTRICA
             </span>
 
             <!-- Selector de Vista del Plano (Detalle del Bloque vs Panorámica) -->
             <div class="blueprint-view-switcher" id="powerBpViewSwitcher">
-              <button type="button" class="btn-builder-view active" id="btnPowerViewBlock" data-mode="block" title="Ver el plano detallado de 1 bloque con sus 8 generadores, 3 extractores y tuberías">
-                <span>📐 Plano de Montaje (8 Generadores : 3 Extractores)</span>
+              <button type="button" class="btn-builder-view active" id="btnPowerViewBlock" data-mode="block" title="Ver el plano detallado de 1 bloque con sus generadores, tuberías y extractores">
+                <span id="powerViewBlockLabel">📐 Plano de Montaje (8 Generadores : 3 Extractores)</span>
               </button>
               <button type="button" class="btn-builder-view" id="btnPowerViewOverview" data-mode="overview" title="Ver todos los generadores y bloques de la central">
                 <span>🏭 Plano General de Toda la Central</span>
@@ -969,7 +969,7 @@
         </div>
 
         <!-- Leyenda FICSIT de Alto Contraste -->
-        <div class="blueprint-legend">
+        <div class="blueprint-legend" id="powerBlueprintLegend">
           <div class="legend-item">
             <span class="legend-color-box" style="background: #ea580c;"></span>
             <span>🟧 Carbón y Divisores (Splitters)</span>
