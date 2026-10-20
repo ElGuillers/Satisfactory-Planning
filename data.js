@@ -165,7 +165,7 @@ const SATIS_DATA = {
     ai_limiter: { id: 'ai_limiter', name: 'Limitador de IA', category: 'Electrónica' },
     high_speed_connector: { id: 'high_speed_connector', name: 'Conector de Alta Velocidad', category: 'Electrónica' },
     heavy_modular_frame: { id: 'heavy_modular_frame', name: 'Armazón Modular Pesado', category: 'Componentes' },
-    computer: { id: 'computer', name: 'Computadora', category: 'Electrónica' },
+    computer: { id: 'computer', name: 'Ordenador (Computadora)', category: 'Electrónica' },
 
     // Tier 7 - 8 Parts (Aluminum & Advanced)
     alumina_solution: { id: 'alumina_solution', name: 'Solución de Alúmina', isFluid: true, category: 'Aluminio' },
@@ -175,7 +175,7 @@ const SATIS_DATA = {
     heat_sink: { id: 'heat_sink', name: 'Disipador Térmico', category: 'Aluminio' },
     crystal_oscillator: { id: 'crystal_oscillator', name: 'Oscilador de Cristal', category: 'Electrónica' },
     radio_control_unit: { id: 'radio_control_unit', name: 'Unidad de Control de Radio', category: 'Electrónica' },
-    supercomputer: { id: 'supercomputer', name: 'Supercomputadora', category: 'Electrónica' },
+    supercomputer: { id: 'supercomputer', name: 'Superordenador (Supercomputadora)', category: 'Electrónica' },
     cooling_system: { id: 'cooling_system', name: 'Sistema de Refrigeración', category: 'Componentes' },
     fused_modular_frame: { id: 'fused_modular_frame', name: 'Armazón Modular Fusionado', category: 'Componentes' },
     turbo_motor: { id: 'turbo_motor', name: 'Motor Turbo', category: 'Componentes' },
@@ -524,8 +524,8 @@ const SATIS_DATA = {
       building: 'assembler',
       isAlt: false,
       inputs: [
-        { item: 'steel_beam', rate: 24 },
-        { item: 'concrete', rate: 30 }
+        { item: 'steel_beam', rate: 18 },
+        { item: 'concrete', rate: 36 }
       ],
       outputs: [{ item: 'encased_industrial_beam', rate: 6 }]
     },
@@ -535,7 +535,7 @@ const SATIS_DATA = {
       building: 'assembler',
       isAlt: true,
       inputs: [
-        { item: 'steel_pipe', rate: 28 },
+        { item: 'steel_pipe', rate: 24 },
         { item: 'concrete', rate: 20 }
       ],
       outputs: [{ item: 'encased_industrial_beam', rate: 4 }]
@@ -650,9 +650,9 @@ const SATIS_DATA = {
       isAlt: false,
       inputs: [
         { item: 'modular_frame', rate: 10 },
-        { item: 'steel_pipe', rate: 30 },
+        { item: 'steel_pipe', rate: 40 },
         { item: 'encased_industrial_beam', rate: 10 },
-        { item: 'screw', rate: 200 }
+        { item: 'screw', rate: 240 }
       ],
       outputs: [{ item: 'heavy_modular_frame', rate: 2 }]
     },
@@ -671,28 +671,38 @@ const SATIS_DATA = {
     },
     {
       id: 'computer_std',
-      name: 'Computadora',
+      name: 'Ordenador (Computadora)',
       building: 'manufacturer',
       isAlt: false,
       inputs: [
         { item: 'circuit_board', rate: 10 },
         { item: 'cable', rate: 20 },
-        { item: 'plastic', rate: 40 },
-        { item: 'screw', rate: 130 }
+        { item: 'plastic', rate: 40 }
       ],
       outputs: [{ item: 'computer', rate: 2.5 }]
     },
     {
       id: 'computer_caterium',
-      name: 'Computadora de Caterio (Alt)',
+      name: 'Ordenador de Caterio (Alt)',
       building: 'manufacturer',
       isAlt: true,
       inputs: [
-        { item: 'circuit_board', rate: 7.5 },
+        { item: 'circuit_board', rate: 15 },
         { item: 'quickwire', rate: 52.5 },
-        { item: 'rubber', rate: 20 }
+        { item: 'rubber', rate: 22.5 }
       ],
       outputs: [{ item: 'computer', rate: 3.75 }]
+    },
+    {
+      id: 'computer_crystal',
+      name: 'Ordenador de Cristal (Alt)',
+      building: 'assembler',
+      isAlt: true,
+      inputs: [
+        { item: 'circuit_board', rate: 5 },
+        { item: 'crystal_oscillator', rate: 1.667 }
+      ],
+      outputs: [{ item: 'computer', rate: 3.333 }]
     },
     {
       id: 'high_speed_connector_std',
@@ -732,7 +742,7 @@ const SATIS_DATA = {
     },
     {
       id: 'supercomputer_std',
-      name: 'Supercomputadora',
+      name: 'Superordenador (Supercomputadora)',
       building: 'manufacturer',
       isAlt: false,
       inputs: [
@@ -742,6 +752,17 @@ const SATIS_DATA = {
         { item: 'plastic', rate: 52.5 }
       ],
       outputs: [{ item: 'supercomputer', rate: 1.875 }]
+    },
+    {
+      id: 'supercomputer_oc',
+      name: 'Superordenador OC (Alt)',
+      building: 'assembler',
+      isAlt: true,
+      inputs: [
+        { item: 'radio_control_unit', rate: 9 },
+        { item: 'cooling_system', rate: 9 }
+      ],
+      outputs: [{ item: 'supercomputer', rate: 3 }]
     },
     {
       id: 'turbo_motor_std',
