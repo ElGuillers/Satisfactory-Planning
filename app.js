@@ -768,6 +768,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const categories = {
       'Fases del Ascensor Espacial': [],
+      'Tecnología Alienígena y MAM (1.0)': [],
       'Componentes Industriales': [],
       'Electrónica y Alta Tecnología': [],
       'Piezas Básicas': [],
@@ -777,7 +778,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     craftableMap.forEach((item, itemId) => {
       const cat = (item.category || '').toLowerCase();
-      if (cat.includes('fase') || cat.includes('espacial') || itemId.includes('smart_plating') || itemId.includes('automated_wiring') || itemId.includes('adaptive_control') || itemId.includes('versatile') || itemId.includes('modular_engine')) {
+      if (cat.includes('alien') || cat.includes('mam') || itemId.includes('mercer') || itemId.includes('somersloop') || itemId.includes('sam') || itemId.includes('dimensional') || itemId.includes('power_augmenter') || itemId.includes('power_matrix') || itemId.includes('singularity') || itemId.includes('quantum') || itemId.includes('dark_matter') || itemId.includes('time_crystal') || itemId.includes('superposition') || itemId.includes('ficsonium') || itemId.includes('dna_capsule') || itemId.includes('alien_protein') || itemId.includes('diamond')) {
+        categories['Tecnología Alienígena y MAM (1.0)'].push(item);
+      } else if (cat.includes('fase') || cat.includes('espacial') || itemId.includes('smart_plating') || itemId.includes('automated_wiring') || itemId.includes('adaptive_control') || itemId.includes('versatile') || itemId.includes('modular_engine') || itemId.includes('assembly_director') || itemId.includes('magnetic_field') || itemId.includes('thermal_propulsion') || itemId.includes('nuclear_pasta') || itemId.includes('biochemical_sculptor') || itemId.includes('ballistic_warp') || itemId.includes('ai_expansion')) {
         categories['Fases del Ascensor Espacial'].push(item);
       } else if (cat.includes('lingote')) {
         categories['Lingotes'].push(item);
@@ -3012,20 +3015,26 @@ document.addEventListener('DOMContentLoaded', () => {
         titleEl.innerHTML = `<span>📦 Catálogo FICSIT &bull; Rama #${target.branchIndex + 1}</span>`;
       }
       if (subtitleEl) {
-        subtitleEl.innerHTML = `Fabricación a partir de <strong>${supply.itemName}</strong> (${supply.rate.toFixed(1)}/min disponibles). Haz 1 clic sobre el producto deseado.`;
+        subtitleEl.innerHTML = `Fabricación a partir de <strong>${supply.itemName}</strong> (${supply.rate.toFixed(1)}/min disponibles). Elige cualquier receta del juego o MAM (las compatibles con tu mineral aparecen primero).`;
       }
 
-      let derivable = SatisCalc.getDerivableRecipesForSupply(activeSupplyItem);
-      if (derivable.length === 0) {
-        derivable = SATIS_DATA.recipes;
-      }
-      rawList = derivable;
+      const derivable = SatisCalc.getDerivableRecipesForSupply(activeSupplyItem);
+      const derivableSet = new Set(derivable.map(r => r.id));
+
+      rawList = SATIS_DATA.recipes.slice();
+      rawList.sort((a, b) => {
+        const aDeriv = derivableSet.has(a.id);
+        const bDeriv = derivableSet.has(b.id);
+        if (aDeriv && !bDeriv) return -1;
+        if (!aDeriv && bDeriv) return 1;
+        return a.name.localeCompare(b.name);
+      });
     } else if (target.type === 'builder') {
       if (titleEl) {
         titleEl.innerHTML = `<span>🎯 Catálogo FICSIT &bull; Meta de Fábrica</span>`;
       }
       if (subtitleEl) {
-        subtitleEl.innerHTML = `Elige el producto que deseas fabricar (ej: Motor, Rotor, Armazón Modular). La fábrica calculará todos los minerales requeridos (Hierro, Cobre, Caliza, Carbón) de forma 100% automática.`;
+        subtitleEl.innerHTML = `Elige el producto que deseas fabricar (ej: Motor, Rotor, Armazón Modular, Esferas Mercer, etc.). La fábrica calculará todos los minerales requeridos de forma 100% automática.`;
       }
 
       // Todas las recetas estándar para elegir cualquier producto objetivo
@@ -3037,16 +3046,29 @@ document.addEventListener('DOMContentLoaded', () => {
     let countDirect = 0;
     let countSubchain = 0;
 
+    const derivableForSupply = (target.type === 'sandbox') ? SatisCalc.getDerivableRecipesForSupply(activeSupplyItem) : [];
+    const derivableSet = new Set(derivableForSupply.map(r => r.id));
+
     currentCatalogEntries = rawList.map(r => {
       const outItem = r.outputs[0]?.item || '';
-      const outMeta = SATIS_DATA.items[outItem] || SATIS_DATA.rawResources[outItem] || { name: outItem };
+      const outMeta = SATIS_DATA.items[outItem] || SATIS_DATA.rawResources[outItem] || { name: outItem, category: 'General' };
       const bldg = SATIS_DATA.buildings[r.building] || { name: r.building, icon: '🏭', power: 4 };
-      const chain = (target.type === 'sandbox') ? (r.chain || SatisCalc.resolveBranchSubchain(activeSupplyItem, r.id, 1)) : null;
-      const isDirect = (target.type === 'builder') ? true : (chain ? chain.isDirect : (r.isDirect !== false));
+      const isDerivable = (target.type === 'sandbox') ? derivableSet.has(r.id) : true;
+      const chain = (target.type === 'sandbox' && isDerivable) ? (r.chain || SatisCalc.resolveBranchSubchain(activeSupplyItem, r.id, 1)) : null;
+      const isDirect = (target.type === 'builder') ? true : (chain ? chain.isDirect : r.inputs.some(inp => inp.item === activeSupplyItem));
+
+      const isSpaceElevator = (outMeta.category || '').toLowerCase().includes('espacial') ||
+        (outMeta.category || '').toLowerCase().includes('fase') ||
+        ['smart_plating', 'automated_wiring', 'versatile_framework', 'adaptive_control_unit', 'modular_engine', 'assembly_director_system', 'magnetic_field_generator', 'thermal_propulsion_rocket', 'nuclear_pasta', 'biochemical_sculptor', 'ballistic_warp_drive', 'ai_expansion_server'].includes(outItem);
+
+      const isAlien = (outMeta.category || '').toLowerCase().includes('alien') ||
+        (outMeta.category || '').toLowerCase().includes('mam') ||
+        ['mercer_sphere', 'somersloop', 're_hexed_sam', 'sam_fluctuator', 'dimensional_depot_uploader', 'alien_power_augmenter', 'alien_power_matrix', 'superposition_oscillator', 'singularity_cell', 'neural_quantum_processor', 'dark_matter_residue', 'dark_matter_crystal', 'time_crystal', 'diamond', 'ficsonium', 'ficsonium_fuel_rod', 'alien_protein', 'alien_dna_capsule', 'power_shard'].includes(outItem) ||
+        ['quantum_encoder', 'converter', 'particle_accelerator'].includes(r.building);
 
       countAll++;
       if (isDirect) countDirect++;
-      else countSubchain++;
+      else if (isDerivable) countSubchain++;
 
       let flowHtml = '';
       if (target.type === 'builder') {
@@ -3058,11 +3080,16 @@ document.addEventListener('DOMContentLoaded', () => {
           return `<span style="display: inline-flex; align-items: center; gap: 4px;">${getBuildingIcon(bId, 16)} ${s.itemName}</span>`;
         }).join(' ➔ ');
         flowHtml = `🔄 <strong>Sub-cadena:</strong> ${getItemIcon(activeSupplyItem, 16)} ${supplyMeta.name} ➔ ${stepsSeq} ➔ <strong style="color: #4ade80; display: inline-flex; align-items: center; gap: 4px;">${getItemIcon(outItem, 16)} ${outMeta.name}</strong>`;
-      } else {
-        flowHtml = `⚡ <strong>Entrada directa:</strong> ${r.inputs.map(inp => {
+      } else if (isDirect) {
+        flowHtml = `⚡ <strong>Entrada directa de ${activeSupplyItem}:</strong> ${r.inputs.map(inp => {
           const inMeta = SATIS_DATA.items[inp.item] || SATIS_DATA.rawResources[inp.item] || { name: inp.item };
           return `<span style="display: inline-flex; align-items: center; gap: 4px;">${getItemIcon(inp.item, 16)} ${inp.rate}/m de ${inMeta.name}</span>`;
         }).join(', ')}`;
+      } else {
+        flowHtml = `<span style="color: #fbbf24;">📦 <strong>Insumos requeridos:</strong> ${r.inputs.map(inp => {
+          const inMeta = SATIS_DATA.items[inp.item] || SATIS_DATA.rawResources[inp.item] || { name: inp.item };
+          return `<span style="display: inline-flex; align-items: center; gap: 4px;">${getItemIcon(inp.item, 16)} ${inp.rate}/m de ${inMeta.name}</span>`;
+        }).join(', ')}</span>`;
       }
 
       const inputNames = r.inputs.map(inp => {
@@ -3070,7 +3097,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return inMeta.name;
       }).join(' ');
 
-      const searchIndex = `${r.name} ${outMeta.name} ${bldg.name} ${inputNames}`.toLowerCase();
+      const searchIndex = `${r.name} ${outMeta.name} ${bldg.name} ${inputNames} ${outMeta.category || ''}`.toLowerCase();
 
       return {
         id: r.id,
@@ -3084,7 +3111,10 @@ document.addEventListener('DOMContentLoaded', () => {
         outName: outMeta.name,
         outRate: r.outputs[0]?.rate || 0,
         isDirect: isDirect,
-        stepsCount: chain ? chain.intermediateSteps.length + 1 : 2,
+        isDerivable: isDerivable,
+        isSpaceElevator: isSpaceElevator,
+        isAlien: isAlien,
+        stepsCount: chain ? chain.intermediateSteps.length + 1 : (isDirect ? 1 : 2),
         flowHtml: flowHtml,
         searchIndex: searchIndex,
         icon: getItemIcon(outItem, 36, 'ficsit-item-icon-lg')
@@ -3158,10 +3188,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const filtered = currentCatalogEntries.filter(item => {
       if (f === 'direct' && !item.isDirect) return false;
-      if (f === 'subchain' && item.isDirect) return false;
+      if (f === 'subchain' && (item.isDirect || !item.isDerivable)) return false;
       if (f === 'constructor' && item.building !== 'constructor') return false;
       if (f === 'assembler' && item.building !== 'assembler') return false;
       if (f === 'manufacturer' && item.building !== 'manufacturer') return false;
+      if (f === 'space_elevator' && !item.isSpaceElevator) return false;
+      if (f === 'alien' && !item.isAlien) return false;
 
       if (q && !item.searchIndex.includes(q)) return false;
       return true;
@@ -3172,7 +3204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="catalog-no-results">
           <div style="font-size: 2.2rem; margin-bottom: 10px;">🔍</div>
           <div style="font-weight: 800; color: #f1f5f9; font-size: 1.05rem;">No se encontraron recetas con "${currentPickerSearch}"</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">Prueba buscando otra palabra clave (ej: <em>Plancha, Cable, Alambre, Rotor, Tornillo</em>) o selecciona el filtro "🌟 Todos".</div>
+          <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">Prueba buscando otra palabra clave (ej: <em>Plancha, Mercer, SAM, Rotor, Alambre</em>) o selecciona el filtro "🌟 Todos".</div>
         </div>
       `;
       return;
@@ -3181,6 +3213,19 @@ document.addEventListener('DOMContentLoaded', () => {
     grid.innerHTML = filtered.map(item => {
       const isSelected = (activePickerTarget.type === 'sandbox' && item.id === currentSelectedId) ||
                          (activePickerTarget.type === 'builder' && item.outItem === currentSelectedId);
+
+      let tagHtml = '';
+      if (item.isAlien) {
+        tagHtml = `<span class="badge" style="background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; color: #d8b4fe; font-size: 0.68rem; font-weight: 700;">🔮 MAM Alien 1.0</span>`;
+      } else if (item.isSpaceElevator) {
+        tagHtml = `<span class="badge" style="background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #7dd3fc; font-size: 0.68rem; font-weight: 700;">🛸 Ascensor</span>`;
+      } else if (item.isDirect) {
+        tagHtml = `<span class="catalog-tag-direct">⚡ Directo</span>`;
+      } else if (item.isDerivable) {
+        tagHtml = `<span class="catalog-tag-subchain">🔄 ${item.stepsCount} Fases</span>`;
+      } else {
+        tagHtml = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; color: #fbbf24; font-size: 0.68rem; font-weight: 700;">📦 Insumos Extra</span>`;
+      }
 
       return `
         <div class="recipe-catalog-card ${isSelected ? 'current-selected' : ''}" data-recipe-id="${item.id}" data-item-id="${item.outItem}">
@@ -3196,10 +3241,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>
             <div>
-              ${!item.isDirect 
-                ? `<span class="catalog-tag-subchain">🔄 ${item.stepsCount} Fases</span>` 
-                : `<span class="catalog-tag-direct">⚡ Directo</span>`
-              }
+              ${tagHtml}
             </div>
           </div>
 
@@ -3975,9 +4017,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     state.sandbox.branches.forEach((b, idx) => {
-      // Ensure branch has a valid recipe
-      if (!derivableRecipes.some(r => r.id === b.recipeId)) {
-        b.recipeId = derivableRecipes[0].id;
+      // Ensure branch has a valid recipe in SATIS_DATA.recipes
+      const recipeExists = SATIS_DATA.recipes.some(r => r.id === b.recipeId);
+      if (!recipeExists) {
+        b.recipeId = derivableRecipes[0]?.id || 'iron_plate_std';
       }
 
       const chain = SatisCalc.resolveBranchSubchain(supplyItems, b.recipeId, b.machineCount);
@@ -4021,33 +4064,50 @@ document.addEventListener('DOMContentLoaded', () => {
         const color = lineColors[idx % lineColors.length];
         const pctOfBelt = supply.rate > 0 ? ((d.supplyIntakeRate / supply.rate) * 100).toFixed(1) : '0';
 
-        // Separate and format recipe dropdown options (direct vs subchains)
+        // Separate and format recipe dropdown options (direct vs subchains vs alien vs elevator vs all)
         const directRecipes = derivableRecipes.filter(r => r.isDirect);
         const subchainRecipes = derivableRecipes.filter(r => !r.isDirect);
 
-        const directOptionsHtml = directRecipes.map(r => {
+        const formatOpt = (r) => {
           const isSelected = r.id === d.recipe.id ? 'selected' : '';
-          const outItem = SATIS_DATA.items[r.outputs[0]?.item] || SATIS_DATA.rawResources[r.outputs[0]?.item] || { name: r.outputs[0]?.item };
+          const outItem = SATIS_DATA.items[r.outputs[0]?.item] || SATIS_DATA.rawResources[r.outputs[0]?.item] || { name: r.outputs[0]?.item || r.name };
           const bldg = SATIS_DATA.buildings[r.building] || { name: r.building };
-          return `<option value="${r.id}" ${isSelected}>⚡ ${outItem.name} — ${bldg.name} (${r.name})</option>`;
-        }).join('');
+          return `<option value="${r.id}" ${isSelected}>${outItem.name} — ${bldg.name} (${r.name})</option>`;
+        };
 
-        const subchainOptionsHtml = subchainRecipes.map(r => {
-          const isSelected = r.id === d.recipe.id ? 'selected' : '';
-          const outItem = SATIS_DATA.items[r.outputs[0]?.item] || SATIS_DATA.rawResources[r.outputs[0]?.item] || { name: r.outputs[0]?.item };
-          const bldg = SATIS_DATA.buildings[r.building] || { name: r.building };
-          return `<option value="${r.id}" ${isSelected}>🔄 ${outItem.name} — ${bldg.name} (${r.name})</option>`;
-        }).join('');
+        const directOptionsHtml = directRecipes.map(formatOpt).join('');
+        const subchainOptionsHtml = subchainRecipes.map(formatOpt).join('');
+
+        const alienRecipes = SATIS_DATA.recipes.filter(r => {
+          const out = r.outputs[0]?.item || '';
+          const meta = SATIS_DATA.items[out] || {};
+          const cat = (meta.category || '').toLowerCase();
+          return cat.includes('alien') || cat.includes('mam') ||
+            ['mercer_sphere', 'somersloop', 're_hexed_sam', 'sam_fluctuator', 'dimensional_depot_uploader', 'alien_power_augmenter', 'alien_power_matrix', 'superposition_oscillator', 'singularity_cell', 'neural_quantum_processor', 'dark_matter_residue', 'dark_matter_crystal', 'time_crystal', 'diamond', 'ficsonium', 'ficsonium_fuel_rod', 'alien_protein', 'alien_dna_capsule', 'power_shard'].includes(out) ||
+            ['quantum_encoder', 'converter', 'particle_accelerator'].includes(r.building);
+        });
+
+        const spaceElevatorRecipes = SATIS_DATA.recipes.filter(r => {
+          const out = r.outputs[0]?.item || '';
+          const meta = SATIS_DATA.items[out] || {};
+          const cat = (meta.category || '').toLowerCase();
+          return cat.includes('espacial') || cat.includes('fase') ||
+            ['smart_plating', 'automated_wiring', 'versatile_framework', 'adaptive_control_unit', 'modular_engine', 'assembly_director_system', 'magnetic_field_generator', 'thermal_propulsion_rocket', 'nuclear_pasta', 'biochemical_sculptor', 'ballistic_warp_drive', 'ai_expansion_server'].includes(out);
+        });
+
+        const otherRecipes = SATIS_DATA.recipes.filter(r => 
+          !directRecipes.some(x => x.id === r.id) &&
+          !subchainRecipes.some(x => x.id === r.id) &&
+          !alienRecipes.some(x => x.id === r.id) &&
+          !spaceElevatorRecipes.some(x => x.id === r.id)
+        );
 
         const selectOptionsHtml = `
-          <optgroup label="⚡ Derivación Directa (1 Fase)">
-            ${directOptionsHtml}
-          </optgroup>
-          ${subchainRecipes.length > 0 ? `
-            <optgroup label="🔄 Cadenas Avanzadas (Múltiples Fases)">
-              ${subchainOptionsHtml}
-            </optgroup>
-          ` : ''}
+          ${directRecipes.length > 0 ? `<optgroup label="⚡ Derivación Directa (${supply.itemName})">${directOptionsHtml}</optgroup>` : ''}
+          ${subchainRecipes.length > 0 ? `<optgroup label="🔄 Cadenas Avanzadas (${supply.itemName})">${subchainOptionsHtml}</optgroup>` : ''}
+          ${alienRecipes.length > 0 ? `<optgroup label="🔮 Tecnología Alienígena y MAM (1.0)">${alienRecipes.map(formatOpt).join('')}</optgroup>` : ''}
+          ${spaceElevatorRecipes.length > 0 ? `<optgroup label="🛸 Fases del Ascensor Espacial">${spaceElevatorRecipes.map(formatOpt).join('')}</optgroup>` : ''}
+          ${otherRecipes.length > 0 ? `<optgroup label="📦 Otras Recetas FICSIT">${otherRecipes.map(formatOpt).join('')}</optgroup>` : ''}
         `;
 
         // Calculate exact machine requirements for this branch (Hornos + Constructores + Ensambladoras)
@@ -4914,26 +4974,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function generateSandboxBlueprintSvg(supply, branchDetails, netBalance) {
     const N = Math.max(1, branchDetails.length);
-    const branchH = 170;
-    const branchGap = 24;
-    const startY = 100;
-    const totalH = Math.max(680, startY + N * (branchH + branchGap) + 120);
-    const totalW = 1680;
+    const GRID_SIZE = 80;
+
+    function getMachineDims(bldgId) {
+      if (bldgId === 'smelter') return { w: 105, h: 60 };
+      if (bldgId === 'constructor') return { w: 115, h: 64 };
+      if (bldgId === 'assembler') return { w: 135, h: 74 };
+      if (bldgId === 'manufacturer') return { w: 160, h: 86 };
+      if (bldgId === 'refinery') return { w: 140, h: 78 };
+      if (bldgId === 'particle_accelerator') return { w: 180, h: 90 };
+      if (bldgId === 'quantum_encoder') return { w: 170, h: 88 };
+      if (bldgId === 'converter') return { w: 150, h: 80 };
+      return { w: 115, h: 64 };
+    }
 
     const hasSmelting = (supply.isSmelted && supply.smeltersNeeded > 0);
     const hasSecondary = !!supply.secondary;
 
     // Coordinate Anchors
-    const X_MINERS = 50;
-    const W_MINERS = 220;
+    const X_MINERS = 40;
+    const W_MINERS = 200;
 
-    const X_SMELT = 330;
-    const W_SMELT = 200;
+    const X_SMELT = 280;
+    const W_SMELT = 160;
 
-    const X_SPLITTER = hasSmelting ? 600 : 340;
-    const W_SPLITTER = 70;
+    const X_SPLITTER = hasSmelting ? 500 : 280;
+    const W_SPLITTER = 60;
 
-    const X_BRANCH_START = X_SPLITTER + 150;
+    const X_BRANCH_START = X_SPLITTER + 120;
+
+    // Compute dynamic height per branch based on parallel machine count
+    const branchHeights = branchDetails.map(d => {
+      const stepCounts = (d.intermediateSteps || []).map(s => Math.min(4, Math.ceil(s.machinesCount)));
+      const finalCount = Math.min(4, Math.ceil(d.branch.machineCount));
+      const maxParallel = Math.max(1, finalCount, ...stepCounts);
+      return Math.max(200, maxParallel * 76 + 65);
+    });
+
+    const branchGap = 28;
+    const startY = 90;
+    let accumulatedH = startY;
+    const branchYPositions = [];
+    branchHeights.forEach(h => {
+      branchYPositions.push(accumulatedH);
+      accumulatedH += h + branchGap;
+    });
+
+    const totalH = Math.max(720, accumulatedH + 80);
+    const totalW = 1860;
     const branchW = totalW - X_BRANCH_START - 40;
 
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalW} ${totalH}" width="${totalW}" height="${totalH}" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; user-select: none;">`;
@@ -4941,12 +5029,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Definitions
     svg += `
       <defs>
-        <pattern id="sbGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
-          <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#172338" stroke-width="1.2" />
-          <circle cx="0" cy="0" r="1.5" fill="#334155" />
-          <circle cx="60" cy="0" r="1.5" fill="#334155" />
-          <circle cx="0" cy="60" r="1.5" fill="#334155" />
-          <circle cx="60" cy="60" r="1.5" fill="#334155" />
+        <pattern id="sbGridPat" width="${GRID_SIZE}" height="${GRID_SIZE}" patternUnits="userSpaceOnUse">
+          <rect width="${GRID_SIZE}" height="${GRID_SIZE}" fill="#080e1a"/>
+          <path d="M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}" fill="none" stroke="#121e33" stroke-width="1.2"/>
+          <path d="M ${GRID_SIZE} ${GRID_SIZE} L 0 ${GRID_SIZE} ${GRID_SIZE} 0" fill="none" stroke="#0e1726" stroke-width="0.6" stroke-dasharray="2 4"/>
+          <circle cx="0" cy="0" r="1.5" fill="#1e293b"/>
+          <circle cx="${GRID_SIZE}" cy="0" r="1.5" fill="#1e293b"/>
+          <circle cx="0" cy="${GRID_SIZE}" r="1.5" fill="#1e293b"/>
+          <circle cx="${GRID_SIZE}" cy="${GRID_SIZE}" r="1.5" fill="#1e293b"/>
         </pattern>
 
         <linearGradient id="sbMinerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -4964,424 +5054,463 @@ document.addEventListener('DOMContentLoaded', () => {
           <stop offset="100%" stop-color="#c2410c" />
         </linearGradient>
 
-        <linearGradient id="sbSplitterGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f59e0b" />
-          <stop offset="100%" stop-color="#b45309" />
-        </linearGradient>
-
-        <linearGradient id="sbSinkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#8b5cf6" />
-          <stop offset="100%" stop-color="#6d28d9" />
-        </linearGradient>
-
-        <linearGradient id="sbStorageGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#10b981" />
-          <stop offset="100%" stop-color="#047857" />
-        </linearGradient>
-
         <filter id="sbGlow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feGaussianBlur stdDeviation="3" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
 
-        <marker id="sbArrowOrange" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-          <path d="M 0 0 L 8 4 L 0 8 z" fill="#f97316" />
+        <marker id="sbArrowDef" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M 0 0 L 7 3.5 L 0 7 z" fill="#38bdf8" />
         </marker>
-        <marker id="sbArrowCyan" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-          <path d="M 0 0 L 8 4 L 0 8 z" fill="#38bdf8" />
+        <marker id="sbArrowOrange" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M 0 0 L 7 3.5 L 0 7 z" fill="#f97316" />
         </marker>
-        <marker id="sbArrowYellow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-          <path d="M 0 0 L 8 4 L 0 8 z" fill="#facc15" />
+        <marker id="sbArrowYellow" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M 0 0 L 7 3.5 L 0 7 z" fill="#facc15" />
         </marker>
-        <marker id="sbArrowGreen" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-          <path d="M 0 0 L 8 4 L 0 8 z" fill="#4ade80" />
+        <marker id="sbArrowGreen" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M 0 0 L 7 3.5 L 0 7 z" fill="#4ade80" />
         </marker>
       </defs>
     `;
 
     // Background Foundation Plate
-    svg += `<rect width="${totalW}" height="${totalH}" fill="#080e1a" />`;
-    svg += `<rect width="${totalW}" height="${totalH}" fill="url(#sbGridPat)" opacity="0.65" />`;
+    svg += `<rect width="${totalW}" height="${totalH}" fill="url(#sbGridPat)" />`;
 
     // Top Blueprint Bar
     svg += `
-      <rect x="40" y="20" width="${totalW - 80}" height="48" rx="8" fill="#0d1728" stroke="#1e293b" stroke-width="1.5" />
-      <text x="60" y="50" font-size="14" font-weight="900" fill="#f8fafc" letter-spacing="0.5">
-        📐 PLANO AÉREO 2D &bull; DISTRIBUCIÓN FICSIT Y DIVISIÓN POR ${supply.isFluid ? 'CRUCETAS DE TUBERÍA' : 'SPLITTERS'}
+      <rect x="30" y="16" width="${totalW - 60}" height="46" rx="6" fill="#0d1728" stroke="#1e293b" stroke-width="1.5" />
+      <text x="50" y="44" font-size="13" font-weight="900" fill="#f8fafc" letter-spacing="0.5">
+        📐 PLANO DE PLANTA AÉREA 2D (CUADRÍCULA 8m x 8m) &bull; ESPACIO LIBRE MULTIPRODUCTO
       </text>
-      <text x="${totalW - 60}" y="50" text-anchor="end" font-size="12" font-weight="700" fill="#38bdf8">
-        Suministro: ${supply.rate.toFixed(1)} ${supply.isFluid ? 'm³/min' : '/min'} ${supply.itemName} &bull; ${branchDetails.length} Ramas
+      <text x="${totalW - 50}" y="44" text-anchor="end" font-size="11.5" font-weight="700" fill="#38bdf8">
+        Suministro: ${supply.rate.toFixed(1)} ${supply.isFluid ? 'm³/min' : '/min'} ${supply.itemName} &bull; ${branchDetails.length} Ramas de Fabricación
       </text>
     `;
 
-    // 1. EXTRACTION STATION (LEFT COLUMN)
-    const minerH = 140;
+    // 1. EXTRACTION STATION (LEFT)
+    const minerH = 135;
     const isMultiMiner = (supply.minerNodes && supply.minerNodes.length > 1);
-    const minerTierName = SATIS_DATA.miners[supply.minerTier]?.name || (supply.isFluid ? 'Extractor de Petróleo' : 'Minero Mk.1');
+    const minerTierName = SATIS_DATA.miners[supply.minerTier]?.name || (supply.isFluid ? 'Extractor' : 'Minero Mk.1');
     const purityName = (supply.purity === 'pure') ? 'Pura' : (supply.purity === 'impure') ? 'Impura' : 'Normal';
-    const isOil = state.sandbox.resource === 'crude_oil';
     const extractorTitle = supply.isFluid 
-      ? (isOil ? '🛢️ POZO / EXTRACTOR' : '💧 EXTRACTOR DE AGUA') 
+      ? (supply.item === 'crude_oil' ? '🛢️ POZO PETRÓLEO' : '💧 EXTRACTOR AGUA') 
       : '⛏️ EXTRACCIÓN PRIMARIA';
-    const unit = supply.isFluid ? 'm³/min' : '/min';
+    const unit = supply.isFluid ? 'm³/m' : '/m';
     const buildingSubDetail = isMultiMiner 
-      ? (supply.isFluid ? `${supply.minerNodes.length}x Extractores Combinados` : `${supply.minerNodes.length}x Taladros Combinados`) 
+      ? `${supply.minerNodes.length}x Nodos Combinados` 
       : `${minerTierName} (${purityName})`;
-    const minerStroke = supply.isFluid ? '#0284c7' : '#ea580c';
-    const minerGrad = supply.isFluid ? 'url(#sbSecMinerGrad)' : 'url(#sbMinerGrad)';
 
     svg += `
       <g class="blueprint-node-miner" data-name="${supply.rawItemName}" data-rate="${supply.rawRate}" data-power="${supply.minerPower}">
-        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="${minerH}" rx="10" fill="#0f172a" stroke="${minerStroke}" stroke-width="2" />
-        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="28" rx="8" fill="${minerGrad}" />
-        <text x="${X_MINERS + 12}" y="${startY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
+        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="${minerH}" rx="6" fill="#0c1524" stroke="#ea580c" stroke-width="1.8" />
+        <rect x="${X_MINERS}" y="${startY}" width="${W_MINERS}" height="26" rx="5" fill="url(#sbMinerGrad)" />
+        <text x="${X_MINERS + 10}" y="${startY + 17}" font-size="10" font-weight="900" fill="#ffffff" letter-spacing="0.5">
           ${extractorTitle}
         </text>
 
-        <text x="${X_MINERS + 14}" y="${startY + 56}" font-size="13" font-weight="800" fill="#f8fafc">
+        <image href="images/buildings/${supply.minerTier || 'miner_mk1'}.png" x="${X_MINERS + W_MINERS - 36}" y="${startY + 34}" width="28" height="28" onerror="this.style.display='none'"/>
+
+        <text x="${X_MINERS + 12}" y="${startY + 50}" font-size="12" font-weight="800" fill="#f8fafc">
           ${supply.rawItemName}
         </text>
 
-        <text x="${X_MINERS + 14}" y="${startY + 84}" font-size="18" font-weight="900" fill="#4ade80">
-          +${supply.rawRate.toFixed(1)} <tspan font-size="12" font-weight="700" fill="#94a3b8">${unit}</tspan>
+        <text x="${X_MINERS + 12}" y="${startY + 76}" font-size="16" font-weight="900" fill="#4ade80">
+          +${supply.rawRate.toFixed(1)} <tspan font-size="10.5" font-weight="700" fill="#94a3b8">${unit}</tspan>
         </text>
 
-        <text x="${X_MINERS + 14}" y="${startY + 110}" font-size="10.5" font-weight="700" fill="#cbd5e1">
+        <text x="${X_MINERS + 12}" y="${startY + 100}" font-size="9.5" font-weight="700" fill="#cbd5e1">
           ${buildingSubDetail}
         </text>
 
-        <text x="${X_MINERS + 14}" y="${startY + 126}" font-size="9.5" font-weight="600" fill="#94a3b8">
+        <text x="${X_MINERS + 12}" y="${startY + 118}" font-size="9" font-weight="600" fill="#94a3b8">
           ⚡ Consumo: ${supply.minerPower.toFixed(1)} MW
         </text>
       </g>
     `;
 
-    // Secondary Miner (if present)
+    // Secondary Miner
     if (hasSecondary && supply.secondary) {
       const sec = supply.secondary;
-      const secY = startY + 160;
-      const secH = 125;
+      const secY = startY + 155;
+      const secH = 120;
       const secTierName = SATIS_DATA.miners[sec.minerTier]?.name || (sec.isFluid ? 'Extractor' : 'Minero Mk.1');
       const secPurityName = (sec.purity === 'pure') ? 'Pura' : (sec.purity === 'impure') ? 'Impura' : 'Normal';
-      const secIsOil = sec.item === 'crude_oil';
-      const secTitle = sec.isFluid ? (secIsOil ? '🛢️ POZO DE PETRÓLEO' : '💧 EXTRACTOR DE AGUA') : '⛏️ SEGUNDO MINERAL';
-      const secUnit = sec.isFluid ? 'm³/min' : '/min';
 
       svg += `
         <g class="blueprint-node-miner" data-name="${sec.itemName}" data-rate="${sec.rate}" data-power="${sec.powerMw}">
-          <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="${secH}" rx="10" fill="#08182b" stroke="#0284c7" stroke-width="2" />
-          <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="28" rx="8" fill="url(#sbSecMinerGrad)" />
-          <text x="${X_MINERS + 12}" y="${secY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
-            ${secTitle}
+          <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="${secH}" rx="6" fill="#08182b" stroke="#0284c7" stroke-width="1.8" />
+          <rect x="${X_MINERS}" y="${secY}" width="${W_MINERS}" height="24" rx="5" fill="url(#sbSecMinerGrad)" />
+          <text x="${X_MINERS + 10}" y="${secY + 16}" font-size="9.5" font-weight="900" fill="#ffffff" letter-spacing="0.5">
+            ⛏️ MINERAL SECUNDARIO
           </text>
-
-          <text x="${X_MINERS + 14}" y="${secY + 52}" font-size="13" font-weight="800" fill="#f8fafc">
-            ${sec.itemName}
-          </text>
-
-          <text x="${X_MINERS + 14}" y="${secY + 78}" font-size="17" font-weight="900" fill="#38bdf8">
-            +${sec.rate.toFixed(1)} <tspan font-size="11" font-weight="700" fill="#94a3b8">${secUnit}</tspan>
-          </text>
-
-          <text x="${X_MINERS + 14}" y="${secY + 100}" font-size="10" font-weight="700" fill="#cbd5e1">
-            ${sec.minerCount}x ${secTierName} (${secPurityName})
-          </text>
-
-          <text x="${X_MINERS + 14}" y="${secY + 115}" font-size="9" font-weight="600" fill="#94a3b8">
-            ⚡ Consumo: ${sec.powerMw.toFixed(1)} MW
-          </text>
+          <text x="${X_MINERS + 12}" y="${secY + 46}" font-size="12" font-weight="800" fill="#f8fafc">${sec.itemName}</text>
+          <text x="${X_MINERS + 12}" y="${secY + 70}" font-size="15" font-weight="900" fill="#38bdf8">+${sec.rate.toFixed(1)} <tspan font-size="10" font-weight="700" fill="#94a3b8">${unit}</tspan></text>
+          <text x="${X_MINERS + 12}" y="${secY + 92}" font-size="9" font-weight="700" fill="#cbd5e1">${sec.minerCount}x ${secTierName} (${secPurityName})</text>
+          <text x="${X_MINERS + 12}" y="${secY + 108}" font-size="8.5" font-weight="600" fill="#94a3b8">⚡ Consumo: ${sec.powerMw.toFixed(1)} MW</text>
         </g>
       `;
     }
 
-    // 2. SMELTING BATTERY (IF AUTO-SMELT)
-    const smeltY = startY;
+    // 2. SMELTING BATTERY
     if (hasSmelting) {
-      // Conveyor from Primary Miner to Smelter
+      const smeltH = 135;
       svg += `
-        <line x1="${X_MINERS + W_MINERS}" y1="${startY + 70}" x2="${X_SMELT}" y2="${startY + 70}" stroke="#f97316" stroke-width="6" stroke-dasharray="8 4" marker-end="url(#sbArrowOrange)" />
-        <rect x="${X_MINERS + W_MINERS + 10}" y="${startY + 48}" width="50" height="18" rx="4" fill="#0f172a" stroke="#f97316" stroke-width="1" />
-        <text x="${X_MINERS + W_MINERS + 35}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="#f97316">
-          ${supply.rawRate.toFixed(0)}/m
-        </text>
-      `;
+        <!-- Belt from Miner to Smelter -->
+        <path d="M ${X_MINERS + W_MINERS} ${startY + 65} L ${X_SMELT} ${startY + 65}" stroke="#040812" stroke-width="6.5" stroke-linecap="round"/>
+        <path d="M ${X_MINERS + W_MINERS} ${startY + 65} L ${X_SMELT} ${startY + 65}" stroke="#f97316" stroke-width="3.5" marker-end="url(#sbArrowOrange)"/>
+        <path d="M ${X_MINERS + W_MINERS} ${startY + 65} L ${X_SMELT} ${startY + 65}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.8"/>
 
-      // Smelter Box
-      svg += `
+        <!-- Smelting Card -->
         <g class="blueprint-node-smelter" data-name="Batería de Hornos" data-count="${supply.smeltersNeeded}" data-power="${supply.smelterPower}">
-          <rect x="${X_SMELT}" y="${smeltY}" width="${W_SMELT}" height="${minerH}" rx="10" fill="#18111e" stroke="#f97316" stroke-width="2" />
-          <rect x="${X_SMELT}" y="${smeltY}" width="${W_SMELT}" height="28" rx="8" fill="url(#sbSmeltGrad)" />
-          <text x="${X_SMELT + 12}" y="${smeltY + 18}" font-size="11" font-weight="900" fill="#ffffff" letter-spacing="0.5">
+          <rect x="${X_SMELT}" y="${startY}" width="${W_SMELT}" height="${smeltH}" rx="6" fill="#13101c" stroke="#f97316" stroke-width="1.8" />
+          <rect x="${X_SMELT}" y="${startY}" width="${W_SMELT}" height="26" rx="5" fill="url(#sbSmeltGrad)" />
+          <text x="${X_SMELT + 8}" y="${startY + 17}" font-size="9.5" font-weight="900" fill="#ffffff">
             🔥 BATERÍA DE HORNOS
           </text>
-
-          <text x="${X_SMELT + 14}" y="${smeltY + 54}" font-size="13" font-weight="800" fill="#f8fafc">
-            ${supply.smeltersNeeded}x Fundición (Horno)
+          <image href="images/buildings/smelter.png" x="${X_SMELT + W_SMELT - 34}" y="${startY + 34}" width="26" height="26" onerror="this.style.display='none'"/>
+          <text x="${X_SMELT + 10}" y="${startY + 50}" font-size="11.5" font-weight="800" fill="#f8fafc">
+            ${supply.smeltersNeeded}x Fundición
           </text>
-
-          <text x="${X_SMELT + 14}" y="${smeltY + 80}" font-size="17" font-weight="900" fill="#fbbf24">
-            +${supply.rate.toFixed(1)} <tspan font-size="11" font-weight="700" fill="#94a3b8">Lingotes/m</tspan>
+          <text x="${X_SMELT + 10}" y="${startY + 74}" font-size="15" font-weight="900" fill="#fbbf24">
+            +${supply.rate.toFixed(1)} <tspan font-size="10" font-weight="700" fill="#94a3b8">Lingotes/m</tspan>
           </text>
-
-          <text x="${X_SMELT + 14}" y="${smeltY + 104}" font-size="10" font-weight="700" fill="#cbd5e1">
-            Manifold de Fundición 100%
+          <text x="${X_SMELT + 10}" y="${startY + 98}" font-size="9" font-weight="700" fill="#cbd5e1">
+            Manifold 100% Homogéneo
           </text>
-
-          <text x="${X_SMELT + 14}" y="${smeltY + 122}" font-size="9.5" font-weight="600" fill="#94a3b8">
-            ⚡ Consumo: ${supply.smelterPower.toFixed(1)} MW
+          <text x="${X_SMELT + 10}" y="${startY + 116}" font-size="8.5" font-weight="600" fill="#94a3b8">
+            ⚡ ${supply.smelterPower.toFixed(1)} MW
           </text>
         </g>
-      `;
 
-      // Conveyor from Smelter to Splitter #1
-      svg += `
-        <line x1="${X_SMELT + W_SMELT}" y1="${startY + 70}" x2="${X_SPLITTER}" y2="${startY + 70}" stroke="#facc15" stroke-width="6" stroke-dasharray="8 4" marker-end="url(#sbArrowYellow)" />
-        <rect x="${X_SMELT + W_SMELT + 10}" y="${startY + 48}" width="50" height="18" rx="4" fill="#0f172a" stroke="#facc15" stroke-width="1" />
-        <text x="${X_SMELT + W_SMELT + 35}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="#facc15">
-          ${supply.rate.toFixed(0)}/m
-        </text>
+        <!-- Belt from Smelter to Trunk Splitter -->
+        <path d="M ${X_SMELT + W_SMELT} ${startY + 65} L ${X_SPLITTER} ${startY + 65}" stroke="#040812" stroke-width="6.5" stroke-linecap="round"/>
+        <path d="M ${X_SMELT + W_SMELT} ${startY + 65} L ${X_SPLITTER} ${startY + 65}" stroke="#facc15" stroke-width="3.5" marker-end="url(#sbArrowYellow)"/>
+        <path d="M ${X_SMELT + W_SMELT} ${startY + 65} L ${X_SPLITTER} ${startY + 65}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.8"/>
       `;
     } else {
-      // Direct transport to Splitter / Cruceta #1
-      const trunkStroke = supply.isFluid ? '#0284c7' : '#f97316';
-      const trunkMarker = supply.isFluid ? 'url(#sbArrowCyan)' : 'url(#sbArrowOrange)';
+      const feedColor = supply.isFluid ? '#0284c7' : '#f97316';
+      const feedMarker = supply.isFluid ? 'url(#sbArrowDef)' : 'url(#sbArrowOrange)';
       svg += `
-        <line x1="${X_MINERS + W_MINERS}" y1="${startY + 70}" x2="${X_SPLITTER}" y2="${startY + 70}" stroke="${trunkStroke}" stroke-width="6" stroke-dasharray="8 4" marker-end="${trunkMarker}" />
-        <rect x="${X_MINERS + W_MINERS + 10}" y="${startY + 48}" width="65" height="18" rx="4" fill="#0f172a" stroke="${trunkStroke}" stroke-width="1" />
-        <text x="${X_MINERS + W_MINERS + 42}" y="${startY + 61}" text-anchor="middle" font-size="9" font-weight="800" fill="${trunkStroke}">
-          ${supply.rate.toFixed(0)} ${supply.isFluid ? 'm³/m' : '/m'}
-        </text>
+        <path d="M ${X_MINERS + W_MINERS} ${startY + 65} L ${X_SPLITTER} ${startY + 65}" stroke="#040812" stroke-width="6.5" stroke-linecap="round"/>
+        <path d="M ${X_MINERS + W_MINERS} ${startY + 65} L ${X_SPLITTER} ${startY + 65}" stroke="${feedColor}" stroke-width="3.5" marker-end="${feedMarker}"/>
+        <path d="M ${X_MINERS + W_MINERS} ${startY + 65} L ${X_SPLITTER} ${startY + 65}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.8"/>
       `;
     }
 
-    // 3. TRUNK CONDUIT & PHYSICAL SPLITTERS / CRUCETAS
+    // 3. MAIN TRUNK CONDUIT & SPLITTERS
     let currentFlow = supply.rate;
     const splPositions = [];
 
     branchDetails.forEach((d, idx) => {
-      const bY = startY + idx * (branchH + branchGap);
-      const splY = bY + 60;
+      const bY = branchYPositions[idx];
+      const splY = bY + 45;
       const divertedFlow = d.supplyIntakeRate;
       const passFlow = Math.max(0, Number((currentFlow - divertedFlow).toFixed(2)));
       splPositions.push({ splY, inFlow: currentFlow, divertedFlow, passFlow });
 
-      // Vertical connecting conduit between splitters / crosses
+      // Vertical connecting conveyor between consecutive splitters
       if (idx > 0) {
         const prevSplY = splPositions[idx - 1].splY;
-        const vertStroke = supply.isFluid ? '#0284c7' : '#facc15';
-        const vertMarker = supply.isFluid ? 'url(#sbArrowCyan)' : 'url(#sbArrowYellow)';
+        const vertColor = supply.isFluid ? '#0284c7' : '#facc15';
         svg += `
-          <line x1="${X_SPLITTER + 35}" y1="${prevSplY + 45}" x2="${X_SPLITTER + 35}" y2="${splY}" stroke="${vertStroke}" stroke-width="5" stroke-dasharray="6 3" marker-end="${vertMarker}" />
-          <rect x="${X_SPLITTER + 42}" y="${(prevSplY + 45 + splY) / 2 - 9}" width="55" height="16" rx="3" fill="#0f172a" stroke="${vertStroke}" stroke-width="1" />
-          <text x="${X_SPLITTER + 69}" y="${(prevSplY + 45 + splY) / 2 + 3}" text-anchor="middle" font-size="8.5" font-weight="800" fill="${vertStroke}">
-            ${currentFlow.toFixed(0)} ${supply.isFluid ? 'm³/m' : '/m'}
-          </text>
+          <path d="M ${X_SPLITTER + 30} ${prevSplY + 40} L ${X_SPLITTER + 30} ${splY}" stroke="#040812" stroke-width="6" stroke-linecap="round"/>
+          <path d="M ${X_SPLITTER + 30} ${prevSplY + 40} L ${X_SPLITTER + 30} ${splY}" stroke="${vertColor}" stroke-width="3.5" marker-end="url(#sbArrowYellow)"/>
+          <path d="M ${X_SPLITTER + 30} ${prevSplY + 40} L ${X_SPLITTER + 30} ${splY}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.8"/>
         `;
       }
 
-      // Splitter / Cruceta Box
+      // Splitter or Cruceta Box
       if (supply.isFluid) {
         svg += `
           <g class="blueprint-node-splitter" data-split-index="${idx}" data-in="${currentFlow}" data-divert="${divertedFlow}" data-pass="${passFlow}">
-            <rect x="${X_SPLITTER}" y="${splY}" width="${W_SPLITTER}" height="45" rx="6" fill="#0c2d48" stroke="#38bdf8" stroke-width="2" />
-            <text x="${X_SPLITTER + 35}" y="${splY + 20}" text-anchor="middle" font-size="11" font-weight="900" fill="#38bdf8">
-              ➕ C#${idx + 1}
-            </text>
-            <text x="${X_SPLITTER + 35}" y="${splY + 35}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#bae6fd">
-              -${divertedFlow.toFixed(0)} m³/m
-            </text>
+            <circle cx="${X_SPLITTER + 30}" cy="${splY + 20}" r="18" fill="#0c2d48" stroke="#38bdf8" stroke-width="2"/>
+            <text x="${X_SPLITTER + 30}" y="${splY + 24}" text-anchor="middle" font-size="12" font-weight="900" fill="#e0f2fe">➕</text>
           </g>
         `;
       } else {
         svg += `
           <g class="blueprint-node-splitter" data-split-index="${idx}" data-in="${currentFlow}" data-divert="${divertedFlow}" data-pass="${passFlow}">
-            <rect x="${X_SPLITTER}" y="${splY}" width="${W_SPLITTER}" height="45" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="2" />
-            <text x="${X_SPLITTER + 35}" y="${splY + 20}" text-anchor="middle" font-size="11" font-weight="900" fill="#f59e0b">
-              🔀 S#${idx + 1}
-            </text>
-            <text x="${X_SPLITTER + 35}" y="${splY + 35}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fed7aa">
-              -${divertedFlow.toFixed(0)}/m
-            </text>
+            <rect x="${X_SPLITTER}" y="${splY}" width="${W_SPLITTER}" height="40" rx="4" fill="#78350f" stroke="#f59e0b" stroke-width="1.8"/>
+            <text x="${X_SPLITTER + 30}" y="${splY + 20}" text-anchor="middle" font-size="11" font-weight="900" fill="#fef08a">🔀 S#${idx + 1}</text>
+            <text x="${X_SPLITTER + 30}" y="${splY + 33}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#fed7aa">-${divertedFlow.toFixed(0)}/m</text>
           </g>
         `;
       }
 
-      // Branch Infeed Conduit (Splitter/Cruceta -> Branch Bay)
-      const feedBeltColor = d.color || (supply.isFluid ? '#0284c7' : '#38bdf8');
+      // Branch Infeed Belt from Splitter into Branch Bay
+      const branchColor = d.color || '#38bdf8';
       svg += `
-        <line x1="${X_SPLITTER + W_SPLITTER}" y1="${splY + 22}" x2="${X_BRANCH_START}" y2="${splY + 22}" stroke="${feedBeltColor}" stroke-width="6" stroke-dasharray="6 3" marker-end="url(#sbArrowCyan)" />
-        <rect x="${X_SPLITTER + W_SPLITTER + 10}" y="${splY + 10}" width="65" height="18" rx="4" fill="#0f172a" stroke="${feedBeltColor}" stroke-width="1" />
-        <text x="${X_SPLITTER + W_SPLITTER + 42}" y="${splY + 23}" text-anchor="middle" font-size="9" font-weight="800" fill="${feedBeltColor}">
-          ➔ ${divertedFlow.toFixed(0)} ${supply.isFluid ? 'm³/m' : '/m'}
-        </text>
+        <path d="M ${X_SPLITTER + W_SPLITTER} ${splY + 20} L ${X_BRANCH_START} ${splY + 20}" stroke="#040812" stroke-width="6" stroke-linecap="round"/>
+        <path d="M ${X_SPLITTER + W_SPLITTER} ${splY + 20} L ${X_BRANCH_START} ${splY + 20}" stroke="${branchColor}" stroke-width="3" marker-end="url(#sbArrowDef)"/>
+        <path d="M ${X_SPLITTER + W_SPLITTER} ${splY + 20} L ${X_BRANCH_START} ${splY + 20}" stroke="#ffffff" stroke-width="1.4" stroke-dasharray="6 6" opacity="0.8"/>
       `;
 
       currentFlow = passFlow;
     });
 
-    // End of Line / Awesome Sink
+    // End of Line: Sink or 100% Balance
     const lastSpl = splPositions[splPositions.length - 1];
-    const endY = lastSpl.splY + 65;
+    const endY = lastSpl.splY + 58;
 
     if (netBalance > 0.05) {
-      // Excess goes to Awesome Sink
       svg += `
-        <line x1="${X_SPLITTER + 35}" y1="${lastSpl.splY + 45}" x2="${X_SPLITTER + 35}" y2="${endY}" stroke="#a855f7" stroke-width="5" stroke-dasharray="6 3" marker-end="url(#sbArrowGreen)" />
+        <path d="M ${X_SPLITTER + 30} ${lastSpl.splY + 40} L ${X_SPLITTER + 30} ${endY}" stroke="#040812" stroke-width="6"/>
+        <path d="M ${X_SPLITTER + 30} ${lastSpl.splY + 40} L ${X_SPLITTER + 30} ${endY}" stroke="#a855f7" stroke-width="3" marker-end="url(#sbArrowGreen)"/>
         <g class="blueprint-node-sink" data-rate="${netBalance}">
-          <rect x="${X_SPLITTER - 20}" y="${endY}" width="110" height="52" rx="8" fill="#1f1035" stroke="#a855f7" stroke-width="2" />
-          <text x="${X_SPLITTER + 35}" y="${endY + 20}" text-anchor="middle" font-size="10.5" font-weight="900" fill="#c084fc">
-            🌟 FICSIT SINK
-          </text>
-          <text x="${X_SPLITTER + 35}" y="${endY + 38}" text-anchor="middle" font-size="9.5" font-weight="800" fill="#4ade80">
-            +${netBalance.toFixed(1)}/m Excedente
-          </text>
+          <rect x="${X_SPLITTER - 20}" y="${endY}" width="100" height="48" rx="6" fill="#1f1035" stroke="#a855f7" stroke-width="1.8" />
+          <image href="images/buildings/awesome_sink.png" x="${X_SPLITTER - 12}" y="${endY + 8}" width="22" height="22" onerror="this.style.display='none'"/>
+          <text x="${X_SPLITTER + 35}" y="${endY + 20}" text-anchor="middle" font-size="10" font-weight="900" fill="#c084fc">🌟 FICSIT SINK</text>
+          <text x="${X_SPLITTER + 35}" y="${endY + 36}" text-anchor="middle" font-size="9" font-weight="800" fill="#4ade80">+${netBalance.toFixed(1)}/m Sobrante</text>
         </g>
       `;
     } else if (netBalance < -0.05) {
-      // Deficit indicator
       svg += `
-        <line x1="${X_SPLITTER + 35}" y1="${lastSpl.splY + 45}" x2="${X_SPLITTER + 35}" y2="${endY}" stroke="#ef4444" stroke-width="4" stroke-dasharray="4 2" />
-        <rect x="${X_SPLITTER - 15}" y="${endY}" width="100" height="42" rx="6" fill="#2d0f0f" stroke="#ef4444" stroke-width="1.5" />
-        <text x="${X_SPLITTER + 35}" y="${endY + 18}" text-anchor="middle" font-size="10" font-weight="900" fill="#ef4444">
-          ⚠️ DÉFICIT
-        </text>
-        <text x="${X_SPLITTER + 35}" y="${endY + 32}" text-anchor="middle" font-size="9" font-weight="700" fill="#fca5a5">
-          ${netBalance.toFixed(1)}/m faltante
-        </text>
+        <rect x="${X_SPLITTER - 15}" y="${endY}" width="90" height="38" rx="5" fill="#2d0f0f" stroke="#ef4444" stroke-width="1.5" />
+        <text x="${X_SPLITTER + 30}" y="${endY + 16}" text-anchor="middle" font-size="9" font-weight="900" fill="#ef4444">⚠️ DÉFICIT</text>
+        <text x="${X_SPLITTER + 30}" y="${endY + 30}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#fca5a5">${netBalance.toFixed(1)}/m</text>
       `;
     } else {
-      // 100% Perfect Balance Terminal Cap
       svg += `
-        <line x1="${X_SPLITTER + 35}" y1="${lastSpl.splY + 45}" x2="${X_SPLITTER + 35}" y2="${endY}" stroke="#4ade80" stroke-width="4" />
-        <circle cx="${X_SPLITTER + 35}" cy="${endY + 12}" r="12" fill="#052e16" stroke="#4ade80" stroke-width="2" />
-        <text x="${X_SPLITTER + 35}" y="${endY + 16}" text-anchor="middle" font-size="11" font-weight="900" fill="#4ade80">✓</text>
-        <text x="${X_SPLITTER + 35}" y="${endY + 38}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#86efac">
-          100% Balance
-        </text>
+        <circle cx="${X_SPLITTER + 30}" cy="${endY + 12}" r="12" fill="#052e16" stroke="#4ade80" stroke-width="2" />
+        <text x="${X_SPLITTER + 30}" y="${endY + 16}" text-anchor="middle" font-size="11" font-weight="900" fill="#4ade80">✓</text>
+        <text x="${X_SPLITTER + 30}" y="${endY + 36}" text-anchor="middle" font-size="8.5" font-weight="800" fill="#86efac">100% Balance</text>
       `;
     }
 
-    // 4. BRANCH FABRICATION BAYS (HORIZONTAL FOUNDATION MODULES)
+    // 4. BRANCH FABRICATION BAYS (PHYSICAL MACHINES ON GRID)
     branchDetails.forEach((d, idx) => {
-      const bY = startY + idx * (branchH + branchGap);
+      const bY = branchYPositions[idx];
+      const bayH = branchHeights[idx];
       const isHigh = (sbBpState.highlightedBranchIdx === idx);
       const bColor = d.color || '#38bdf8';
 
-      // Bay Foundation Plate
+      // Assemble all production stages for this branch
+      const branchStages = [];
+      (d.intermediateSteps || []).forEach(step => {
+        const bldgId = step.building?.id || step.recipe?.building || 'constructor';
+        const count = Math.max(1, Math.min(4, Math.ceil(step.machinesCount)));
+        branchStages.push({
+          type: 'intermediate',
+          bldgId,
+          bldg: step.building || { name: 'Constructora' },
+          recipe: step.recipe,
+          itemName: step.itemName,
+          itemId: step.itemId,
+          count,
+          wholeMachines: Math.floor(step.machinesCount),
+          rawCount: step.machinesCount,
+          power: step.power,
+          outputRate: step.outputRate
+        });
+      });
+
+      // Target Final Stage
+      const targetBldgId = d.building?.id || d.recipe?.building || 'constructor';
+      const finalCount = Math.max(1, Math.min(4, Math.ceil(d.branch.machineCount)));
+      branchStages.push({
+        type: 'final',
+        bldgId: targetBldgId,
+        bldg: d.building || { name: 'Constructora' },
+        recipe: d.recipe,
+        itemName: d.outItemMeta.name,
+        itemId: d.primaryOut.item,
+        count: finalCount,
+        wholeMachines: Math.floor(d.branch.machineCount),
+        rawCount: d.branch.machineCount,
+        power: d.targetPower,
+        outputRate: d.branchOutputTotal,
+        secondaryInputs: d.secondaryInputs
+      });
+
+      // Render Bay Enclosure
       svg += `
         <g class="blueprint-branch-bay ${isHigh ? 'is-active-branch' : ''}" data-branch-index="${idx}">
-          <rect x="${X_BRANCH_START}" y="${bY}" width="${branchW}" height="${branchH}" rx="12" fill="#0a1220" stroke="${isHigh ? '#38bdf8' : bColor}" stroke-width="${isHigh ? 3 : 1.5}" ${isHigh ? 'filter="url(#sbGlow)"' : ''} />
+          <!-- Bay Foundation Plate -->
+          <rect x="${X_BRANCH_START}" y="${bY}" width="${branchW}" height="${bayH}" rx="8" fill="#091322" stroke="${isHigh ? '#38bdf8' : bColor}" stroke-width="${isHigh ? 2.5 : 1.2}" ${isHigh ? 'filter="url(#sbGlow)"' : ''} />
 
           <!-- Bay Header Bar -->
-          <rect x="${X_BRANCH_START}" y="${bY}" width="${branchW}" height="32" rx="10" fill="#0f1d33" />
-          <rect x="${X_BRANCH_START + 12}" y="${bY + 6}" width="80" height="20" rx="4" fill="${bColor}" />
-          <text x="${X_BRANCH_START + 52}" y="${bY + 20}" text-anchor="middle" font-size="10.5" font-weight="900" fill="#0b111e">
+          <rect x="${X_BRANCH_START}" y="${bY}" width="${branchW}" height="28" rx="6" fill="#0e1c31" />
+          <rect x="${X_BRANCH_START + 8}" y="${bY + 5}" width="76" height="18" rx="3" fill="${bColor}" />
+          <text x="${X_BRANCH_START + 46}" y="${bY + 17}" text-anchor="middle" font-size="9.5" font-weight="900" fill="#0b111e">
             RAMA #${idx + 1}
           </text>
 
-          <text x="${X_BRANCH_START + 104}" y="${bY + 21}" font-size="12" font-weight="800" fill="#f8fafc">
-            ${d.recipe.name}
+          <text x="${X_BRANCH_START + 94}" y="${bY + 18}" font-size="11" font-weight="800" fill="#f8fafc">
+            ${d.recipe.name} ${d.recipe.isAlt ? '<tspan fill="#f59e0b" font-size="9">(ALT)</tspan>' : ''}
           </text>
 
-          <text x="${X_BRANCH_START + branchW - 16}" y="${bY + 21}" text-anchor="end" font-size="11" font-weight="800" fill="#4ade80">
+          <text x="${X_BRANCH_START + branchW - 14}" y="${bY + 18}" text-anchor="end" font-size="10.5" font-weight="800" fill="#4ade80">
             Entrega: +${d.branchOutputTotal} ${d.outItemMeta.name}/m &bull; <tspan fill="#38bdf8">⚡ ${d.chain.totalPower} MW</tspan>
           </text>
       `;
 
-      // Machines Layout inside Bay
-      let curX = X_BRANCH_START + 24;
-      const machY = bY + 48;
-      const machH = 100;
+      // Layout stages sequentially from left to right inside the bay
+      let curStageX = X_BRANCH_START + 24;
+      let prevOutX = X_BRANCH_START;
+      let prevOutY = bY + 45 + 20;
 
-      // Intermediate machines (if any)
-      if (!d.isDirect && d.intermediateSteps && d.intermediateSteps.length > 0) {
-        d.intermediateSteps.forEach(step => {
-          const stepW = 190;
+      branchStages.forEach((st, sIdx) => {
+        const { w: mWidth, h: mHeight } = getMachineDims(st.bldgId);
+        const count = st.count;
+        const stageH = count * (mHeight + 10) - 10;
+        const stageStartY = bY + 36 + Math.max(8, Math.round((bayH - 36 - stageH) / 2));
+        const stageMidY = stageStartY + stageH / 2;
+
+        let bldgColor = '#38bdf8';
+        let bldgEmoji = '⚙️';
+        if (st.bldgId === 'smelter') { bldgColor = '#f97316'; bldgEmoji = '🔥'; }
+        else if (st.bldgId === 'assembler') { bldgColor = '#a855f7'; bldgEmoji = '🔧'; }
+        else if (st.bldgId === 'manufacturer') { bldgColor = '#ec4899'; bldgEmoji = '🏭'; }
+        else if (st.bldgId === 'refinery') { bldgColor = '#10b981'; bldgEmoji = '🧪'; }
+        else if (st.bldgId === 'quantum_encoder') { bldgColor = '#06b6d4'; bldgEmoji = '🔮'; }
+
+        // Splitter column if parallel machines
+        const hasSplitter = (count > 1);
+        const splitX = curStageX;
+        const machX = hasSplitter ? curStageX + 32 : curStageX;
+
+        // Connecting belt from previous stage/splitter into this stage
+        svg += `
+          <path d="M ${prevOutX} ${prevOutY} L ${machX} ${stageMidY}" stroke="#040812" stroke-width="6" stroke-linecap="round"/>
+          <path d="M ${prevOutX} ${prevOutY} L ${machX} ${stageMidY}" stroke="${bldgColor}" stroke-width="3" marker-end="url(#sbArrowDef)"/>
+          <path d="M ${prevOutX} ${prevOutY} L ${machX} ${stageMidY}" stroke="#ffffff" stroke-width="1.4" stroke-dasharray="6 6" opacity="0.8"/>
+        `;
+
+        if (hasSplitter) {
           svg += `
-            <g class="blueprint-node-machine" data-type="intermediate" data-name="${step.recipe.name}" data-count="${step.machinesCount}" data-power="${step.power}">
-              <rect x="${curX}" y="${machY}" width="${stepW}" height="${machH}" rx="8" fill="#131e31" stroke="#334155" stroke-width="1.5" />
-              <rect x="${curX}" y="${machY}" width="${stepW}" height="22" rx="6" fill="#1e293b" />
-              <text x="${curX + 8}" y="${machY + 15}" font-size="9.5" font-weight="800" fill="#94a3b8">
-                Fase Intermedia &bull; ${step.building.name}
-              </text>
-
-              <text x="${curX + 10}" y="${machY + 40}" font-size="11" font-weight="800" fill="#f8fafc">
-                ${step.machinesCount}x ${step.recipe.name}
-              </text>
-
-              <text x="${curX + 10}" y="${machY + 62}" font-size="12" font-weight="900" fill="#38bdf8">
-                +${step.outputRate} <tspan font-size="9" font-weight="700" fill="#94a3b8">/m ${step.itemName}</tspan>
-              </text>
-
-              <text x="${curX + 10}" y="${machY + 84}" font-size="8.5" font-weight="600" fill="#64748b">
-                ⚡ ${step.power.toFixed(1)} MW &bull; ${step.feederBelt.name}
-              </text>
+            <g class="blueprint-splitter">
+              <rect x="${splitX}" y="${stageMidY - 12}" width="18" height="24" rx="3" fill="#78350f" stroke="#f59e0b" stroke-width="1.2"/>
+              <text x="${splitX + 9}" y="${stageMidY + 4}" text-anchor="middle" font-size="8" font-weight="900" fill="#fef08a">🔀</text>
             </g>
           `;
+        }
 
-          // Connecting Conveyor to Next Stage
+        // Render each machine in this stage
+        for (let k = 0; k < count; k++) {
+          const mY = stageStartY + k * (mHeight + 10);
+          const perMachOut = Number((st.outputRate / count).toFixed(1));
+          const perMachMw = Number((st.power / count).toFixed(1));
+          const iconImg = `images/buildings/${st.bldgId}.png`;
+
+          // Feeder sub-lines from splitter if parallel
+          if (hasSplitter) {
+            svg += `
+              <path d="M ${splitX + 18} ${stageMidY} L ${machX} ${mY + mHeight/2}" stroke="${bldgColor}" stroke-width="2" marker-end="url(#sbArrowDef)"/>
+            `;
+          }
+
           svg += `
-            <line x1="${curX + stepW}" y1="${machY + 50}" x2="${curX + stepW + 40}" y2="${machY + 50}" stroke="#94a3b8" stroke-width="4" stroke-dasharray="4 2" marker-end="url(#sbArrowCyan)" />
+            <g class="blueprint-node-machine" 
+               data-type="${st.type}" 
+               data-name="${st.recipe.name}" 
+               data-count="${st.rawCount}" 
+               data-power="${st.power}"
+               transform="translate(${machX}, ${mY})">
+              
+              <!-- Machine Box -->
+              <rect width="${mWidth}" height="${mHeight}" rx="5" fill="#0c1524" stroke="${bldgColor}" stroke-width="1.8"/>
+              <rect x="3" y="3" width="${mWidth - 6}" height="${mHeight - 6}" rx="3" fill="#070c17" stroke="rgba(255,255,255,0.05)"/>
+              
+              <!-- Ports -->
+              <rect x="-3" y="${mHeight/2 - 5}" width="4" height="10" fill="#38bdf8" rx="2"/>
+              <rect x="${mWidth - 1}" y="${mHeight/2 - 5}" width="4" height="10" fill="#4ade80" rx="2"/>
+              
+              <!-- Status LED -->
+              <circle cx="${mWidth - 8}" cy="10" r="2.5" fill="#4ade80" filter="url(#sbGlow)"/>
+
+              <!-- Building Icon -->
+              <image href="${iconImg}" x="6" y="6" width="20" height="20" onerror="this.outerHTML='<text x=6 y=20 font-size=14>${bldgEmoji}</text>'"/>
+
+              <!-- Title & Recipe -->
+              <text x="30" y="15" fill="#ffffff" font-size="8.5" font-weight="800">${st.bldg.name} #${k + 1}</text>
+              <text x="30" y="25" fill="${st.recipe.isAlt ? '#fbbf24' : '#94a3b8'}" font-size="7" font-weight="600">${st.recipe.isAlt ? '⚡ Alt: ' : '⭐ '}${st.recipe.name}</text>
+
+              <!-- Output & Power -->
+              <text x="6" y="${mHeight - 12}" fill="#4ade80" font-size="7.5" font-weight="700">➔ +${perMachOut}/m ${st.itemName}</text>
+              <text x="6" y="${mHeight - 4}" fill="#facc15" font-size="7" font-weight="700">⚡ 100% &bull; ${perMachMw} MW</text>
+            </g>
           `;
-          curX += stepW + 40;
-        });
-      }
+        }
 
-      // Final Target Machine(s)
-      const targetW = 210;
+        // Merger manifold on output if parallel
+        const hasMerger = (count > 1);
+        const mergerX = machX + mWidth + 14;
+        if (hasMerger) {
+          svg += `
+            <g class="blueprint-merger">
+              <rect x="${mergerX}" y="${stageMidY - 12}" width="18" height="24" rx="3" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.2"/>
+              <text x="${mergerX + 9}" y="${stageMidY + 4}" text-anchor="middle" font-size="8" font-weight="900" fill="#e0f2fe">🔄</text>
+            </g>
+          `;
+          for (let k = 0; k < count; k++) {
+            const mY = stageStartY + k * (mHeight + 10);
+            svg += `
+              <path d="M ${machX + mWidth} ${mY + mHeight/2} L ${mergerX} ${stageMidY}" stroke="#4ade80" stroke-width="2"/>
+            `;
+          }
+        }
+
+        // Auxiliary External Intake (if required for final recipe)
+        if (st.secondaryInputs && st.secondaryInputs.length > 0) {
+          st.secondaryInputs.forEach((sec, secIdx) => {
+            const auxW = 130;
+            const auxH = 34;
+            const auxX = machX;
+            const auxY = bY + bayH - 42 - secIdx * 38;
+            svg += `
+              <g class="blueprint-intake" data-item="${sec.item}">
+                <rect x="${auxX}" y="${auxY}" width="${auxW}" height="${auxH}" rx="4" fill="#17120a" stroke="#f59e0b" stroke-width="1.2"/>
+                <text x="${auxX + 6}" y="${auxY + 13}" fill="#fbbf24" font-size="7.5" font-weight="800">📥 INSUMO AUXILIAR</text>
+                <text x="${auxX + 6}" y="${auxY + 26}" fill="#f8fafc" font-size="8" font-weight="700">${sec.totalRate}/m de ${sec.name}</text>
+                <path d="M ${auxX + auxW} ${auxY + auxH/2} L ${machX + mWidth/2} ${auxY - 4}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3 3"/>
+              </g>
+            `;
+          });
+        }
+
+        prevOutX = hasMerger ? mergerX + 18 : machX + mWidth;
+        prevOutY = stageMidY;
+        curStageX = prevOutX + 45;
+      });
+
+      // Final Storage / Delivery Container Terminal
+      const storageX = Math.max(curStageX + 20, X_BRANCH_START + branchW - 190);
+      const storageY = bY + Math.round((bayH - 74) / 2);
+      const targetIconImg = `images/items/${d.primaryOut.item}.png`;
+
+      // Conveyor to Storage
       svg += `
-        <g class="blueprint-node-machine" data-type="final" data-name="${d.recipe.name}" data-count="${d.branch.machineCount}" data-power="${d.chain.totalPower}">
-          <rect x="${curX}" y="${machY}" width="${targetW}" height="${machH}" rx="8" fill="#14233c" stroke="${bColor}" stroke-width="2" />
-          <rect x="${curX}" y="${machY}" width="${targetW}" height="24" rx="6" fill="#1e3455" />
-          <text x="${curX + 10}" y="${machY + 16}" font-size="10" font-weight="900" fill="${bColor}">
-            FABRICACIÓN FINAL
-          </text>
+        <path d="M ${prevOutX} ${prevOutY} L ${storageX} ${storageY + 37}" stroke="#040812" stroke-width="6.5" stroke-linecap="round"/>
+        <path d="M ${prevOutX} ${prevOutY} L ${storageX} ${storageY + 37}" stroke="#4ade80" stroke-width="3.5" marker-end="url(#sbArrowGreen)"/>
+        <path d="M ${prevOutX} ${prevOutY} L ${storageX} ${storageY + 37}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6 6" opacity="0.8"/>
+      `;
 
-          <text x="${curX + 12}" y="${machY + 44}" font-size="12" font-weight="800" fill="#f8fafc">
-            ${d.branch.machineCount}x ${d.building.name}
-          </text>
+      // Container Card
+      svg += `
+        <g class="blueprint-node-storage" data-name="${d.outItemMeta.name}" data-rate="${d.branchOutputTotal}" transform="translate(${storageX}, ${storageY})">
+          <rect width="175" height="74" rx="6" fill="#04271c" stroke="#10b981" stroke-width="1.8"/>
+          <rect x="3" y="3" width="169" height="68" rx="4" fill="#051f16"/>
+          
+          <!-- Input Port -->
+          <rect x="-3" y="31" width="4" height="12" fill="#4ade80" rx="2"/>
+          <circle cx="163" cy="12" r="3" fill="#4ade80" filter="url(#sbGlow)"/>
 
-          <text x="${curX + 12}" y="${machY + 68}" font-size="14" font-weight="900" fill="#4ade80">
-            +${d.branchOutputTotal} <tspan font-size="10" font-weight="700" fill="#94a3b8">/m ${d.outItemMeta.name}</tspan>
-          </text>
+          <image href="${targetIconImg}" x="8" y="10" width="26" height="26" onerror="this.outerHTML='<text x=8 y=28 font-size=20>📦</text>'"/>
 
-          <text x="${curX + 12}" y="${machY + 88}" font-size="9" font-weight="600" fill="#94a3b8">
-            ${d.recipe.name} &bull; ⚡ ${(d.branch.machineCount * (d.building.power || 4)).toFixed(1)} MW
-          </text>
+          <text x="40" y="20" fill="#a7f3d0" font-size="8.5" font-weight="900" letter-spacing="0.5">📦 ALMACÉN FICSIT</text>
+          <text x="40" y="32" fill="#f8fafc" font-size="10.5" font-weight="800">${d.outItemMeta.name}</text>
+          
+          <text x="8" y="52" fill="#4ade80" font-size="14" font-weight="900">+${d.branchOutputTotal} <tspan font-size="9" font-weight="700" fill="#a7f3d0">/min</tspan></text>
+          <text x="8" y="66" fill="#6ee7b7" font-size="7.5" font-weight="600">Conexión a Contenedor / Tren</text>
         </g>
       `;
 
-      // Conveyor to Storage Container
-      const storageX = curX + targetW + 45;
-      svg += `
-        <line x1="${curX + targetW}" y1="${machY + 50}" x2="${storageX}" y2="${machY + 50}" stroke="#4ade80" stroke-width="5" stroke-dasharray="6 3" marker-end="url(#sbArrowGreen)" />
-      `;
-
-      // Final Storage / Delivery Container
-      const storageW = Math.max(160, branchW - (storageX - X_BRANCH_START) - 20);
-      svg += `
-        <g class="blueprint-node-storage" data-name="${d.outItemMeta.name}" data-rate="${d.branchOutputTotal}">
-          <rect x="${storageX}" y="${machY}" width="${storageW}" height="${machH}" rx="8" fill="#04271c" stroke="#10b981" stroke-width="1.8" />
-          <rect x="${storageX}" y="${machY}" width="${storageW}" height="22" rx="6" fill="url(#sbStorageGrad)" />
-          <text x="${storageX + 10}" y="${machY + 15}" font-size="9.5" font-weight="900" fill="#ffffff">
-            📦 ALMACÉN FICSIT
-          </text>
-
-          <text x="${storageX + 12}" y="${machY + 46}" font-size="11.5" font-weight="800" fill="#f8fafc">
-            ${d.outItemMeta.name}
-          </text>
-
-          <text x="${storageX + 12}" y="${machY + 74}" font-size="16" font-weight="900" fill="#4ade80">
-            +${d.branchOutputTotal} <tspan font-size="10" font-weight="700" fill="#a7f3d0">/min</tspan>
-          </text>
-        </g>
-      `;
-
-      svg += `</g>`; // close branch-bay group
+      svg += `</g>`; // close branch bay
     });
 
     svg += `</svg>`;
-    return svg;
+    return { svgHtml: svg, totalW, totalH };
   }
 
   function renderSandboxBlueprint(supply, branchDetails, netBalance) {
@@ -5390,16 +5519,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initSandboxBlueprintInteractions();
 
-    const svgHtml = generateSandboxBlueprintSvg(supply, branchDetails, netBalance);
+    const result = generateSandboxBlueprintSvg(supply, branchDetails, netBalance);
+    const svgHtml = result.svgHtml || result;
+    const totalW = result.totalW || 1860;
+    const totalH = result.totalH || 800;
+
     canvas.innerHTML = svgHtml;
 
-    // Cache model dimensions
-    const N = Math.max(1, branchDetails.length);
-    const branchH = 170;
-    const branchGap = 24;
-    const startY = 100;
-    const totalH = Math.max(680, startY + N * (branchH + branchGap) + 120);
-    const totalW = 1680;
     sbBpState.currentModel = { totalW, totalH };
 
     // Update Summary Badge

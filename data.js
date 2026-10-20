@@ -166,6 +166,7 @@ const SATIS_DATA = {
     high_speed_connector: { id: 'high_speed_connector', name: 'Conector de Alta Velocidad', category: 'Electrónica' },
     heavy_modular_frame: { id: 'heavy_modular_frame', name: 'Armazón Modular Pesado', category: 'Componentes' },
     computer: { id: 'computer', name: 'Ordenador (Computadora)', category: 'Electrónica' },
+    sulfuric_acid: { id: 'sulfuric_acid', name: 'Ácido Sulfúrico', isFluid: true, category: 'Petroquímica' },
 
     // Tier 7 - 8 Parts (Aluminum & Advanced)
     alumina_solution: { id: 'alumina_solution', name: 'Solución de Alúmina', isFluid: true, category: 'Aluminio' },
@@ -192,7 +193,34 @@ const SATIS_DATA = {
     nuclear_pasta: { id: 'nuclear_pasta', name: 'Pasta Nuclear (Fase 4)', category: 'Ascensor Espacial' },
     biochemical_sculptor: { id: 'biochemical_sculptor', name: 'Escultor Bioquímico (Fase 5 - 1.0)', category: 'Ascensor Espacial' },
     ballistic_warp_drive: { id: 'ballistic_warp_drive', name: 'Motor Warp Balístico (Fase 5 - 1.0)', category: 'Ascensor Espacial' },
-    ai_expansion_server: { id: 'ai_expansion_server', name: 'Servidor de Expansión de IA (Fase 5 - 1.0)', category: 'Ascensor Espacial' }
+    ai_expansion_server: { id: 'ai_expansion_server', name: 'Servidor de Expansión de IA (Fase 5 - 1.0)', category: 'Ascensor Espacial' },
+
+    // Tier 8 - 9 & Advanced Components (Satisfactory 1.0)
+    electromagnetic_control_rod: { id: 'electromagnetic_control_rod', name: 'Barra de Control Electromagnética', category: 'Electrónica' },
+    battery: { id: 'battery', name: 'Batería', category: 'Electrónica' },
+    copper_powder: { id: 'copper_powder', name: 'Polvo de Cobre', category: 'Aluminio' },
+    pressure_conversion_cube: { id: 'pressure_conversion_cube', name: 'Cubo de Conversión de Presión', category: 'Componentes' },
+
+    // Alien Technology & M.A.M. (Satisfactory 1.0)
+    mercer_sphere: { id: 'mercer_sphere', name: 'Esfera Mercer (MAM)', category: 'Tecnología Alienígena' },
+    somersloop: { id: 'somersloop', name: 'Somersloop (MAM)', category: 'Tecnología Alienígena' },
+    re_hexed_sam: { id: 're_hexed_sam', name: 'SAM Reanimado', category: 'Tecnología Alienígena' },
+    sam_fluctuator: { id: 'sam_fluctuator', name: 'Fluctuador SAM', category: 'Tecnología Alienígena' },
+    dimensional_depot_uploader: { id: 'dimensional_depot_uploader', name: 'Cargador de Depósito Dimensional (Esfera Mercer)', category: 'Tecnología Alienígena' },
+    alien_power_augmenter: { id: 'alien_power_augmenter', name: 'Aumentador de Energía Alienígena (+500 MW)', category: 'Tecnología Alienígena' },
+    alien_power_matrix: { id: 'alien_power_matrix', name: 'Matriz de Energía Alienígena', category: 'Tecnología Alienígena' },
+    power_shard: { id: 'power_shard', name: 'Fragmento de Energía (Power Shard)', category: 'Tecnología Alienígena' },
+    diamond: { id: 'diamond', name: 'Diamante', category: 'Materiales Cuánticos' },
+    time_crystal: { id: 'time_crystal', name: 'Cristal del Tiempo', category: 'Materiales Cuánticos' },
+    dark_matter_residue: { id: 'dark_matter_residue', name: 'Residuo de Materia Oscura', category: 'Materiales Cuánticos' },
+    dark_matter_crystal: { id: 'dark_matter_crystal', name: 'Cristal de Materia Oscura', category: 'Materiales Cuánticos' },
+    superposition_oscillator: { id: 'superposition_oscillator', name: 'Oscilador de Superposición', category: 'Tecnología Alienígena' },
+    singularity_cell: { id: 'singularity_cell', name: 'Célula de Singularidad', category: 'Materiales Cuánticos' },
+    neural_quantum_processor: { id: 'neural_quantum_processor', name: 'Procesador Cuántico Neural', category: 'Materiales Cuánticos' },
+    ficsonium: { id: 'ficsonium', name: 'Ficsonio', category: 'Nuclear y Alienígena' },
+    ficsonium_fuel_rod: { id: 'ficsonium_fuel_rod', name: 'Barra de Combustible de Ficsonio', category: 'Nuclear y Alienígena' },
+    alien_protein: { id: 'alien_protein', name: 'Proteína Alienígena', category: 'Tecnología Alienígena' },
+    alien_dna_capsule: { id: 'alien_dna_capsule', name: 'Cápsula de ADN Alienígena (AWESOME Sink)', category: 'Tecnología Alienígena' }
   },
 
   // Recipes (Official Satisfactory 1.0 / 1.2 Rates per minute)
@@ -838,6 +866,17 @@ const SATIS_DATA = {
       ]
     },
     {
+      id: 'sulfuric_acid_std',
+      name: 'Ácido Sulfúrico',
+      building: 'refinery',
+      isAlt: false,
+      inputs: [
+        { item: 'sulfur', rate: 50 },
+        { item: 'water', rate: 50 }
+      ],
+      outputs: [{ item: 'sulfuric_acid', rate: 50 }]
+    },
+    {
       id: 'turbofuel_std',
       name: 'Turbocombustible',
       building: 'refinery',
@@ -932,6 +971,297 @@ const SATIS_DATA = {
         { item: 'nitrogen_gas', rate: 37.5 }
       ],
       outputs: [{ item: 'fused_modular_frame', rate: 1.5 }]
+    },
+
+    // --- PROYECTOS FASE 4 Y 5 ASCENSOR ESPACIAL ---
+    {
+      id: 'assembly_director_system_std',
+      name: 'Sistema Director de Ensamblaje (Fase 4)',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'adaptive_control_unit', rate: 1.5 },
+        { item: 'supercomputer', rate: 0.75 }
+      ],
+      outputs: [{ item: 'assembly_director_system', rate: 0.75 }]
+    },
+    {
+      id: 'magnetic_field_generator_std',
+      name: 'Generador de Campo Magnético (Fase 4)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'versatile_framework', rate: 2.5 },
+        { item: 'electromagnetic_control_rod', rate: 1 },
+        { item: 'battery', rate: 5 }
+      ],
+      outputs: [{ item: 'magnetic_field_generator', rate: 1 }]
+    },
+    {
+      id: 'thermal_propulsion_rocket_std',
+      name: 'Cohete de Propulsión Térmica (Fase 4)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'modular_engine', rate: 2.5 },
+        { item: 'turbo_motor', rate: 1 },
+        { item: 'cooling_system', rate: 3 },
+        { item: 'fused_modular_frame', rate: 1 }
+      ],
+      outputs: [{ item: 'thermal_propulsion_rocket', rate: 1 }]
+    },
+    {
+      id: 'nuclear_pasta_std',
+      name: 'Pasta Nuclear (Fase 4)',
+      building: 'particle_accelerator',
+      isAlt: false,
+      inputs: [
+        { item: 'copper_powder', rate: 100 },
+        { item: 'pressure_conversion_cube', rate: 0.5 }
+      ],
+      outputs: [{ item: 'nuclear_pasta', rate: 0.5 }]
+    },
+    {
+      id: 'biochemical_sculptor_std',
+      name: 'Escultor Bioquímico (Fase 5)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'assembly_director_system', rate: 2 },
+        { item: 'dark_matter_crystal', rate: 40 }
+      ],
+      outputs: [{ item: 'biochemical_sculptor', rate: 2 }]
+    },
+    {
+      id: 'ballistic_warp_drive_std',
+      name: 'Motor Warp Balístico (Fase 5)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'thermal_propulsion_rocket', rate: 1 },
+        { item: 'singularity_cell', rate: 5 },
+        { item: 'supercomputer', rate: 2 }
+      ],
+      outputs: [{ item: 'ballistic_warp_drive', rate: 1 }]
+    },
+    {
+      id: 'ai_expansion_server_std',
+      name: 'Servidor de Expansión de IA (Fase 5)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'magnetic_field_generator', rate: 4 },
+        { item: 'neural_quantum_processor', rate: 1 },
+        { item: 'supercomputer', rate: 1.5 }
+      ],
+      outputs: [{ item: 'ai_expansion_server', rate: 2 }]
+    },
+    {
+      id: 'electromagnetic_control_rod_std',
+      name: 'Barra de Control Electromagnética',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'stator', rate: 6 },
+        { item: 'ai_limiter', rate: 4 }
+      ],
+      outputs: [{ item: 'electromagnetic_control_rod', rate: 4 }]
+    },
+    {
+      id: 'battery_std',
+      name: 'Batería',
+      building: 'blender',
+      isAlt: false,
+      inputs: [
+        { item: 'sulfuric_acid', rate: 50 },
+        { item: 'aluminum_casing', rate: 20 },
+        { item: 'plastic', rate: 10 }
+      ],
+      outputs: [{ item: 'battery', rate: 20 }]
+    },
+    {
+      id: 'copper_powder_std',
+      name: 'Polvo de Cobre',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'copper_ingot', rate: 300 }],
+      outputs: [{ item: 'copper_powder', rate: 50 }]
+    },
+    {
+      id: 'pressure_conversion_cube_std',
+      name: 'Cubo de Conversión de Presión',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'fused_modular_frame', rate: 1 },
+        { item: 'radio_control_unit', rate: 2 }
+      ],
+      outputs: [{ item: 'pressure_conversion_cube', rate: 1 }]
+    },
+
+    // --- TECNOLOGÍA ALIENÍGENA, ESFERAS MERCER Y M.A.M. (SATISFACTORY 1.0) ---
+    {
+      id: 're_hexed_sam_std',
+      name: 'SAM Reanimado',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'sam', rate: 120 }],
+      outputs: [{ item: 're_hexed_sam', rate: 30 }]
+    },
+    {
+      id: 'sam_fluctuator_std',
+      name: 'Fluctuador SAM',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 're_hexed_sam', rate: 60 },
+        { item: 'wire', rate: 50 },
+        { item: 'steel_pipe', rate: 30 }
+      ],
+      outputs: [{ item: 'sam_fluctuator', rate: 10 }]
+    },
+    {
+      id: 'dimensional_depot_uploader_std',
+      name: 'Cargador de Depósito Dimensional (Esfera Mercer)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'mercer_sphere', rate: 1 },
+        { item: 'sam_fluctuator', rate: 10 },
+        { item: 'modular_frame', rate: 10 },
+        { item: 'wire', rate: 100 }
+      ],
+      outputs: [{ item: 'dimensional_depot_uploader', rate: 1 }]
+    },
+    {
+      id: 'alien_power_augmenter_std',
+      name: 'Aumentador de Energía Alienígena (+500 MW +10%)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'somersloop', rate: 5 },
+        { item: 'sam_fluctuator', rate: 20 },
+        { item: 'heavy_modular_frame', rate: 10 },
+        { item: 'high_speed_connector', rate: 25 }
+      ],
+      outputs: [{ item: 'alien_power_augmenter', rate: 1 }]
+    },
+    {
+      id: 'alien_power_matrix_std',
+      name: 'Matriz de Energía Alienígena',
+      building: 'quantum_encoder',
+      isAlt: false,
+      inputs: [
+        { item: 'sam_fluctuator', rate: 12.5 },
+        { item: 'power_shard', rate: 7.5 },
+        { item: 'superposition_oscillator', rate: 7.5 }
+      ],
+      outputs: [{ item: 'alien_power_matrix', rate: 2.5 }]
+    },
+    {
+      id: 'diamond_std',
+      name: 'Diamante',
+      building: 'particle_accelerator',
+      isAlt: false,
+      inputs: [{ item: 'coal', rate: 600 }],
+      outputs: [{ item: 'diamond', rate: 30 }]
+    },
+    {
+      id: 'time_crystal_std',
+      name: 'Cristal del Tiempo',
+      building: 'converter',
+      isAlt: false,
+      inputs: [
+        { item: 'diamond', rate: 12 },
+        { item: 're_hexed_sam', rate: 4 }
+      ],
+      outputs: [{ item: 'time_crystal', rate: 6 }]
+    },
+    {
+      id: 'dark_matter_crystal_std',
+      name: 'Cristal de Materia Oscura',
+      building: 'particle_accelerator',
+      isAlt: false,
+      inputs: [
+        { item: 'dark_matter_residue', rate: 150 },
+        { item: 'diamond', rate: 30 }
+      ],
+      outputs: [{ item: 'dark_matter_crystal', rate: 30 }]
+    },
+    {
+      id: 'superposition_oscillator_std',
+      name: 'Oscilador de Superposición',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'crystal_oscillator', rate: 5 },
+        { item: 'alclad_aluminum_sheet', rate: 30 },
+        { item: 'dark_matter_crystal', rate: 30 }
+      ],
+      outputs: [{ item: 'superposition_oscillator', rate: 5 }]
+    },
+    {
+      id: 'singularity_cell_std',
+      name: 'Célula de Singularidad',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'nuclear_pasta', rate: 1 },
+        { item: 'dark_matter_crystal', rate: 20 },
+        { item: 'iron_plate', rate: 100 }
+      ],
+      outputs: [{ item: 'singularity_cell', rate: 10 }]
+    },
+    {
+      id: 'neural_quantum_processor_std',
+      name: 'Procesador Cuántico Neural',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'time_crystal', rate: 15 },
+        { item: 'supercomputer', rate: 3 },
+        { item: 'fused_modular_frame', rate: 3 }
+      ],
+      outputs: [{ item: 'neural_quantum_processor', rate: 3 }]
+    },
+    {
+      id: 'ficsonium_std',
+      name: 'Ficsonio (1.0)',
+      building: 'particle_accelerator',
+      isAlt: false,
+      inputs: [
+        { item: 'sam_fluctuator', rate: 10 },
+        { item: 'dark_matter_crystal', rate: 10 }
+      ],
+      outputs: [{ item: 'ficsonium', rate: 10 }]
+    },
+    {
+      id: 'ficsonium_fuel_rod_std',
+      name: 'Barra de Combustible de Ficsonio',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'ficsonium', rate: 5 },
+        { item: 'electromagnetic_control_rod', rate: 5 },
+        { item: 'fused_modular_frame', rate: 2.5 }
+      ],
+      outputs: [{ item: 'ficsonium_fuel_rod', rate: 2.5 }]
+    },
+    {
+      id: 'alien_protein_std',
+      name: 'Proteína Alienígena (MAM)',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'sam', rate: 20 }],
+      outputs: [{ item: 'alien_protein', rate: 20 }]
+    },
+    {
+      id: 'alien_dna_capsule_std',
+      name: 'Cápsula de ADN Alienígena (AWESOME Sink)',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'alien_protein', rate: 10 }],
+      outputs: [{ item: 'alien_dna_capsule', rate: 10 }]
     }
   ]
 };
