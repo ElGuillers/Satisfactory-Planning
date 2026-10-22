@@ -4,6 +4,175 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  // --- ITEM ICONS & EMOJI FALLBACK ---
+  const ITEM_EMOJI_FALLBACK = {
+    // Minerales y Fluidos Crudos
+    iron_ore: '🪨',
+    copper_ore: '🪨',
+    limestone: '🧱',
+    coal: '⬛',
+    caterium_ore: '🪙',
+    raw_quartz: '💎',
+    sulfur: '🟡',
+    bauxite: '🟧',
+    uranium: '☢️',
+    sam: '🔮',
+    water: '💧',
+    crude_oil: '🛢️',
+    nitrogen_gas: '💨',
+
+    // Lingotes
+    iron_ingot: '🔩',
+    copper_ingot: '🥉',
+    caterium_ingot: '🥇',
+    steel_ingot: '🪙',
+    aluminum_ingot: '🥈',
+
+    // Materiales Básicos e Intermedios
+    iron_plate: '🛡️',
+    iron_rod: '🥢',
+    screw: '🔩',
+    wire: '🧶',
+    cable: '🔌',
+    concrete: '🧱',
+    reinforced_iron_plate: '🛡️',
+    copper_sheet: '📄',
+    steel_beam: '🏗️',
+    steel_pipe: '🚰',
+    encased_industrial_beam: '🏗️',
+    modular_frame: '📦',
+    heavy_modular_frame: '🏢',
+    fused_modular_frame: '🏛️',
+    rotor: '⚙️',
+    stator: '🧲',
+    motor: '⚡',
+    turbo_motor: '🚀',
+    plastic: '🧴',
+    rubber: '⚫',
+    polymer_resin: '🪨',
+    petroleum_coke: '🪨',
+    fuel: '⛽',
+    turbofuel: '🚀',
+    heavy_oil_residue: '🛢️',
+    liquid_biofuel: '🌱',
+    solid_biofuel: '🪵',
+    biomass: '🌿',
+    fabric: '🧵',
+    alumina_solution: '🧪',
+    aluminum_scrap: '🔘',
+    aluminum_casing: '🥫',
+    alclad_aluminum_sheet: '📄',
+    silica: '⚪',
+    quartz_crystal: '🔮',
+    quickwire: '⚡',
+    circuit_board: '🟩',
+    ai_limiter: '🎛️',
+    high_speed_connector: '🔌',
+    computer: '💻',
+    supercomputer: '🖥️',
+    radio_control_unit: '📻',
+    crystal_oscillator: '⏱️',
+    cooling_system: '❄️',
+    heat_sink: '🧊',
+    battery: '🔋',
+    sulfuric_acid: '🧪',
+    nitric_acid: '🧪',
+    copper_powder: '🧱',
+    pressure_conversion_cube: '🧊',
+    electromagnetic_control_rod: '🧲',
+
+    // Ascensor Espacial
+    smart_plating: '🛸',
+    versatile_framework: '🛸',
+    automated_wiring: '🛸',
+    modular_engine: '🛸',
+    adaptive_control_unit: '🛸',
+    assembly_director_system: '🛸',
+    magnetic_field_generator: '🛸',
+    thermal_propulsion_rocket: '🚀',
+    nuclear_pasta: '🍝',
+    biochemical_sculptor: '🛸',
+    ballistic_warp_drive: '🛸',
+    ai_expansion_server: '🛸',
+
+    // MAM y Alienígena 1.0
+    power_shard: '💎',
+    mercer_sphere: '🟣',
+    somersloop: '🧬',
+    re_hexed_sam: '🔮',
+    sam_fluctuator: '🌀',
+    dimensional_depot_uploader: '📦',
+    alien_power_augmenter: '⚡',
+    alien_power_matrix: '💠',
+    diamond: '💎',
+    time_crystal: '⏳',
+    dark_matter_residue: '🌑',
+    dark_matter_crystal: '🔮',
+    superposition_oscillator: '📻',
+    singularity_cell: '🕳️',
+    neural_quantum_processor: '🧠',
+    ficsonium: '☢️',
+    ficsonium_fuel_rod: '☢️',
+    alien_protein: '🥩',
+    alien_dna_capsule: '💊',
+
+    // Pólvoras, Municiones y Explosivos
+    compacted_coal: '⬛',
+    black_powder: '💣',
+    smokeless_powder: '💥',
+    nobelisk: '🧨',
+    gas_nobelisk: '🧪',
+    cluster_nobelisk: '💣',
+    pulse_nobelisk: '⚡',
+    nuke_nobelisk: '☢️',
+    rifle_ammo: '🎯',
+    homing_rifle_ammo: '🎯',
+    turbo_rifle_ammo: '🚀',
+    iron_rebar: '🔩',
+    stun_rebar: '⚡',
+    shatter_rebar: '💥',
+    explosive_rebar: '🧨',
+
+    // Equipamiento y Envasado
+    gas_filter: '😷',
+    iodine_infused_filter: '🤿',
+    empty_canister: '🥫',
+    empty_fluid_tank: '🛢️',
+    packaged_water: '💧',
+    packaged_oil: '🛢️',
+    packaged_heavy_oil_residue: '🛢️',
+    packaged_fuel: '⛽',
+    packaged_turbofuel: '🚀',
+    packaged_liquid_biofuel: '🌱',
+    packaged_alumina_solution: '🧪',
+    packaged_sulfuric_acid: '🧪',
+    packaged_nitrogen_gas: '💨',
+    packaged_nitric_acid: '🧪',
+
+    // Nuclear
+    encased_uranium_cell: '🔋',
+    uranium_fuel_rod: '☢️',
+    uranium_waste: '☣️',
+    non_fissile_uranium: '☢️',
+    plutonium_pellet: '⚛️',
+    encased_plutonium_cell: '🔋',
+    plutonium_fuel_rod: '☢️',
+    plutonium_waste: '☣️'
+  };
+
+  function getItemIcon(itemId, size = 28, className = 'ficsit-item-icon') {
+    if (!itemId) return '📦';
+    const fallbackEmoji = ITEM_EMOJI_FALLBACK[itemId] || '📦';
+    const s = size ? `width: ${size}px; height: ${size}px;` : '';
+    return `<img src="images/items/${itemId}.png" alt="${itemId}" class="${className}" style="${s} object-fit: contain; vertical-align: middle; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));" onerror="this.onerror=null; this.outerHTML='<span style=\\'font-size:${Math.round(size*0.75)}px; line-height:1; vertical-align:middle;\\'>${fallbackEmoji}</span>';">`;
+  }
+
+  function getBuildingIcon(buildingId, size = 20, className = 'ficsit-bldg-icon') {
+    if (!buildingId) return '🏭';
+    const s = size ? `width: ${size}px; height: ${size}px;` : '';
+    return `<img src="images/buildings/${buildingId}.png" alt="${buildingId}" class="${className}" style="${s} object-fit: contain; vertical-align: middle; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.onerror=null; this.outerHTML='🏭';">`;
+  }
+
   // --- STATE ---
   const state = {
     currentTab: 'tab-line-builder',
@@ -1747,173 +1916,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const ITEM_EMOJI_FALLBACK = {
-    // Minerales y Fluidos Crudos
-    iron_ore: '🪨',
-    copper_ore: '🪨',
-    limestone: '🧱',
-    coal: '⬛',
-    caterium_ore: '🪙',
-    raw_quartz: '💎',
-    sulfur: '🟡',
-    bauxite: '🟧',
-    uranium: '☢️',
-    sam: '🔮',
-    water: '💧',
-    crude_oil: '🛢️',
-    nitrogen_gas: '💨',
 
-    // Lingotes
-    iron_ingot: '🔩',
-    copper_ingot: '🥉',
-    caterium_ingot: '🥇',
-    steel_ingot: '🪙',
-    aluminum_ingot: '🥈',
-
-    // Materiales Básicos e Intermedios
-    iron_plate: '🛡️',
-    iron_rod: '🥢',
-    screw: '🔩',
-    wire: '🧶',
-    cable: '🔌',
-    concrete: '🧱',
-    reinforced_iron_plate: '🛡️',
-    copper_sheet: '📄',
-    steel_beam: '🏗️',
-    steel_pipe: '🚰',
-    encased_industrial_beam: '🏗️',
-    modular_frame: '📦',
-    heavy_modular_frame: '🏢',
-    fused_modular_frame: '🏛️',
-    rotor: '⚙️',
-    stator: '🧲',
-    motor: '⚡',
-    turbo_motor: '🚀',
-    plastic: '🧴',
-    rubber: '⚫',
-    polymer_resin: '🪨',
-    petroleum_coke: '🪨',
-    fuel: '⛽',
-    turbofuel: '🚀',
-    heavy_oil_residue: '🛢️',
-    liquid_biofuel: '🌱',
-    solid_biofuel: '🪵',
-    biomass: '🌿',
-    fabric: '🧵',
-    alumina_solution: '🧪',
-    aluminum_scrap: '🔘',
-    aluminum_casing: '🥫',
-    alclad_aluminum_sheet: '📄',
-    silica: '⚪',
-    quartz_crystal: '🔮',
-    quickwire: '⚡',
-    circuit_board: '🟩',
-    ai_limiter: '🎛️',
-    high_speed_connector: '🔌',
-    computer: '💻',
-    supercomputer: '🖥️',
-    radio_control_unit: '📻',
-    crystal_oscillator: '⏱️',
-    cooling_system: '❄️',
-    heat_sink: '🧊',
-    battery: '🔋',
-    sulfuric_acid: '🧪',
-    nitric_acid: '🧪',
-    copper_powder: '🧱',
-    pressure_conversion_cube: '🧊',
-    electromagnetic_control_rod: '🧲',
-
-    // Ascensor Espacial
-    smart_plating: '🛸',
-    versatile_framework: '🛸',
-    automated_wiring: '🛸',
-    modular_engine: '🛸',
-    adaptive_control_unit: '🛸',
-    assembly_director_system: '🛸',
-    magnetic_field_generator: '🛸',
-    thermal_propulsion_rocket: '🚀',
-    nuclear_pasta: '🍝',
-    biochemical_sculptor: '🛸',
-    ballistic_warp_drive: '🛸',
-    ai_expansion_server: '🛸',
-
-    // MAM y Alienígena 1.0
-    power_shard: '💎',
-    mercer_sphere: '🟣',
-    somersloop: '🧬',
-    re_hexed_sam: '🔮',
-    sam_fluctuator: '🌀',
-    dimensional_depot_uploader: '📦',
-    alien_power_augmenter: '⚡',
-    alien_power_matrix: '💠',
-    diamond: '💎',
-    time_crystal: '⏳',
-    dark_matter_residue: '🌑',
-    dark_matter_crystal: '🔮',
-    superposition_oscillator: '📻',
-    singularity_cell: '🕳️',
-    neural_quantum_processor: '🧠',
-    ficsonium: '☢️',
-    ficsonium_fuel_rod: '☢️',
-    alien_protein: '🥩',
-    alien_dna_capsule: '💊',
-
-    // Pólvoras, Municiones y Explosivos
-    compacted_coal: '⬛',
-    black_powder: '💣',
-    smokeless_powder: '💥',
-    nobelisk: '🧨',
-    gas_nobelisk: '🧪',
-    cluster_nobelisk: '💣',
-    pulse_nobelisk: '⚡',
-    nuke_nobelisk: '☢️',
-    rifle_ammo: '🎯',
-    homing_rifle_ammo: '🎯',
-    turbo_rifle_ammo: '🚀',
-    iron_rebar: '🔩',
-    stun_rebar: '⚡',
-    shatter_rebar: '💥',
-    explosive_rebar: '🧨',
-
-    // Equipamiento y Envasado
-    gas_filter: '😷',
-    iodine_infused_filter: '🤿',
-    empty_canister: '🥫',
-    empty_fluid_tank: '🛢️',
-    packaged_water: '💧',
-    packaged_oil: '🛢️',
-    packaged_heavy_oil_residue: '🛢️',
-    packaged_fuel: '⛽',
-    packaged_turbofuel: '🚀',
-    packaged_liquid_biofuel: '🌱',
-    packaged_alumina_solution: '🧪',
-    packaged_sulfuric_acid: '🧪',
-    packaged_nitrogen_gas: '💨',
-    packaged_nitric_acid: '🧪',
-
-    // Nuclear
-    encased_uranium_cell: '🔋',
-    uranium_fuel_rod: '☢️',
-    uranium_waste: '☣️',
-    non_fissile_uranium: '☢️',
-    plutonium_pellet: '⚛️',
-    encased_plutonium_cell: '🔋',
-    plutonium_fuel_rod: '☢️',
-    plutonium_waste: '☣️'
-  };
-
-  function getItemIcon(itemId, size = 28, className = 'ficsit-item-icon') {
-    if (!itemId) return '📦';
-    const fallbackEmoji = ITEM_EMOJI_FALLBACK[itemId] || '📦';
-    const s = size ? `width: ${size}px; height: ${size}px;` : '';
-    return `<img src="images/items/${itemId}.png" alt="${itemId}" class="${className}" style="${s} object-fit: contain; vertical-align: middle; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));" onerror="this.onerror=null; this.outerHTML='<span style=\\'font-size:${Math.round(size*0.75)}px; line-height:1; vertical-align:middle;\\'>${fallbackEmoji}</span>';">`;
-  }
-
-  function getBuildingIcon(buildingId, size = 20, className = 'ficsit-bldg-icon') {
-    if (!buildingId) return '🏭';
-    const s = size ? `width: ${size}px; height: ${size}px;` : '';
-    return `<img src="images/buildings/${buildingId}.png" alt="${buildingId}" class="${className}" style="${s} object-fit: contain; vertical-align: middle; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" onerror="this.onerror=null; this.outerHTML='🏭';">`;
-  }
 
   // =========================================================================
   // 1.8. MOTOR DE PLANO DE PLANTA AÉREA EN 2D (FICSIT 2D BLUEPRINT ENGINE)
