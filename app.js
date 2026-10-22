@@ -769,8 +769,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const categories = {
       'Fases del Ascensor Espacial': [],
       'Tecnología Alienígena y MAM (1.0)': [],
+      'Municiones y Explosivos': [],
+      'Nuclear y Energía': [],
       'Componentes Industriales': [],
       'Electrónica y Alta Tecnología': [],
+      'Logística y Envasado': [],
+      'Biomasa y Biocombustibles': [],
       'Piezas Básicas': [],
       'Lingotes': [],
       'Otros': []
@@ -782,6 +786,14 @@ document.addEventListener('DOMContentLoaded', () => {
         categories['Tecnología Alienígena y MAM (1.0)'].push(item);
       } else if (cat.includes('fase') || cat.includes('espacial') || itemId.includes('smart_plating') || itemId.includes('automated_wiring') || itemId.includes('adaptive_control') || itemId.includes('versatile') || itemId.includes('modular_engine') || itemId.includes('assembly_director') || itemId.includes('magnetic_field') || itemId.includes('thermal_propulsion') || itemId.includes('nuclear_pasta') || itemId.includes('biochemical_sculptor') || itemId.includes('ballistic_warp') || itemId.includes('ai_expansion')) {
         categories['Fases del Ascensor Espacial'].push(item);
+      } else if (cat.includes('municion') || cat.includes('explosiv') || itemId.includes('powder') || itemId.includes('nobelisk') || itemId.includes('rebar') || itemId.includes('rifle') || itemId.includes('compacted_coal')) {
+        categories['Municiones y Explosivos'].push(item);
+      } else if (cat.includes('nuclear') || itemId.includes('uranium') || itemId.includes('plutonium')) {
+        categories['Nuclear y Energía'].push(item);
+      } else if (cat.includes('envasado') || cat.includes('logística') || itemId.includes('canister') || itemId.includes('packaged') || itemId.includes('fluid_tank')) {
+        categories['Logística y Envasado'].push(item);
+      } else if (cat.includes('biomasa') || cat.includes('biocombustible') || itemId.includes('biomass') || itemId.includes('biofuel')) {
+        categories['Biomasa y Biocombustibles'].push(item);
       } else if (cat.includes('lingote')) {
         categories['Lingotes'].push(item);
       } else if (cat.includes('básico') || itemId.includes('plate') || itemId.includes('rod') || itemId.includes('screw') || itemId.includes('wire') || itemId.includes('concrete')) {
@@ -799,7 +811,8 @@ document.addEventListener('DOMContentLoaded', () => {
       list.sort((a, b) => a.name.localeCompare(b.name));
       html += `<optgroup label="${catName}">`;
       list.forEach(item => {
-        html += `<option value="${item.id}">${item.name}</option>`;
+        const iconEmoji = ITEM_EMOJI_FALLBACK[item.id] || '📦';
+        html += `<option value="${item.id}">${iconEmoji} ${item.name}</option>`;
       });
       html += `</optgroup>`;
     }
@@ -1734,13 +1747,166 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // =========================================================================
-  // 1.7. MODAL DE CATÁLOGO FICSIT DE PRODUCTOS Y RECETAS
-  // =========================================================================
+  const ITEM_EMOJI_FALLBACK = {
+    // Minerales y Fluidos Crudos
+    iron_ore: '🪨',
+    copper_ore: '🪨',
+    limestone: '🧱',
+    coal: '⬛',
+    caterium_ore: '🪙',
+    raw_quartz: '💎',
+    sulfur: '🟡',
+    bauxite: '🟧',
+    uranium: '☢️',
+    sam: '🔮',
+    water: '💧',
+    crude_oil: '🛢️',
+    nitrogen_gas: '💨',
+
+    // Lingotes
+    iron_ingot: '🔩',
+    copper_ingot: '🥉',
+    caterium_ingot: '🥇',
+    steel_ingot: '🪙',
+    aluminum_ingot: '🥈',
+
+    // Materiales Básicos e Intermedios
+    iron_plate: '🛡️',
+    iron_rod: '🥢',
+    screw: '🔩',
+    wire: '🧶',
+    cable: '🔌',
+    concrete: '🧱',
+    reinforced_iron_plate: '🛡️',
+    copper_sheet: '📄',
+    steel_beam: '🏗️',
+    steel_pipe: '🚰',
+    encased_industrial_beam: '🏗️',
+    modular_frame: '📦',
+    heavy_modular_frame: '🏢',
+    fused_modular_frame: '🏛️',
+    rotor: '⚙️',
+    stator: '🧲',
+    motor: '⚡',
+    turbo_motor: '🚀',
+    plastic: '🧴',
+    rubber: '⚫',
+    polymer_resin: '🪨',
+    petroleum_coke: '🪨',
+    fuel: '⛽',
+    turbofuel: '🚀',
+    heavy_oil_residue: '🛢️',
+    liquid_biofuel: '🌱',
+    solid_biofuel: '🪵',
+    biomass: '🌿',
+    fabric: '🧵',
+    alumina_solution: '🧪',
+    aluminum_scrap: '🔘',
+    aluminum_casing: '🥫',
+    alclad_aluminum_sheet: '📄',
+    silica: '⚪',
+    quartz_crystal: '🔮',
+    quickwire: '⚡',
+    circuit_board: '🟩',
+    ai_limiter: '🎛️',
+    high_speed_connector: '🔌',
+    computer: '💻',
+    supercomputer: '🖥️',
+    radio_control_unit: '📻',
+    crystal_oscillator: '⏱️',
+    cooling_system: '❄️',
+    heat_sink: '🧊',
+    battery: '🔋',
+    sulfuric_acid: '🧪',
+    nitric_acid: '🧪',
+    copper_powder: '🧱',
+    pressure_conversion_cube: '🧊',
+    electromagnetic_control_rod: '🧲',
+
+    // Ascensor Espacial
+    smart_plating: '🛸',
+    versatile_framework: '🛸',
+    automated_wiring: '🛸',
+    modular_engine: '🛸',
+    adaptive_control_unit: '🛸',
+    assembly_director_system: '🛸',
+    magnetic_field_generator: '🛸',
+    thermal_propulsion_rocket: '🚀',
+    nuclear_pasta: '🍝',
+    biochemical_sculptor: '🛸',
+    ballistic_warp_drive: '🛸',
+    ai_expansion_server: '🛸',
+
+    // MAM y Alienígena 1.0
+    power_shard: '💎',
+    mercer_sphere: '🟣',
+    somersloop: '🧬',
+    re_hexed_sam: '🔮',
+    sam_fluctuator: '🌀',
+    dimensional_depot_uploader: '📦',
+    alien_power_augmenter: '⚡',
+    alien_power_matrix: '💠',
+    diamond: '💎',
+    time_crystal: '⏳',
+    dark_matter_residue: '🌑',
+    dark_matter_crystal: '🔮',
+    superposition_oscillator: '📻',
+    singularity_cell: '🕳️',
+    neural_quantum_processor: '🧠',
+    ficsonium: '☢️',
+    ficsonium_fuel_rod: '☢️',
+    alien_protein: '🥩',
+    alien_dna_capsule: '💊',
+
+    // Pólvoras, Municiones y Explosivos
+    compacted_coal: '⬛',
+    black_powder: '💣',
+    smokeless_powder: '💥',
+    nobelisk: '🧨',
+    gas_nobelisk: '🧪',
+    cluster_nobelisk: '💣',
+    pulse_nobelisk: '⚡',
+    nuke_nobelisk: '☢️',
+    rifle_ammo: '🎯',
+    homing_rifle_ammo: '🎯',
+    turbo_rifle_ammo: '🚀',
+    iron_rebar: '🔩',
+    stun_rebar: '⚡',
+    shatter_rebar: '💥',
+    explosive_rebar: '🧨',
+
+    // Equipamiento y Envasado
+    gas_filter: '😷',
+    iodine_infused_filter: '🤿',
+    empty_canister: '🥫',
+    empty_fluid_tank: '🛢️',
+    packaged_water: '💧',
+    packaged_oil: '🛢️',
+    packaged_heavy_oil_residue: '🛢️',
+    packaged_fuel: '⛽',
+    packaged_turbofuel: '🚀',
+    packaged_liquid_biofuel: '🌱',
+    packaged_alumina_solution: '🧪',
+    packaged_sulfuric_acid: '🧪',
+    packaged_nitrogen_gas: '💨',
+    packaged_nitric_acid: '🧪',
+
+    // Nuclear
+    encased_uranium_cell: '🔋',
+    uranium_fuel_rod: '☢️',
+    uranium_waste: '☣️',
+    non_fissile_uranium: '☢️',
+    plutonium_pellet: '⚛️',
+    encased_plutonium_cell: '🔋',
+    plutonium_fuel_rod: '☢️',
+    plutonium_waste: '☣️'
+  };
+
   function getItemIcon(itemId, size = 28, className = 'ficsit-item-icon') {
     if (!itemId) return '📦';
+    const fallbackEmoji = ITEM_EMOJI_FALLBACK[itemId] || '📦';
     const s = size ? `width: ${size}px; height: ${size}px;` : '';
-    return `<img src="images/items/${itemId}.png" alt="${itemId}" class="${className}" style="${s} object-fit: contain; vertical-align: middle; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));" onerror="this.onerror=null; this.outerHTML='📦';">`;
+    return `<img src="images/items/${itemId}.png" alt="${itemId}" class="${className}" style="${s} object-fit: contain; vertical-align: middle; display: inline-block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));" onerror="this.onerror=null; this.outerHTML='<span style=\\'font-size:${Math.round(size*0.75)}px; line-height:1; vertical-align:middle;\\'>${fallbackEmoji}</span>';">`;
   }
 
   function getBuildingIcon(buildingId, size = 20, className = 'ficsit-bldg-icon') {
@@ -3066,6 +3232,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ['mercer_sphere', 'somersloop', 're_hexed_sam', 'sam_fluctuator', 'dimensional_depot_uploader', 'alien_power_augmenter', 'alien_power_matrix', 'superposition_oscillator', 'singularity_cell', 'neural_quantum_processor', 'dark_matter_residue', 'dark_matter_crystal', 'time_crystal', 'diamond', 'ficsonium', 'ficsonium_fuel_rod', 'alien_protein', 'alien_dna_capsule', 'power_shard'].includes(outItem) ||
         ['quantum_encoder', 'converter', 'particle_accelerator'].includes(r.building);
 
+      const isAmmo = (outMeta.category || '').toLowerCase().includes('munición') ||
+        (outMeta.category || '').toLowerCase().includes('explosivo') ||
+        ['black_powder', 'smokeless_powder', 'compacted_coal', 'nobelisk', 'gas_nobelisk', 'cluster_nobelisk', 'pulse_nobelisk', 'nuke_nobelisk', 'rifle_ammo', 'homing_rifle_ammo', 'turbo_rifle_ammo', 'iron_rebar', 'stun_rebar', 'shatter_rebar', 'explosive_rebar'].includes(outItem);
+
+      const isNuclear = (outMeta.category || '').toLowerCase().includes('nuclear') ||
+        ['uranium_fuel_rod', 'plutonium_fuel_rod', 'encased_uranium_cell', 'non_fissile_uranium', 'plutonium_pellet', 'encased_plutonium_cell', 'ficsonium_fuel_rod', 'nitric_acid', 'sulfuric_acid'].includes(outItem);
+
       countAll++;
       if (isDirect) countDirect++;
       else if (isDerivable) countSubchain++;
@@ -3114,6 +3287,8 @@ document.addEventListener('DOMContentLoaded', () => {
         isDerivable: isDerivable,
         isSpaceElevator: isSpaceElevator,
         isAlien: isAlien,
+        isAmmo: isAmmo,
+        isNuclear: isNuclear,
         stepsCount: chain ? chain.intermediateSteps.length + 1 : (isDirect ? 1 : 2),
         flowHtml: flowHtml,
         searchIndex: searchIndex,
@@ -3189,6 +3364,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtered = currentCatalogEntries.filter(item => {
       if (f === 'direct' && !item.isDirect) return false;
       if (f === 'subchain' && (item.isDirect || !item.isDerivable)) return false;
+      if (f === 'ammo' && !item.isAmmo) return false;
+      if (f === 'refinery' && item.building !== 'refinery' && item.building !== 'blender') return false;
+      if (f === 'packager' && item.building !== 'packager') return false;
+      if (f === 'nuclear' && !item.isNuclear) return false;
       if (f === 'constructor' && item.building !== 'constructor') return false;
       if (f === 'assembler' && item.building !== 'assembler') return false;
       if (f === 'manufacturer' && item.building !== 'manufacturer') return false;
@@ -3204,7 +3383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="catalog-no-results">
           <div style="font-size: 2.2rem; margin-bottom: 10px;">🔍</div>
           <div style="font-weight: 800; color: #f1f5f9; font-size: 1.05rem;">No se encontraron recetas con "${currentPickerSearch}"</div>
-          <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">Prueba buscando otra palabra clave (ej: <em>Plancha, Mercer, SAM, Rotor, Alambre</em>) o selecciona el filtro "🌟 Todos".</div>
+          <div style="font-size: 0.82rem; color: var(--text-muted); margin-top: 6px;">Prueba buscando otra palabra clave (ej: <em>Plancha, Mercer, SAM, Rotor, Alambre, Pólvora</em>) o selecciona el filtro "🌟 Todos".</div>
         </div>
       `;
       return;
@@ -3215,7 +3394,11 @@ document.addEventListener('DOMContentLoaded', () => {
                          (activePickerTarget.type === 'builder' && item.outItem === currentSelectedId);
 
       let tagHtml = '';
-      if (item.isAlien) {
+      if (item.isAmmo) {
+        tagHtml = `<span class="badge" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.68rem; font-weight: 700;">💣 Munición</span>`;
+      } else if (item.isNuclear) {
+        tagHtml = `<span class="badge" style="background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; color: #86efac; font-size: 0.68rem; font-weight: 700;">☢️ Nuclear</span>`;
+      } else if (item.isAlien) {
         tagHtml = `<span class="badge" style="background: rgba(168, 85, 247, 0.2); border: 1px solid #a855f7; color: #d8b4fe; font-size: 0.68rem; font-weight: 700;">🔮 MAM Alien 1.0</span>`;
       } else if (item.isSpaceElevator) {
         tagHtml = `<span class="badge" style="background: rgba(56, 189, 248, 0.2); border: 1px solid #38bdf8; color: #7dd3fc; font-size: 0.68rem; font-weight: 700;">🛸 Ascensor</span>`;
@@ -3292,9 +3475,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sbResourceSelect) return;
 
     // 1. Populate Resources (Solid raw resources)
-    sbResourceSelect.innerHTML = Object.values(SATIS_DATA.rawResources).map(r => `
-      <option value="${r.id}">${r.name} (${r.category})</option>
-    `).join('');
+    sbResourceSelect.innerHTML = Object.values(SATIS_DATA.rawResources).map(r => {
+      const icon = ITEM_EMOJI_FALLBACK[r.id] || '🪨';
+      return `<option value="${r.id}">${icon} ${r.name} (${r.category})</option>`;
+    }).join('');
     sbResourceSelect.value = state.sandbox.resource;
 
     // 2. Populate Free Items (Ores, Ingots, Basic Parts, etc.)
@@ -3302,9 +3486,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ...Object.values(SATIS_DATA.rawResources).map(r => ({ id: r.id, name: `${r.name} (Mineral/Crudo)`, isRaw: true })),
       ...Object.values(SATIS_DATA.items).map(i => ({ id: i.id, name: `${i.name} [${i.category || 'Item'}]`, isRaw: false }))
     ];
-    sbFreeItemSelect.innerHTML = allFreeItems.map(it => `
-      <option value="${it.id}">${it.name}</option>
-    `).join('');
+    sbFreeItemSelect.innerHTML = allFreeItems.map(it => {
+      const icon = ITEM_EMOJI_FALLBACK[it.id] || (it.isRaw ? '🪨' : '📦');
+      return `<option value="${it.id}">${icon} ${it.name}</option>`;
+    }).join('');
     sbFreeItemSelect.value = state.sandbox.freeItem;
 
     // 3. Mode Toggles

@@ -100,7 +100,8 @@ const SATIS_DATA = {
       requiresWater: true,
       waterRatePerGen: 240, // 240 m3/min en 1.0
       fuelOptions: [
-        { id: 'uranium_fuel_rod', name: 'Varilla de Combustible de Uranio', ratePerGen: 0.2, isFluid: false, wastePerGen: 10 }
+        { id: 'uranium_fuel_rod', name: 'Varilla de Combustible de Uranio', ratePerGen: 0.2, isFluid: false, wastePerGen: 10 },
+        { id: 'plutonium_fuel_rod', name: 'Varilla de Combustible de Plutonio', ratePerGen: 0.1, isFluid: false, wastePerGen: 10 }
       ]
     }
   },
@@ -220,7 +221,59 @@ const SATIS_DATA = {
     ficsonium: { id: 'ficsonium', name: 'Ficsonio', category: 'Nuclear y Alienígena' },
     ficsonium_fuel_rod: { id: 'ficsonium_fuel_rod', name: 'Barra de Combustible de Ficsonio', category: 'Nuclear y Alienígena' },
     alien_protein: { id: 'alien_protein', name: 'Proteína Alienígena', category: 'Tecnología Alienígena' },
-    alien_dna_capsule: { id: 'alien_dna_capsule', name: 'Cápsula de ADN Alienígena (AWESOME Sink)', category: 'Tecnología Alienígena' }
+    alien_dna_capsule: { id: 'alien_dna_capsule', name: 'Cápsula de ADN Alienígena (AWESOME Sink)', category: 'Tecnología Alienígena' },
+
+    // Compuestos, Carbón y Azufre
+    compacted_coal: { id: 'compacted_coal', name: 'Carbón Compactado', category: 'Compuestos y Combustibles' },
+
+    // Municiones, Pólvora y Armamento (M.A.M. & 1.0)
+    black_powder: { id: 'black_powder', name: 'Pólvora Negra', category: 'Municiones y Explosivos' },
+    smokeless_powder: { id: 'smokeless_powder', name: 'Pólvora sin Humo (Pólvora Seca)', category: 'Municiones y Explosivos' },
+    nobelisk: { id: 'nobelisk', name: 'Nobelisco (Explosivo Estándar)', category: 'Municiones y Explosivos' },
+    gas_nobelisk: { id: 'gas_nobelisk', name: 'Nobelisco de Gas', category: 'Municiones y Explosivos' },
+    cluster_nobelisk: { id: 'cluster_nobelisk', name: 'Nobelisco de Racimo', category: 'Municiones y Explosivos' },
+    pulse_nobelisk: { id: 'pulse_nobelisk', name: 'Nobelisco de Pulso', category: 'Municiones y Explosivos' },
+    nuke_nobelisk: { id: 'nuke_nobelisk', name: 'Nobelisco Nuclear', category: 'Municiones y Explosivos' },
+    rifle_ammo: { id: 'rifle_ammo', name: 'Munición de Fusil (Rifle)', category: 'Municiones y Explosivos' },
+    homing_rifle_ammo: { id: 'homing_rifle_ammo', name: 'Munición Guiada de Fusil', category: 'Municiones y Explosivos' },
+    turbo_rifle_ammo: { id: 'turbo_rifle_ammo', name: 'Munición Turbo de Fusil', category: 'Municiones y Explosivos' },
+    iron_rebar: { id: 'iron_rebar', name: 'Barra de Hierro (Rebar)', category: 'Municiones y Explosivos' },
+    stun_rebar: { id: 'stun_rebar', name: 'Barra Aturdidora (Rebar)', category: 'Municiones y Explosivos' },
+    shatter_rebar: { id: 'shatter_rebar', name: 'Barra de Fragmentación (Rebar)', category: 'Municiones y Explosivos' },
+    explosive_rebar: { id: 'explosive_rebar', name: 'Barra Explosiva (Rebar)', category: 'Municiones y Explosivos' },
+
+    // Biomasa, Biocombustibles y Equipamiento
+    biomass: { id: 'biomass', name: 'Biomasa', category: 'Biomasa y Biocombustibles' },
+    solid_biofuel: { id: 'solid_biofuel', name: 'Biocombustible Sólido', category: 'Biomasa y Biocombustibles' },
+    liquid_biofuel: { id: 'liquid_biofuel', name: 'Biocombustible Líquido', isFluid: true, category: 'Biomasa y Biocombustibles' },
+    fabric: { id: 'fabric', name: 'Tela (Poliéster)', category: 'Componentes' },
+    gas_filter: { id: 'gas_filter', name: 'Filtro de Gas', category: 'Equipo y Supervivencia' },
+    iodine_infused_filter: { id: 'iodine_infused_filter', name: 'Filtro Infundido con Yodo (Antirradiación)', category: 'Equipo y Supervivencia' },
+
+    // Logística y Envasado (Empaquetadora)
+    empty_canister: { id: 'empty_canister', name: 'Envase Vacío', category: 'Logística y Envasado' },
+    empty_fluid_tank: { id: 'empty_fluid_tank', name: 'Tanque de Fluidos Vacío', category: 'Logística y Envasado' },
+    packaged_water: { id: 'packaged_water', name: 'Agua Envasada', category: 'Logística y Envasado' },
+    packaged_oil: { id: 'packaged_oil', name: 'Petróleo Crudo Envasado', category: 'Logística y Envasado' },
+    packaged_heavy_oil_residue: { id: 'packaged_heavy_oil_residue', name: 'Residuo Pesado Envasado', category: 'Logística y Envasado' },
+    packaged_fuel: { id: 'packaged_fuel', name: 'Combustible Envasado', category: 'Logística y Envasado' },
+    packaged_turbofuel: { id: 'packaged_turbofuel', name: 'Turbocombustible Envasado', category: 'Logística y Envasado' },
+    packaged_liquid_biofuel: { id: 'packaged_liquid_biofuel', name: 'Biocombustible Líquido Envasado', category: 'Logística y Envasado' },
+    packaged_alumina_solution: { id: 'packaged_alumina_solution', name: 'Solución de Alúmina Envasada', category: 'Logística y Envasado' },
+    packaged_sulfuric_acid: { id: 'packaged_sulfuric_acid', name: 'Ácido Sulfúrico Envasado', category: 'Logística y Envasado' },
+    packaged_nitrogen_gas: { id: 'packaged_nitrogen_gas', name: 'Gas Nitrógeno Envasado', category: 'Logística y Envasado' },
+    packaged_nitric_acid: { id: 'packaged_nitric_acid', name: 'Ácido Nítrico Envasado', category: 'Logística y Envasado' },
+
+    // Petroquímica y Nuclear Avanzada
+    nitric_acid: { id: 'nitric_acid', name: 'Ácido Nítrico', isFluid: true, category: 'Petroquímica' },
+    encased_uranium_cell: { id: 'encased_uranium_cell', name: 'Célula de Uranio Encapsulada', category: 'Nuclear y Alienígena' },
+    uranium_fuel_rod: { id: 'uranium_fuel_rod', name: 'Varilla de Combustible de Uranio', category: 'Nuclear y Alienígena' },
+    uranium_waste: { id: 'uranium_waste', name: 'Residuos de Uranio', category: 'Nuclear y Alienígena' },
+    non_fissile_uranium: { id: 'non_fissile_uranium', name: 'Uranio No Fisionable', category: 'Nuclear y Alienígena' },
+    plutonium_pellet: { id: 'plutonium_pellet', name: 'Pellet de Plutonio', category: 'Nuclear y Alienígena' },
+    encased_plutonium_cell: { id: 'encased_plutonium_cell', name: 'Célula de Plutonio Encapsulada', category: 'Nuclear y Alienígena' },
+    plutonium_fuel_rod: { id: 'plutonium_fuel_rod', name: 'Varilla de Combustible de Plutonio', category: 'Nuclear y Alienígena' },
+    plutonium_waste: { id: 'plutonium_waste', name: 'Residuos de Plutonio', category: 'Nuclear y Alienígena' }
   },
 
   // Recipes (Official Satisfactory 1.0 / 1.2 Rates per minute)
@@ -445,6 +498,54 @@ const SATIS_DATA = {
       inputs: [{ item: 'aluminum_ingot', rate: 90 }],
       outputs: [{ item: 'aluminum_casing', rate: 60 }]
     },
+    {
+      id: 'iron_rebar_std',
+      name: 'Barra de Hierro (Rebar)',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'iron_rod', rate: 15 }],
+      outputs: [{ item: 'iron_rebar', rate: 15 }]
+    },
+    {
+      id: 'biomass_alien_protein',
+      name: 'Biomasa (desde Proteína Alienígena)',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'alien_protein', rate: 15 }],
+      outputs: [{ item: 'biomass', rate: 1500 }]
+    },
+    {
+      id: 'solid_biofuel_std',
+      name: 'Biocombustible Sólido',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'biomass', rate: 120 }],
+      outputs: [{ item: 'solid_biofuel', rate: 60 }]
+    },
+    {
+      id: 'empty_canister_std',
+      name: 'Envase Vacío',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'plastic', rate: 30 }],
+      outputs: [{ item: 'empty_canister', rate: 60 }]
+    },
+    {
+      id: 'empty_canister_steel',
+      name: 'Envase de Acero (Alt)',
+      building: 'constructor',
+      isAlt: true,
+      inputs: [{ item: 'steel_beam', rate: 10 }],
+      outputs: [{ item: 'empty_canister', rate: 60 }]
+    },
+    {
+      id: 'empty_fluid_tank_std',
+      name: 'Tanque de Fluidos Vacío',
+      building: 'constructor',
+      isAlt: false,
+      inputs: [{ item: 'aluminum_ingot', rate: 60 }],
+      outputs: [{ item: 'empty_fluid_tank', rate: 60 }]
+    },
 
     // --- ENSAMBLADORA (ASSEMBLER) ---
     {
@@ -633,6 +734,138 @@ const SATIS_DATA = {
         { item: 'copper_sheet', rate: 22.5 }
       ],
       outputs: [{ item: 'heat_sink', rate: 7.5 }]
+    },
+    {
+      id: 'compacted_coal_std',
+      name: 'Carbón Compactado',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'coal', rate: 25 },
+        { item: 'sulfur', rate: 25 }
+      ],
+      outputs: [{ item: 'compacted_coal', rate: 25 }]
+    },
+    {
+      id: 'black_powder_std',
+      name: 'Pólvora Negra',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'coal', rate: 15 },
+        { item: 'sulfur', rate: 15 }
+      ],
+      outputs: [{ item: 'black_powder', rate: 30 }]
+    },
+    {
+      id: 'fine_black_powder_alt',
+      name: 'Pólvora Negra Fina (Alt)',
+      building: 'assembler',
+      isAlt: true,
+      inputs: [
+        { item: 'compacted_coal', rate: 15 },
+        { item: 'sulfur', rate: 7.5 }
+      ],
+      outputs: [{ item: 'black_powder', rate: 45 }]
+    },
+    {
+      id: 'nobelisk_std',
+      name: 'Nobelisco Estándar',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'steel_pipe', rate: 20 },
+        { item: 'black_powder', rate: 20 }
+      ],
+      outputs: [{ item: 'nobelisk', rate: 10 }]
+    },
+    {
+      id: 'gas_nobelisk_std',
+      name: 'Nobelisco de Gas',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'nobelisk', rate: 5 },
+        { item: 'biomass', rate: 50 }
+      ],
+      outputs: [{ item: 'gas_nobelisk', rate: 5 }]
+    },
+    {
+      id: 'cluster_nobelisk_std',
+      name: 'Nobelisco de Racimo',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'nobelisk', rate: 7.5 },
+        { item: 'smokeless_powder', rate: 10 }
+      ],
+      outputs: [{ item: 'cluster_nobelisk', rate: 2.5 }]
+    },
+    {
+      id: 'pulse_nobelisk_std',
+      name: 'Nobelisco de Pulso',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'nobelisk', rate: 5 },
+        { item: 'crystal_oscillator', rate: 1 }
+      ],
+      outputs: [{ item: 'pulse_nobelisk', rate: 5 }]
+    },
+    {
+      id: 'rifle_ammo_std',
+      name: 'Munición de Fusil (Rifle)',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'copper_sheet', rate: 15 },
+        { item: 'smokeless_powder', rate: 10 }
+      ],
+      outputs: [{ item: 'rifle_ammo', rate: 75 }]
+    },
+    {
+      id: 'homing_rifle_ammo_std',
+      name: 'Munición Guiada de Fusil',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'rifle_ammo', rate: 50 },
+        { item: 'high_speed_connector', rate: 2.5 }
+      ],
+      outputs: [{ item: 'homing_rifle_ammo', rate: 25 }]
+    },
+    {
+      id: 'stun_rebar_std',
+      name: 'Barra Aturdidora (Rebar)',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'iron_rebar', rate: 10 },
+        { item: 'quickwire', rate: 50 }
+      ],
+      outputs: [{ item: 'stun_rebar', rate: 10 }]
+    },
+    {
+      id: 'shatter_rebar_std',
+      name: 'Barra de Fragmentación (Rebar)',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'iron_rebar', rate: 10 },
+        { item: 'quartz_crystal', rate: 15 }
+      ],
+      outputs: [{ item: 'shatter_rebar', rate: 5 }]
+    },
+    {
+      id: 'encased_plutonium_cell_std',
+      name: 'Célula de Plutonio Encapsulada',
+      building: 'assembler',
+      isAlt: false,
+      inputs: [
+        { item: 'plutonium_pellet', rate: 10 },
+        { item: 'concrete', rate: 20 }
+      ],
+      outputs: [{ item: 'encased_plutonium_cell', rate: 5 }]
     },
 
     // --- ASCENSOR ESPACIAL (SPACE ELEVATOR PHASES) ---
@@ -830,29 +1063,180 @@ const SATIS_DATA = {
       ],
       outputs: [{ item: 'adaptive_control_unit', rate: 1 }]
     },
+    {
+      id: 'nuke_nobelisk_std',
+      name: 'Nobelisco Nuclear',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'nobelisk', rate: 2.5 },
+        { item: 'encased_uranium_cell', rate: 10 },
+        { item: 'smokeless_powder', rate: 5 },
+        { item: 'ai_limiter', rate: 3 }
+      ],
+      outputs: [{ item: 'nuke_nobelisk', rate: 0.5 }]
+    },
+    {
+      id: 'turbo_rifle_ammo_manufacturer',
+      name: 'Munición Turbo Empaquetada (Alt)',
+      building: 'manufacturer',
+      isAlt: true,
+      inputs: [
+        { item: 'rifle_ammo', rate: 125 },
+        { item: 'aluminum_casing', rate: 15 },
+        { item: 'packaged_turbofuel', rate: 15 }
+      ],
+      outputs: [{ item: 'turbo_rifle_ammo', rate: 250 }]
+    },
+    {
+      id: 'explosive_rebar_std',
+      name: 'Barra Explosiva (Rebar)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'iron_rebar', rate: 10 },
+        { item: 'smokeless_powder', rate: 10 },
+        { item: 'steel_pipe', rate: 10 }
+      ],
+      outputs: [{ item: 'explosive_rebar', rate: 5 }]
+    },
+    {
+      id: 'gas_filter_std',
+      name: 'Filtro de Gas',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'fabric', rate: 15 },
+        { item: 'coal', rate: 30 },
+        { item: 'iron_plate', rate: 15 }
+      ],
+      outputs: [{ item: 'gas_filter', rate: 7.5 }]
+    },
+    {
+      id: 'iodine_infused_filter_std',
+      name: 'Filtro Infundido con Yodo (Antirradiación)',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'gas_filter', rate: 3.75 },
+        { item: 'quickwire', rate: 30 },
+        { item: 'aluminum_casing', rate: 3.75 }
+      ],
+      outputs: [{ item: 'iodine_infused_filter', rate: 3.75 }]
+    },
+    {
+      id: 'infused_uranium_cell_alt',
+      name: 'Célula de Uranio Infundida (Alt)',
+      building: 'manufacturer',
+      isAlt: true,
+      inputs: [
+        { item: 'uranium', rate: 25 },
+        { item: 'silica', rate: 15 },
+        { item: 'sulfur', rate: 25 },
+        { item: 'quickwire', rate: 75 }
+      ],
+      outputs: [{ item: 'encased_uranium_cell', rate: 20 }]
+    },
+    {
+      id: 'uranium_fuel_rod_std',
+      name: 'Varilla de Combustible de Uranio',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'encased_uranium_cell', rate: 20 },
+        { item: 'encased_industrial_beam', rate: 1.2 },
+        { item: 'electromagnetic_control_rod', rate: 2 }
+      ],
+      outputs: [{ item: 'uranium_fuel_rod', rate: 0.4 }]
+    },
+    {
+      id: 'plutonium_fuel_rod_std',
+      name: 'Varilla de Combustible de Plutonio',
+      building: 'manufacturer',
+      isAlt: false,
+      inputs: [
+        { item: 'encased_plutonium_cell', rate: 7.5 },
+        { item: 'steel_beam', rate: 4.5 },
+        { item: 'electromagnetic_control_rod', rate: 1.5 },
+        { item: 'heat_sink', rate: 2.5 }
+      ],
+      outputs: [{ item: 'plutonium_fuel_rod', rate: 0.25 }]
+    },
 
     // --- REFINERÍA (REFINERY) ---
     {
       id: 'plastic_std',
-      name: 'Plástico (+ Fuel Residual)',
+      name: 'Plástico (+ Residuo Pesado)',
       building: 'refinery',
       isAlt: false,
       inputs: [{ item: 'crude_oil', rate: 30 }],
       outputs: [
         { item: 'plastic', rate: 20 },
-        { item: 'fuel', rate: 10 }
+        { item: 'heavy_oil_residue', rate: 10 }
       ]
     },
     {
       id: 'rubber_std',
-      name: 'Goma (+ Fuel Residual)',
+      name: 'Goma (+ Residuo Pesado)',
       building: 'refinery',
       isAlt: false,
       inputs: [{ item: 'crude_oil', rate: 30 }],
       outputs: [
         { item: 'rubber', rate: 20 },
-        { item: 'fuel', rate: 20 }
+        { item: 'heavy_oil_residue', rate: 20 }
       ]
+    },
+    {
+      id: 'heavy_oil_residue_alt',
+      name: 'Residuo de Petróleo Pesado (Alt)',
+      building: 'refinery',
+      isAlt: true,
+      inputs: [{ item: 'crude_oil', rate: 30 }],
+      outputs: [
+        { item: 'heavy_oil_residue', rate: 40 },
+        { item: 'polymer_resin', rate: 20 }
+      ]
+    },
+    {
+      id: 'smokeless_powder_std',
+      name: 'Pólvora sin Humo (Pólvora Seca)',
+      building: 'refinery',
+      isAlt: false,
+      inputs: [
+        { item: 'black_powder', rate: 20 },
+        { item: 'heavy_oil_residue', rate: 10 }
+      ],
+      outputs: [{ item: 'smokeless_powder', rate: 20 }]
+    },
+    {
+      id: 'residual_fuel_std',
+      name: 'Combustible Residual',
+      building: 'refinery',
+      isAlt: false,
+      inputs: [{ item: 'heavy_oil_residue', rate: 60 }],
+      outputs: [{ item: 'fuel', rate: 40 }]
+    },
+    {
+      id: 'liquid_biofuel_std',
+      name: 'Biocombustible Líquido',
+      building: 'refinery',
+      isAlt: false,
+      inputs: [
+        { item: 'solid_biofuel', rate: 90 },
+        { item: 'water', rate: 45 }
+      ],
+      outputs: [{ item: 'liquid_biofuel', rate: 60 }]
+    },
+    {
+      id: 'fabric_polyester_std',
+      name: 'Tela de Poliéster',
+      building: 'refinery',
+      isAlt: false,
+      inputs: [
+        { item: 'polymer_resin', rate: 30 },
+        { item: 'water', rate: 30 }
+      ],
+      outputs: [{ item: 'fabric', rate: 30 }]
     },
     {
       id: 'fuel_std',
@@ -971,6 +1355,228 @@ const SATIS_DATA = {
         { item: 'nitrogen_gas', rate: 37.5 }
       ],
       outputs: [{ item: 'fused_modular_frame', rate: 1.5 }]
+    },
+    {
+      id: 'diluted_fuel_alt',
+      name: 'Combustible Diluido (Alt)',
+      building: 'blender',
+      isAlt: true,
+      inputs: [
+        { item: 'heavy_oil_residue', rate: 50 },
+        { item: 'water', rate: 100 }
+      ],
+      outputs: [{ item: 'fuel', rate: 100 }]
+    },
+    {
+      id: 'turbo_rifle_ammo_blender',
+      name: 'Munición Turbo de Fusil',
+      building: 'blender',
+      isAlt: false,
+      inputs: [
+        { item: 'rifle_ammo', rate: 125 },
+        { item: 'aluminum_casing', rate: 15 },
+        { item: 'turbofuel', rate: 15 }
+      ],
+      outputs: [{ item: 'turbo_rifle_ammo', rate: 250 }]
+    },
+    {
+      id: 'nitric_acid_std',
+      name: 'Ácido Nítrico',
+      building: 'blender',
+      isAlt: false,
+      inputs: [
+        { item: 'nitrogen_gas', rate: 120 },
+        { item: 'water', rate: 30 },
+        { item: 'iron_plate', rate: 10 }
+      ],
+      outputs: [{ item: 'nitric_acid', rate: 30 }]
+    },
+    {
+      id: 'encased_uranium_cell_std',
+      name: 'Célula de Uranio Encapsulada',
+      building: 'blender',
+      isAlt: false,
+      inputs: [
+        { item: 'uranium', rate: 50 },
+        { item: 'concrete', rate: 15 },
+        { item: 'sulfuric_acid', rate: 40 }
+      ],
+      outputs: [
+        { item: 'encased_uranium_cell', rate: 25 },
+        { item: 'sulfuric_acid', rate: 10 }
+      ]
+    },
+    {
+      id: 'non_fissile_uranium_std',
+      name: 'Uranio No Fisionable',
+      building: 'blender',
+      isAlt: false,
+      inputs: [
+        { item: 'uranium_waste', rate: 37.5 },
+        { item: 'silica', rate: 25 },
+        { item: 'nitric_acid', rate: 15 },
+        { item: 'sulfuric_acid', rate: 15 }
+      ],
+      outputs: [
+        { item: 'non_fissile_uranium', rate: 50 },
+        { item: 'water', rate: 15 }
+      ]
+    },
+
+    // --- EMPAQUETADORA (PACKAGER) ---
+    {
+      id: 'packaged_water_std',
+      name: 'Envasar Agua',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'water', rate: 120 },
+        { item: 'empty_canister', rate: 120 }
+      ],
+      outputs: [{ item: 'packaged_water', rate: 120 }]
+    },
+    {
+      id: 'unpackaged_water_std',
+      name: 'Desenvasar Agua',
+      building: 'packager',
+      isAlt: false,
+      inputs: [{ item: 'packaged_water', rate: 120 }],
+      outputs: [
+        { item: 'water', rate: 120 },
+        { item: 'empty_canister', rate: 120 }
+      ]
+    },
+    {
+      id: 'packaged_oil_std',
+      name: 'Envasar Petróleo Crudo',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'crude_oil', rate: 30 },
+        { item: 'empty_canister', rate: 30 }
+      ],
+      outputs: [{ item: 'packaged_oil', rate: 30 }]
+    },
+    {
+      id: 'unpackaged_oil_std',
+      name: 'Desenvasar Petróleo Crudo',
+      building: 'packager',
+      isAlt: false,
+      inputs: [{ item: 'packaged_oil', rate: 30 }],
+      outputs: [
+        { item: 'crude_oil', rate: 30 },
+        { item: 'empty_canister', rate: 30 }
+      ]
+    },
+    {
+      id: 'packaged_fuel_std',
+      name: 'Envasar Combustible',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'fuel', rate: 40 },
+        { item: 'empty_canister', rate: 40 }
+      ],
+      outputs: [{ item: 'packaged_fuel', rate: 40 }]
+    },
+    {
+      id: 'unpackaged_fuel_std',
+      name: 'Desenvasar Combustible',
+      building: 'packager',
+      isAlt: false,
+      inputs: [{ item: 'packaged_fuel', rate: 40 }],
+      outputs: [
+        { item: 'fuel', rate: 40 },
+        { item: 'empty_canister', rate: 40 }
+      ]
+    },
+    {
+      id: 'packaged_heavy_oil_residue_std',
+      name: 'Envasar Residuo Pesado',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'heavy_oil_residue', rate: 30 },
+        { item: 'empty_canister', rate: 30 }
+      ],
+      outputs: [{ item: 'packaged_heavy_oil_residue', rate: 30 }]
+    },
+    {
+      id: 'packaged_turbofuel_std',
+      name: 'Envasar Turbocombustible',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'turbofuel', rate: 20 },
+        { item: 'empty_canister', rate: 20 }
+      ],
+      outputs: [{ item: 'packaged_turbofuel', rate: 20 }]
+    },
+    {
+      id: 'packaged_liquid_biofuel_std',
+      name: 'Envasar Biocombustible Líquido',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'liquid_biofuel', rate: 40 },
+        { item: 'empty_canister', rate: 40 }
+      ],
+      outputs: [{ item: 'packaged_liquid_biofuel', rate: 40 }]
+    },
+    {
+      id: 'packaged_alumina_solution_std',
+      name: 'Envasar Solución de Alúmina',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'alumina_solution', rate: 120 },
+        { item: 'empty_canister', rate: 120 }
+      ],
+      outputs: [{ item: 'packaged_alumina_solution', rate: 120 }]
+    },
+    {
+      id: 'packaged_sulfuric_acid_std',
+      name: 'Envasar Ácido Sulfúrico',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'sulfuric_acid', rate: 40 },
+        { item: 'empty_canister', rate: 40 }
+      ],
+      outputs: [{ item: 'packaged_sulfuric_acid', rate: 40 }]
+    },
+    {
+      id: 'packaged_nitrogen_gas_std',
+      name: 'Envasar Gas Nitrógeno',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'nitrogen_gas', rate: 240 },
+        { item: 'empty_fluid_tank', rate: 60 }
+      ],
+      outputs: [{ item: 'packaged_nitrogen_gas', rate: 60 }]
+    },
+    {
+      id: 'unpackaged_nitrogen_gas_std',
+      name: 'Desenvasar Gas Nitrógeno',
+      building: 'packager',
+      isAlt: false,
+      inputs: [{ item: 'packaged_nitrogen_gas', rate: 60 }],
+      outputs: [
+        { item: 'nitrogen_gas', rate: 240 },
+        { item: 'empty_fluid_tank', rate: 60 }
+      ]
+    },
+    {
+      id: 'packaged_nitric_acid_std',
+      name: 'Envasar Ácido Nítrico',
+      building: 'packager',
+      isAlt: false,
+      inputs: [
+        { item: 'nitric_acid', rate: 30 },
+        { item: 'empty_fluid_tank', rate: 30 }
+      ],
+      outputs: [{ item: 'packaged_nitric_acid', rate: 30 }]
     },
 
     // --- PROYECTOS FASE 4 Y 5 ASCENSOR ESPACIAL ---
@@ -1165,6 +1771,17 @@ const SATIS_DATA = {
       isAlt: false,
       inputs: [{ item: 'coal', rate: 600 }],
       outputs: [{ item: 'diamond', rate: 30 }]
+    },
+    {
+      id: 'plutonium_pellet_std',
+      name: 'Pellet de Plutonio',
+      building: 'particle_accelerator',
+      isAlt: false,
+      inputs: [
+        { item: 'non_fissile_uranium', rate: 100 },
+        { item: 'uranium_waste', rate: 25 }
+      ],
+      outputs: [{ item: 'plutonium_pellet', rate: 30 }]
     },
     {
       id: 'time_crystal_std',
